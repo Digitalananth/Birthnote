@@ -89,7 +89,11 @@ list. The ones that matter:
   `scripts/schema.sql` into phpMyAdmin.
 - **Stripe** — `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Add a webhook
   endpoint at `https://your-domain/api/webhooks/stripe` for
-  `checkout.session.completed`.
+  `checkout.session.completed`. Checkout runs in **INR** and collects delivery
+  addresses in **India only**; both are set in `src/lib/stripe.ts`.
+- **Price** — `BANKNOTE_PRICE_PAISE`, in paise. `249900` is ₹2,499. The value
+  is copied onto each order when it is created, so changing it never re-prices
+  an order already in the queue.
 - **SMTP (Gmail)** — `SMTP_USER` plus `SMTP_PASSWORD` set to a Google
   **App Password**, not your account password. Enable 2-Step Verification,
   then create one at myaccount.google.com → Security → App passwords. Gmail

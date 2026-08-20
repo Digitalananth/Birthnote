@@ -57,7 +57,7 @@ export default function StatusActions({ order }: { order: Order }) {
   const [error, setError] = useState('');
   const [fields, setFields] = useState({
     noteDenomination: order.noteDenomination ?? '',
-    noteCountry: order.noteCountry ?? 'United Kingdom',
+    noteCountry: order.noteCountry ?? 'India',
     noteCondition: order.noteCondition ?? '',
     noteSerial: order.noteSerial ?? '',
     trackingNumber: order.trackingNumber ?? '',
@@ -106,10 +106,10 @@ export default function StatusActions({ order }: { order: Order }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {field('noteDenomination', 'Denomination', '£1 Bank of England Note')}
+        {field('noteDenomination', 'Denomination', '₹10 Reserve Bank of India Note')}
         {field('noteCountry', 'Country')}
         {field('noteCondition', 'Condition', 'Fine (F)')}
-        {field('noteSerial', 'Serial prefix', 'HK')}
+        {field('noteSerial', 'Serial prefix', '9AB')}
         {field('trackingNumber', 'Tracking number')}
         {field('note', 'Internal note', 'Shown on the customer timeline')}
       </div>

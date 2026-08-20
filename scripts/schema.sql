@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS orders (
   message           TEXT                 NULL,
   status            ENUM('pending','checking','confirmed','unavailable','paid','shipped')
                                     NOT NULL DEFAULT 'pending',
-  price_pence       INT UNSIGNED    NOT NULL DEFAULT 6800,
-  currency          CHAR(3)         NOT NULL DEFAULT 'GBP',
+  price_paise       INT UNSIGNED    NOT NULL DEFAULT 249900,
+  currency          CHAR(3)         NOT NULL DEFAULT 'INR',
   note_denomination VARCHAR(120)         NULL,
   note_condition    VARCHAR(60)          NULL,
   note_serial       VARCHAR(60)          NULL,

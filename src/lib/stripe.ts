@@ -34,7 +34,8 @@ export async function createCheckoutSession(order: Order) {
         quantity: 1,
         price_data: {
           currency: order.currency.toLowerCase(),
-          unit_amount: order.pricePence,
+          // Stripe takes the amount in the currency's minor unit: paise.
+          unit_amount: order.pricePaise,
           product_data: {
             name: `Banknote from ${order.displayDate}`,
             description: [
@@ -48,7 +49,8 @@ export async function createCheckoutSession(order: Order) {
         },
       },
     ],
-    shipping_address_collection: { allowed_countries: ['GB', 'IE'] },
+    // Domestic delivery only — we ship within India.
+    shipping_address_collection: { allowed_countries: ['IN'] },
     metadata: { reference: order.reference, noteDate: order.noteDate },
     // Stripe replaces the placeholder; keep it literal.
     success_url: `${env.siteUrl}/payment/${order.reference}/success?session_id={CHECKOUT_SESSION_ID}`,

@@ -31,7 +31,7 @@ export interface Order {
   giftFor: string | null;
   message: string | null;
   status: OrderStatus;
-  pricePence: number;
+  pricePaise: number;
   currency: string;
   noteDenomination: string | null;
   noteCondition: string | null;
@@ -71,7 +71,7 @@ interface OrderRow extends RowDataPacket {
   gift_for: string | null;
   message: string | null;
   status: OrderStatus;
-  price_pence: number;
+  price_paise: number;
   currency: string;
   note_denomination: string | null;
   note_condition: string | null;
@@ -96,7 +96,7 @@ function mapOrder(row: OrderRow): Order {
     giftFor: row.gift_for,
     message: row.message,
     status: row.status,
-    pricePence: row.price_pence,
+    pricePaise: row.price_paise,
     currency: row.currency,
     noteDenomination: row.note_denomination,
     noteCondition: row.note_condition,
@@ -140,8 +140,8 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
         const [result] = await conn.execute<ResultSetHeader>(
           `INSERT INTO orders
              (reference, note_date, display_date, customer_name, customer_email,
-              gift_for, message, status, price_pence, currency)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'GBP')`,
+              gift_for, message, status, price_paise, currency)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'INR')`,
           [
             reference,
             input.noteDate,
@@ -150,7 +150,7 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
             input.customerEmail,
             input.giftFor || null,
             input.message || null,
-            env.pricePence,
+            env.pricePaise,
           ]
         );
         await conn.execute(
@@ -266,7 +266,7 @@ export interface StatusUpdate {
   noteSerial?: string | null;
   noteCountry?: string | null;
   trackingNumber?: string | null;
-  pricePence?: number | null;
+  pricePaise?: number | null;
 }
 
 export async function updateOrderStatus(
@@ -290,7 +290,7 @@ export async function updateOrderStatus(
       ['note_country', update.noteCountry],
       ['tracking_number', update.trackingNumber],
       ['admin_notes', update.note],
-      ['price_pence', update.pricePence],
+      ['price_paise', update.pricePaise],
     ];
     for (const [column, value] of optionalColumns) {
       if (value !== undefined && value !== null && value !== '') {

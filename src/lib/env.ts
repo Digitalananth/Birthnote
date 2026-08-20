@@ -68,5 +68,6 @@ export const env = {
     sessionSecret: () => required('ADMIN_SESSION_SECRET'),
   },
 
-  pricePence: int('BANKNOTE_PRICE_PENCE', 6800),
+  /** Order total in paise. ₹2,499 by default — set the real price in .env. */
+  pricePaise: int('BANKNOTE_PRICE_PAISE', 249900),
 };

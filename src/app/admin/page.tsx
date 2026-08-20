@@ -154,7 +154,7 @@ export default async function AdminOrdersPage({
                   <div className="text-right shrink-0 w-32">
                     <p className={`text-xs font-semibold ${config.color}`}>{config.label}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatPrice(order.pricePence, order.currency)}
+                      {formatPrice(order.pricePaise, order.currency)}
                     </p>
                   </div>
                 </Link>

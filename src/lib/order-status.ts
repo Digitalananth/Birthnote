@@ -87,12 +87,12 @@ export function progressIndex(status: OrderStatus): number {
 }
 
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'Europe/London',
+    timeZone: 'Asia/Kolkata',
   }).format(new Date(iso));
 }

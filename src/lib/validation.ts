@@ -152,6 +152,16 @@ export function isValidReference(reference: string): boolean {
   return /^BN-\d{6}-[A-Z0-9]{4,8}$/.test(reference.trim().toUpperCase());
 }
 
-export function formatPrice(pence: number, currency = 'GBP'): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(pence / 100);
+/**
+ * Formats a minor-unit amount (paise) as rupees.
+ *
+ * en-IN gives the Indian digit grouping — ₹1,24,900, not ₹124,900 — which is
+ * what a customer here expects to see.
+ */
+export function formatPrice(paise: number, currency = 'INR'): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: paise % 100 === 0 ? 0 : 2,
+  }).format(paise / 100);
 }

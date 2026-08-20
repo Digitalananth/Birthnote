@@ -69,9 +69,9 @@ export async function PATCH(request: Request, { params }: Context) {
     noteSerial: str('noteSerial'),
     noteCountry: str('noteCountry'),
     trackingNumber: str('trackingNumber'),
-    pricePence:
-      typeof body.pricePence === 'number' && body.pricePence > 0
-        ? Math.round(body.pricePence)
+    pricePaise:
+      typeof body.pricePaise === 'number' && body.pricePaise > 0
+        ? Math.round(body.pricePaise)
         : null,
   });
 

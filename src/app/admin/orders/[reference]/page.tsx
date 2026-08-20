@@ -74,7 +74,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
               ['Customer', order.customerName],
               ['Email', order.customerEmail],
               ['Gift for', order.giftFor],
-              ['Price', formatPrice(order.pricePence, order.currency)],
+              ['Price', formatPrice(order.pricePaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
               ['Stripe session', order.stripeSessionId],
             ]

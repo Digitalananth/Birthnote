@@ -40,7 +40,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
   const order = await getOrderByReference(reference);
   if (!order) notFound();
 
-  const amountLabel = formatPrice(order.pricePence, order.currency);
+  const amountLabel = formatPrice(order.pricePaise, order.currency);
   const alreadyPaid = order.status === 'paid' || order.status === 'shipped';
 
   // Only a confirmed order can be paid. Anything else gets an explanation
@@ -146,7 +146,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
               <div className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {[
                   'Archival sleeve and gift box included.',
-                  'Tracked delivery, arriving in 3–5 working days.',
+                  'Tracked delivery anywhere in India, arriving in 3–7 working days.',
                   'Certificate of authenticity in every order.',
                 ].map((line) => (
                   <div key={line} className="flex items-start gap-2">

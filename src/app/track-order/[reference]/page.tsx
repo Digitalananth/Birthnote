@@ -131,9 +131,11 @@ export default async function TrackedOrderPage({ params }: PageProps) {
           {/* Payment call to action */}
           {order.status === 'confirmed' && (
             <div className="card-warm p-8 mb-8 text-center">
-              <p className="text-sm text-muted-foreground mb-1">Total including tracked delivery</p>
+              <p className="text-sm text-muted-foreground mb-1">
+                Total including tracked delivery anywhere in India
+              </p>
               <p className="font-sans font-extrabold text-3xl text-foreground mb-6">
-                {formatPrice(order.pricePence, order.currency)}
+                {formatPrice(order.pricePaise, order.currency)}
               </p>
               <Link
                 href={`/payment/${order.reference}`}

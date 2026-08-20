@@ -70,7 +70,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
 
             <p className="text-sm text-muted-foreground mb-10 leading-relaxed">
               {settled
-                ? `We've charged ${formatPrice(order.pricePence, order.currency)} and emailed your receipt to ${order.customerEmail}.`
+                ? `We've charged ${formatPrice(order.pricePaise, order.currency)} and emailed your receipt to ${order.customerEmail}.`
                 : 'Stripe is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
             </p>
 
@@ -87,7 +87,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
                   },
                   {
                     icon: 'TruckIcon' as const,
-                    text: 'Dispatched with tracked delivery, arriving in 3–5 working days.',
+                    text: 'Dispatched with tracked delivery, arriving in 3–7 working days.',
                   },
                 ].map((item) => (
                   <div key={item.text} className="flex items-start gap-3">

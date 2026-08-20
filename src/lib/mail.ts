@@ -165,7 +165,7 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
             .join('')}</ul>`
         : '') +
       p(
-        `Total: <strong>${formatPrice(order.pricePence, order.currency)}</strong>, including tracked UK delivery and gift packaging.`
+        `Total: <strong>${formatPrice(order.pricePaise, order.currency)}</strong>, including tracked delivery anywhere in India and gift packaging.`
       ) +
       refBlock(order.reference) +
       p('This note is held for you for 7 days.'),
@@ -180,7 +180,7 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
 Good news — we found a genuine banknote printed on ${order.displayDate}.
 
 ${details.join('\n')}
-Total: ${formatPrice(order.pricePence, order.currency)} including tracked delivery.
+Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delivery anywhere in India.
 
 Complete your order: ${payUrl}
 Reference: ${order.reference}
@@ -226,12 +226,12 @@ export function paymentReceivedEmail(order: Order): MailPayload {
     'Order confirmed.',
     p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
       p(
-        `We've received your payment of <strong>${formatPrice(order.pricePence, order.currency)}</strong>. Your note from ${escapeHtml(order.displayDate)} is being prepared.`
+        `We've received your payment of <strong>${formatPrice(order.pricePaise, order.currency)}</strong>. Your note from ${escapeHtml(order.displayDate)} is being prepared.`
       ) +
       refBlock(order.reference) +
       `<ul style="margin:0;padding-left:20px;color:#4A3F33;font-size:15px;line-height:1.8;">
          <li>Packaged in an archival sleeve and gift box within 1–2 working days.</li>
-         <li>Dispatched with tracked delivery, arriving in 3–5 working days.</li>
+         <li>Dispatched with tracked delivery, arriving in 3–7 working days.</li>
          <li>We'll email your tracking number as soon as it ships.</li>
        </ul>`,
     { label: 'Track your order', url: trackUrl }
@@ -242,12 +242,12 @@ export function paymentReceivedEmail(order: Order): MailPayload {
     html,
     text: `Hi ${order.customerName},
 
-We've received your payment of ${formatPrice(order.pricePence, order.currency)}. Your note from ${order.displayDate} is being prepared.
+We've received your payment of ${formatPrice(order.pricePaise, order.currency)}. Your note from ${order.displayDate} is being prepared.
 
 Reference: ${order.reference}
 Track it: ${trackUrl}
 
-Packaged within 1-2 working days, delivered in 3-5 working days with tracking.
+Packaged within 1-2 working days, delivered in 3-7 working days with tracking.
 
 — BirthNote`,
   };
