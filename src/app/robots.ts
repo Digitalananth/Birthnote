@@ -1,15 +1,17 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from 'next';
+import { env } from '@/lib/env';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/_next/', '/admin/'],
+        // Order and payment URLs contain a customer's reference number and
+        // must never be indexed.
+        disallow: ['/api/', '/_next/', '/admin', '/admin/', '/payment/', '/track-order/'],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${env.siteUrl}/sitemap.xml`,
   };
 }

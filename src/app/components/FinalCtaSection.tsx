@@ -1,33 +1,13 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 
 export default function FinalCtaSection() {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
-    if (ref?.current) observer?.observe(ref?.current);
-    return () => observer?.disconnect();
-  }, []);
 
   return (
     <section className="bg-background py-20 md:py-24">
       <div className="max-w-4xl mx-auto px-6 md:px-12">
         <section
-          ref={ref}
           className="reveal-warm relative overflow-hidden bg-primary rounded-3xl p-10 md:p-16 text-center"
         >
           {/* Blob */}

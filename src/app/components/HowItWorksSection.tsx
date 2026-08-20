@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 
@@ -32,25 +30,6 @@ const steps = [
 ];
 
 export default function HowItWorksSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
-    );
-
-    cardRefs.current.forEach((el) => { if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section id="how-it-works" className="bg-secondary/40 py-20 md:py-28 relative overflow-hidden">
@@ -63,7 +42,6 @@ export default function HowItWorksSection() {
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         {/* Header */}
         <div
-          ref={(el) => { cardRefs.current[3] = el; }}
           className="reveal-warm mb-16 md:mb-20"
         >
           <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-3">
@@ -81,7 +59,6 @@ export default function HowItWorksSection() {
           {steps.map((step, i) => (
             <div
               key={step.number}
-              ref={(el) => { cardRefs.current[i] = el; }}
               className="reveal-warm card-warm p-8 md:p-10 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
               style={{ transitionDelay: `${i * 120}ms` }}
             >
@@ -124,7 +101,6 @@ export default function HowItWorksSection() {
 
         {/* CTA nudge */}
         <div
-          ref={(el) => { cardRefs.current[4] = el; }}
           className="reveal-warm mt-12 flex justify-center"
         >
           <Link

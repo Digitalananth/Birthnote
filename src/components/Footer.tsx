@@ -9,7 +9,7 @@ export default function Footer() {
         {/* Logo + brand */}
         <Link href="/" className="flex items-center gap-2">
           <AppLogo size={28} />
-          <span className="font-serif text-base font-medium text-foreground">MemoNote</span>
+          <span className="font-serif text-base font-medium text-foreground">BirthNote</span>
         </Link>
 
         {/* Links */}
@@ -30,7 +30,18 @@ export default function Footer() {
 
         {/* Copyright */}
         <p className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-          © 2026 MemoNote · <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
+          © {new Date().getFullYear()} BirthNote ·{' '}
+          <Link href="/track-order" className="hover:text-foreground transition-colors">
+            Track order
+          </Link>{' '}
+          ·{' '}
+          <Link href="/terms" className="hover:text-foreground transition-colors">
+            Terms
+          </Link>{' '}
+          ·{' '}
+          <Link href="/privacy" className="hover:text-foreground transition-colors">
+            Privacy
+          </Link>
         </p>
       </div>
     </footer>

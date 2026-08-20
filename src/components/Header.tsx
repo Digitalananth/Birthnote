@@ -49,7 +49,7 @@ export default function Header() {
               onClick={() => {}}
             />
             <span className="font-serif font-medium text-xl tracking-tight text-foreground">
-              MemoNote
+              BirthNote
             </span>
           </Link>
 

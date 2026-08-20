@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 
@@ -38,23 +36,6 @@ const testimonials = [
 
 
 export default function TestimonialsSection() {
-  const refs = useRef<(HTMLElement | null)[]>([]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -30px 0px' }
-    );
-    refs.current.forEach((el) => {if (el) observer.observe(el);});
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section id="stories" className="bg-secondary/30 py-20 md:py-28 relative overflow-hidden">
@@ -69,7 +50,6 @@ export default function TestimonialsSection() {
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         {/* Header */}
         <div
-          ref={(el) => {refs.current[0] = el as HTMLElement;}}
           className="reveal-warm text-center mb-16">
           
           <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-3">
@@ -87,7 +67,6 @@ export default function TestimonialsSection() {
           {testimonials.map((t, i) =>
           <div
             key={i}
-            ref={(el) => {refs.current[i + 1] = el as HTMLElement;}}
             className="reveal-warm card-warm p-8 flex flex-col justify-between gap-6 group hover:-translate-y-1 transition-transform duration-300"
             style={{ transitionDelay: `${i * 100}ms` }}>
             

@@ -1,18 +1,10 @@
-import React from 'react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import PaymentHeroSection from '@/app/payment/components/PaymentHeroSection';
-import PaymentFormSection from '@/app/payment/components/PaymentFormSection';
+import { redirect } from 'next/navigation';
 
-export default function PaymentPage() {
-  return (
-    <>
-      <Header />
-      <main>
-        <PaymentHeroSection />
-        <PaymentFormSection />
-      </main>
-      <Footer />
-    </>
-  );
+/**
+ * Payment is always for a specific order, so the bare /payment URL has no
+ * meaning. Anyone landing here (an old bookmark, a truncated email link) is
+ * sent to tracking, where they can enter their reference.
+ */
+export default function PaymentIndexPage() {
+  redirect('/track-order');
 }

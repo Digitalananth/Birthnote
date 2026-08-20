@@ -1,55 +1,56 @@
-'use client';
-
 import React from 'react';
-import * as HeroIcons from '@heroicons/react/24/outline';
-import * as HeroIconsSolid from '@heroicons/react/24/solid';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { outlineIcons, solidIcons, type IconComponent } from './icon-registry';
+
+// Deliberately not a client component: it holds no state, so server pages can
+// render it directly. Client components that pass onClick still work, because
+// importing it from a client module pulls it into that module's bundle.
 
 type IconVariant = 'outline' | 'solid';
 
-interface IconProps {
-    name: string; // Changed to string to accept dynamic values
-    variant?: IconVariant;
-    size?: number;
-    className?: string;
-    onClick?: () => void;
-    disabled?: boolean;
-    [key: string]: any;
+interface IconProps extends Omit<React.SVGProps<SVGSVGElement>, 'onClick' | 'name'> {
+  /** Heroicon name, e.g. "TruckIcon". Must be listed in icon-registry.ts. */
+  name: string;
+  variant?: IconVariant;
+  size?: number;
+  className?: string;
+  onClick?: () => void;
+  disabled?: boolean;
 }
 
 function Icon({
-    name,
-    variant = 'outline',
-    size = 24,
-    className = '',
-    onClick,
-    disabled = false,
-    ...props
+  name,
+  variant = 'outline',
+  size = 24,
+  className = '',
+  onClick,
+  disabled = false,
+  ...props
 }: IconProps) {
-    const iconSet = variant === 'solid' ? HeroIconsSolid : HeroIcons;
-    const IconComponent = iconSet[name as keyof typeof iconSet] as React.ComponentType<any>;
+  const registry = variant === 'solid' ? solidIcons : outlineIcons;
+  const IconComponent: IconComponent =
+    registry[name] ?? outlineIcons.QuestionMarkCircleIcon;
+  const unknown = !registry[name];
 
-    if (!IconComponent) {
-        return (
-            <QuestionMarkCircleIcon
-                width={size}
-                height={size}
-                className={`text-gray-400 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-                onClick={disabled ? undefined : onClick}
-                {...props}
-            />
-        );
-    }
+  if (unknown && process.env.NODE_ENV !== 'production') {
+    console.warn(`[AppIcon] Unknown icon "${name}" — add it to icon-registry.ts.`);
+  }
 
-    return (
-        <IconComponent
-            width={size}
-            height={size}
-            className={`${disabled ? 'opacity-50 cursor-not-allowed' : onClick ? 'cursor-pointer hover:opacity-80' : ''} ${className}`}
-            onClick={disabled ? undefined : onClick}
-            {...props}
-        />
-    );
+  const stateClasses = disabled
+    ? 'opacity-50 cursor-not-allowed'
+    : onClick
+      ? 'cursor-pointer hover:opacity-80'
+      : '';
+
+  return (
+    <IconComponent
+      width={size}
+      height={size}
+      aria-hidden={props['aria-label'] ? undefined : true}
+      className={`${unknown ? 'text-gray-400 ' : ''}${stateClasses} ${className}`}
+      onClick={disabled ? undefined : onClick}
+      {...props}
+    />
+  );
 }
 
-export default Icon; 
+export default Icon;

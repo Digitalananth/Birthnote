@@ -1,21 +1,9 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 
 export default function HeroSection() {
-  const badgeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const badge = badgeRef?.current;
-    if (!badge) return;
-    setTimeout(() => {
-      badge.style.opacity = '1';
-      badge.style.transform = 'translateY(0)';
-    }, 2600);
-  }, []);
 
   return (
     <section className="relative w-full min-h-screen overflow-hidden flex flex-col justify-end pb-12 md:pb-20">
@@ -38,9 +26,7 @@ export default function HeroSection() {
       </div>
       {/* Floating status badge */}
       <div
-        ref={badgeRef}
-        className="absolute top-28 right-6 md:right-12 z-20 opacity-0 translate-y-4"
-        style={{ transition: 'opacity 0.8s ease, transform 0.8s cubic-bezier(0.22,1,0.36,1)' }}>
+        className="absolute top-28 right-6 md:right-12 z-20 badge-delayed-in">
         
         <div className="px-4 py-2.5 rounded-xl bg-foreground/50 backdrop-blur-md border border-accent/30 flex items-center gap-2.5">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />

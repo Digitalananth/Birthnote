@@ -3,9 +3,22 @@ import { imageHosts } from './image-hosts.config.mjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: true,
+  // Emits .next/standalone with a self-contained server.js and only the
+  // node_modules actually used — this is what gets uploaded to Hostinger.
+  output: 'standalone',
+  poweredByHeader: false,
+  compress: true,
+  experimental: {
+    // AppIcon does `import * as HeroIcons` so it can resolve names at
+    // runtime. Without this, that namespace import drags the entire icon set
+    // into every client bundle; this rewrites it to per-icon imports.
+    optimizePackageImports: ['@heroicons/react/24/outline', '@heroicons/react/24/solid'],
+  },
   distDir: process.env.DIST_DIR || '.next',
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors now fail the build. The whole order pipeline is typed
+    // end to end, so a broken build is better than a broken checkout.
+    ignoreBuildErrors: false,
   },
   eslint: {
     ignoreDuringBuilds: true,

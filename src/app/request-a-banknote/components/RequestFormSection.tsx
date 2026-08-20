@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
+import { validateRequest, type RequestFormErrors } from '@/lib/validation';
 
 type FormState = 'idle' | 'submitting' | 'submitted';
 
@@ -14,15 +15,11 @@ interface FormData {
   email: string;
   giftFor: string;
   message: string;
+  /** Honeypot — hidden from humans, filled in by bots. */
+  website: string;
 }
 
-interface FormErrors {
-  day?: string;
-  month?: string;
-  year?: string;
-  name?: string;
-  email?: string;
-}
+type FormErrors = RequestFormErrors;
 
 const progressSteps = [
   { label: 'Date Submitted', icon: 'CheckCircleIcon' as const, status: 'done' },
@@ -39,77 +36,55 @@ export default function RequestFormSection() {
     email: '',
     giftFor: '',
     message: '',
+    website: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [formState, setFormState] = useState<FormState>('idle');
   const [referenceNumber, setReferenceNumber] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const dayRef = useRef<HTMLInputElement>(null);
   const monthRef = useRef<HTMLInputElement>(null);
   const yearRef = useRef<HTMLInputElement>(null);
 
   const validate = (): boolean => {
-    const newErrors: FormErrors = {};
-    const d = parseInt(formData.day, 10);
-    const m = parseInt(formData.month, 10);
-    const y = parseInt(formData.year, 10);
-
-    if (!formData.day || isNaN(d) || d < 1 || d > 31) {
-      newErrors.day = 'Enter a valid day (01–31)';
-    }
-    if (!formData.month || isNaN(m) || m < 1 || m > 12) {
-      newErrors.month = 'Enter a valid month (01–12)';
-    }
-    if (!formData.year || isNaN(y) || formData.year.length !== 2) {
-      newErrors.year = 'Enter 2-digit year (e.g. 87)';
-    }
-    if (!formData.name.trim()) {
-      newErrors.name = 'Please enter your name';
-    }
-    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Enter a valid email address';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Same rules the server runs — this copy only makes the feedback instant.
+    const { errors: found } = validateRequest(formData);
+    setErrors(found);
+    return Object.keys(found).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     if (!validate()) return;
-    setFormState('submitting');
-    setTimeout(() => {
-      // Generate reference number
-      const dd = formData.day.padStart(2, '0');
-      const mm = formData.month.padStart(2, '0');
-      const yy = formData.year;
-      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const ref = `MN-${dd}${mm}${yy}-${rand}`;
-      setReferenceNumber(ref);
 
-      // Save to localStorage
-      try {
-        const existing = localStorage.getItem('memonote_orders');
-        const orders = existing ? JSON.parse(existing) : [];
-        const now = new Date();
-        const submittedAt = `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-        orders.push({
-          referenceNumber: ref,
-          submittedAt,
-          date: `${dd}/${mm}/${yy}`,
-          name: formData.name,
-          email: formData.email,
-          giftFor: formData.giftFor || undefined,
-          message: formData.message || undefined,
-          status: 'pending',
-        });
-        localStorage.setItem('memonote_orders', JSON.stringify(orders));
-      } catch {
-        // ignore storage errors
+    setFormState('submitting');
+    try {
+      const response = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (response.status === 422 && payload.errors) {
+        setErrors(payload.errors as FormErrors);
+        setFormState('idle');
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Something went wrong. Please try again.');
       }
 
+      setReferenceNumber(payload.reference);
       setFormState('submitted');
-    }, 1400);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+      );
+      setFormState('idle');
+    }
   };
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,7 +182,7 @@ export default function RequestFormSection() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/track-order"
+                href={`/track-order/${referenceNumber}`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:bg-primary/90 transition-all"
               >
                 <Icon name="MagnifyingGlassIcon" size={14} />
@@ -218,7 +193,7 @@ export default function RequestFormSection() {
                 className="inline-flex items-center gap-2 text-primary font-semibold text-sm border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
               >
                 <Icon name="ArrowLeftIcon" size={14} />
-                Back to MemoNote
+                Back to BirthNote
               </Link>
             </div>
           </div>
@@ -235,6 +210,22 @@ export default function RequestFormSection() {
           {/* Form — spans 3 cols */}
           <div className="md:col-span-3">
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-8">
+
+              {/*
+                Honeypot. Hidden from sighted users and screen readers alike;
+                anything that fills it in is a bot, and the API silently drops
+                the submission.
+              */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={formData.website}
+                onChange={(e) => setFormData((p) => ({ ...p, website: e.target.value }))}
+                className="absolute w-px h-px -left-[9999px] opacity-0"
+              />
 
               {/* Date field group */}
               <div>
@@ -387,6 +378,16 @@ export default function RequestFormSection() {
                 )}
               </button>
 
+              {submitError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+                >
+                  <Icon name="ExclamationTriangleIcon" size={16} className="text-red-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-red-700 leading-relaxed">{submitError}</p>
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground text-center leading-relaxed">
                 By submitting, you agree to be contacted by email. No payment until we confirm availability.
               </p>
@@ -455,7 +456,7 @@ export default function RequestFormSection() {
               <p className="font-serif italic text-sm text-foreground/70 leading-relaxed">
                 "We've fulfilled requests across all major Indian denominations. Chances are, your date is in our collection."
               </p>
-              <p className="text-xs text-muted-foreground mt-2 font-medium">— The MemoNote Team</p>
+              <p className="text-xs text-muted-foreground mt-2 font-medium">— The BirthNote Team</p>
             </div>
           </div>
         </div>

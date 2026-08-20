@@ -1,10 +1,22 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from 'next';
+import { env } from '@/lib/env';
 
+/**
+ * Only the public, indexable pages belong here. Order, payment and admin
+ * pages are per-customer or private, and each sets robots noindex of its own.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const lastModified = new Date();
   return [
-    { url: `${baseUrl}/`, lastModified: new Date(), changeFrequency: 'weekly', priority: 1.0 },
-    { url: `${baseUrl}/request-a-banknote`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${baseUrl}/payment`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${env.siteUrl}/`, lastModified, changeFrequency: 'weekly', priority: 1.0 },
+    {
+      url: `${env.siteUrl}/request-a-banknote`,
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.9,
+    },
+    { url: `${env.siteUrl}/track-order`, lastModified, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${env.siteUrl}/terms`, lastModified, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${env.siteUrl}/privacy`, lastModified, changeFrequency: 'yearly', priority: 0.3 },
   ];
 }

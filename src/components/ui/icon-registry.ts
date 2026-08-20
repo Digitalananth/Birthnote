@@ -1,0 +1,133 @@
+import type React from 'react';
+
+/**
+ * Explicit registry of the icons this app actually uses.
+ *
+ * AppIcon resolves icons by name at runtime, which previously meant
+ * `import * as HeroIcons` — a namespace import bundlers cannot tree-shake, so
+ * every client bundle carried the entire Heroicons set. Naming the icons here
+ * keeps the same string-based API while shipping only what is referenced.
+ *
+ * Adding a new icon to a page? Add its name to this list too, otherwise
+ * AppIcon renders the question-mark fallback.
+ */
+import {
+  ArchiveBoxIcon,
+  ArrowLeftIcon,
+  ArrowPathIcon,
+  ArrowRightIcon,
+  Bars3Icon,
+  CalendarDaysIcon,
+  CheckBadgeIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  ClockIcon,
+  CreditCardIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  EnvelopeOpenIcon,
+  ExclamationTriangleIcon,
+  GiftIcon,
+  HomeIcon,
+  InformationCircleIcon,
+  LockClosedIcon,
+  MagnifyingGlassIcon,
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  StarIcon,
+  TruckIcon,
+  XCircleIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import {
+  ArchiveBoxIcon as SolidArchiveBoxIcon,
+  ArrowLeftIcon as SolidArrowLeftIcon,
+  ArrowPathIcon as SolidArrowPathIcon,
+  ArrowRightIcon as SolidArrowRightIcon,
+  Bars3Icon as SolidBars3Icon,
+  CalendarDaysIcon as SolidCalendarDaysIcon,
+  CheckBadgeIcon as SolidCheckBadgeIcon,
+  CheckCircleIcon as SolidCheckCircleIcon,
+  CheckIcon as SolidCheckIcon,
+  ClockIcon as SolidClockIcon,
+  CreditCardIcon as SolidCreditCardIcon,
+  DocumentTextIcon as SolidDocumentTextIcon,
+  EnvelopeIcon as SolidEnvelopeIcon,
+  EnvelopeOpenIcon as SolidEnvelopeOpenIcon,
+  ExclamationTriangleIcon as SolidExclamationTriangleIcon,
+  GiftIcon as SolidGiftIcon,
+  HomeIcon as SolidHomeIcon,
+  InformationCircleIcon as SolidInformationCircleIcon,
+  LockClosedIcon as SolidLockClosedIcon,
+  MagnifyingGlassIcon as SolidMagnifyingGlassIcon,
+  QuestionMarkCircleIcon as SolidQuestionMarkCircleIcon,
+  ShieldCheckIcon as SolidShieldCheckIcon,
+  SparklesIcon as SolidSparklesIcon,
+  StarIcon as SolidStarIcon,
+  TruckIcon as SolidTruckIcon,
+  XCircleIcon as SolidXCircleIcon,
+  XMarkIcon as SolidXMarkIcon,
+} from '@heroicons/react/24/solid';
+
+export type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
+
+export const outlineIcons: Record<string, IconComponent> = {
+  ArchiveBoxIcon,
+  ArrowLeftIcon,
+  ArrowPathIcon,
+  ArrowRightIcon,
+  Bars3Icon,
+  CalendarDaysIcon,
+  CheckBadgeIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  ClockIcon,
+  CreditCardIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  EnvelopeOpenIcon,
+  ExclamationTriangleIcon,
+  GiftIcon,
+  HomeIcon,
+  InformationCircleIcon,
+  LockClosedIcon,
+  MagnifyingGlassIcon,
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  StarIcon,
+  TruckIcon,
+  XCircleIcon,
+  XMarkIcon,
+};
+
+export const solidIcons: Record<string, IconComponent> = {
+  ArchiveBoxIcon: SolidArchiveBoxIcon,
+  ArrowLeftIcon: SolidArrowLeftIcon,
+  ArrowPathIcon: SolidArrowPathIcon,
+  ArrowRightIcon: SolidArrowRightIcon,
+  Bars3Icon: SolidBars3Icon,
+  CalendarDaysIcon: SolidCalendarDaysIcon,
+  CheckBadgeIcon: SolidCheckBadgeIcon,
+  CheckCircleIcon: SolidCheckCircleIcon,
+  CheckIcon: SolidCheckIcon,
+  ClockIcon: SolidClockIcon,
+  CreditCardIcon: SolidCreditCardIcon,
+  DocumentTextIcon: SolidDocumentTextIcon,
+  EnvelopeIcon: SolidEnvelopeIcon,
+  EnvelopeOpenIcon: SolidEnvelopeOpenIcon,
+  ExclamationTriangleIcon: SolidExclamationTriangleIcon,
+  GiftIcon: SolidGiftIcon,
+  HomeIcon: SolidHomeIcon,
+  InformationCircleIcon: SolidInformationCircleIcon,
+  LockClosedIcon: SolidLockClosedIcon,
+  MagnifyingGlassIcon: SolidMagnifyingGlassIcon,
+  QuestionMarkCircleIcon: SolidQuestionMarkCircleIcon,
+  ShieldCheckIcon: SolidShieldCheckIcon,
+  SparklesIcon: SolidSparklesIcon,
+  StarIcon: SolidStarIcon,
+  TruckIcon: SolidTruckIcon,
+  XCircleIcon: SolidXCircleIcon,
+  XMarkIcon: SolidXMarkIcon,
+};

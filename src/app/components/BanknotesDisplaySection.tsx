@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 
 interface Banknote {
   denomination: string;
@@ -107,25 +105,6 @@ const banknotes: Banknote[] = [
 ];
 
 export default function BanknotesDisplaySection() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -20px 0px' }
-    );
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    cardRefs.current.forEach((el) => { if (el) observer.observe(el); });
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section className="bg-background py-20 md:py-28 relative overflow-hidden">
@@ -141,7 +120,7 @@ export default function BanknotesDisplaySection() {
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         {/* Header */}
-        <div ref={sectionRef} className="reveal-warm mb-14 md:mb-18">
+        <div className="reveal-warm mb-14 md:mb-18">
           <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
             Our Collection
           </span>
@@ -162,7 +141,6 @@ export default function BanknotesDisplaySection() {
           {banknotes.map((note, i) => (
             <div
               key={note.denomination}
-              ref={(el) => { cardRefs.current[i] = el; }}
               className="reveal-warm"
               style={{ animationDelay: `${i * 0.06}s` }}>
 

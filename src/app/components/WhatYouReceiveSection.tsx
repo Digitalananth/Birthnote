@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 
@@ -28,23 +26,6 @@ const inclusions = [
 
 
 export default function WhatYouReceiveSection() {
-  const refs = useRef<(HTMLElement | null)[]>([]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -30px 0px' }
-    );
-    refs.current.forEach((el) => {if (el) observer.observe(el);});
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section id="what-you-receive" className="bg-foreground text-primary-foreground py-20 md:py-28 relative overflow-hidden">
@@ -65,7 +46,6 @@ export default function WhatYouReceiveSection() {
           {/* Left: Content */}
           <div className="flex flex-col gap-10">
             <div
-              ref={(el) => {refs.current[0] = el as HTMLElement;}}
               className="reveal-warm">
               
               <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
@@ -80,7 +60,6 @@ export default function WhatYouReceiveSection() {
 
             {/* Inclusions list */}
             <div
-              ref={(el) => {refs.current[1] = el as HTMLElement;}}
               className="reveal-warm reveal-delay-1 flex flex-col gap-5">
               
               {inclusions.map((item, i) =>
@@ -101,7 +80,6 @@ export default function WhatYouReceiveSection() {
 
             {/* Price indicator */}
             <div
-              ref={(el) => {refs.current[2] = el as HTMLElement;}}
               className="reveal-warm reveal-delay-2 flex items-center gap-4 pt-2">
               
               <div>
@@ -128,7 +106,6 @@ export default function WhatYouReceiveSection() {
 
           {/* Right: Product image */}
           <div
-            ref={(el) => {refs.current[3] = el as HTMLElement;}}
             className="reveal-warm reveal-delay-2 relative">
             
             <div className="relative rounded-2xl overflow-hidden aspect-square shadow-2xl">

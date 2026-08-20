@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import AppImage from '@/components/ui/AppImage';
 
 const stats = [
@@ -10,23 +8,6 @@ const stats = [
 
 
 export default function WhyItMattersSection() {
-  const refs = useRef<(HTMLElement | null)[]>([]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -30px 0px' }
-    );
-    refs.current.forEach((el) => {if (el) observer.observe(el);});
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section className="bg-background py-20 md:py-28 relative overflow-hidden">
@@ -38,7 +19,6 @@ export default function WhyItMattersSection() {
 
           {/* Left: Image with depth */}
           <div
-            ref={(el) => {refs.current[0] = el as HTMLElement;}}
             className="reveal-warm relative">
             
             <div className="relative rounded-2xl overflow-hidden aspect-[4/5] shadow-2xl">
@@ -64,7 +44,6 @@ export default function WhyItMattersSection() {
           {/* Right: Text content + stats */}
           <div className="flex flex-col justify-between gap-10">
             <div
-              ref={(el) => {refs.current[1] = el as HTMLElement;}}
               className="reveal-warm">
               
               <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
@@ -85,7 +64,6 @@ export default function WhyItMattersSection() {
 
             {/* Stats row */}
             <div
-              ref={(el) => {refs.current[2] = el as HTMLElement;}}
               className="reveal-warm reveal-delay-2 grid grid-cols-3 gap-4 pt-8 border-t border-border">
               
               {stats.map((stat, i) =>
@@ -103,7 +81,6 @@ export default function WhyItMattersSection() {
 
             {/* Pull quote */}
             <div
-              ref={(el) => {refs.current[3] = el as HTMLElement;}}
               className="reveal-warm reveal-delay-3 border-l-4 border-accent pl-5 py-1">
               
               <p className="font-serif italic text-lg text-foreground/80 leading-relaxed">
