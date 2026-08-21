@@ -123,7 +123,7 @@ by an owner at `/admin/users`, with two roles:
 | Role | Can do |
 | --- | --- |
 | `owner` | Everything, including adding, editing and removing other admins |
-| `staff` | The order queue only |
+| `staff` | The order queue, pages and the blog — everything except managing admins |
 
 Two roles, not five — more levels would be guesswork encoded in an `ENUM`.
 Adding one later is an `ALTER`.
@@ -159,6 +159,50 @@ Things worth knowing before changing this code:
   needs the database, which the Edge runtime cannot reach — it is a redirect
   convenience, and every page and route re-checks properly.
 
+## Pages, blog and SEO
+
+Marketing copy lives in the database, not in the repo, and is edited from
+`/admin/pages` and `/admin/blog`.
+
+```
+/<slug>                    an editable page
+/blog                      the index
+/blog/<slug>               a post
+/blog/category/<slug>      posts filed under one category
+```
+
+Content is open to **any signed-in admin**, both owners and staff — a blog
+only the owner can write to is not much of a blog, and the role split is
+about managing people. To narrow it, change `requireContentAdmin` in
+`src/lib/content-admin.ts`; it is the single gate all six routes go through.
+
+Things worth knowing before changing this code:
+
+- **Bodies are Markdown, and raw HTML in them is escaped rather than
+  rendered.** The editor is reachable by every admin and its output is served
+  from this origin, so `src/lib/markdown.ts` closes both routes to stored XSS:
+  raw HTML is escaped, and link/image URLs are limited to an allow-list of
+  schemes. `[click](javascript:alert(1))` is valid Markdown that marked
+  renders as-is — no HTML required — so a block-list would not have been
+  enough.
+- **`RESERVED_SLUGS` refuses the slugs the site already uses.** Next.js
+  matches its own static routes before `/[slug]`, so a page slugged "login"
+  would save happily and then never be reachable.
+- **Nothing CMS-related is prerendered at build.** The dynamic routes return
+  an empty `generateStaticParams`, so a deploy never needs a reachable
+  database; each URL is generated on first request and cached for an hour.
+  Saving in the admin calls `revalidatePath` for both the old and new paths,
+  so an edit — or a renamed slug — is live immediately.
+- **`/blog` and `/sitemap.xml` are per-request.** Both read the whole
+  collection, so rendering them fresh is simpler than invalidating them from
+  six places. The sitemap falls back to the fixed routes if the database is
+  unreachable — a sitemap missing the blog beats a 500 where the sitemap
+  should be.
+- **`published_at` is stamped once**, the first time a post goes live, so
+  fixing a typo in an old post does not shuffle it back to the top.
+- **Deleting a category keeps its posts** — the foreign key nulls their
+  `category_id` rather than cascading.
+
 ## Rendering strategy
 
 Each route picks the cheapest mode that is still correct:
@@ -175,6 +219,9 @@ Each route picks the cheapest mode that is still correct:
 | `/payment/[reference]`, `/payment/[reference]/success` | **SSR** | Payment eligibility is read fresh so nobody can pay twice from a cached page |
 | `/admin`, `/admin/orders/[reference]` | **SSR** | Live operational queue |
 | `/admin/users` | **SSR** | Owner-only admin management |
+| `/admin/pages`, `/admin/blog` | **SSR** | Content lists and editors |
+| `/<slug>`, `/blog/[slug]`, `/blog/category/[slug]` | **ISR** (`revalidate = 3600`) | CMS content: cached, but never prerendered at build |
+| `/blog`, `/sitemap.xml` | **SSR** | Read the whole collection, so always rendered fresh |
 | `/admin/login`, `/admin/reset-password/[token]` | **SSR** | Session state and token validity are read fresh |
 | `/api/*` | Dynamic route handlers | — |
 
@@ -310,6 +357,8 @@ src/
 │   ├── stripe.ts               Checkout session creation
 │   ├── auth.ts                 admin sessions and role guards
 │   ├── order-types.ts          order shapes + helpers (client-safe)
+│   ├── content.ts              pages, posts and categories
+│   ├── markdown.ts             Markdown rendering, with HTML and URLs locked down
 │   ├── rate-limit.ts           DB-backed request throttling
 │   └── validation.ts           rules shared by the form and the API
 └── middleware.ts               redirects unauthenticated /admin traffic

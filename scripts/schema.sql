@@ -201,3 +201,73 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_items_order FOREIGN KEY (order_id)
     REFERENCES orders (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- Phase 4: static pages, blog and SEO
+-- ---------------------------------------------------------------------------
+
+-- Editable marketing pages, reachable at /<slug>.
+--
+-- `slug` is unique and validated against a reserved list in the application:
+-- Next.js matches its own static routes before /[slug], so a page slugged
+-- "login" would save fine and then never be reachable.
+CREATE TABLE IF NOT EXISTS pages (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug             VARCHAR(160)    NOT NULL,
+  title            VARCHAR(200)    NOT NULL,
+  body_markdown    MEDIUMTEXT      NOT NULL,
+  -- Falls back to `title` when blank, so a page is never published without
+  -- something sensible in the <title>.
+  meta_title       VARCHAR(200)         NULL,
+  meta_description VARCHAR(320)         NULL,
+  status           ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  updated_by       VARCHAR(190)         NULL,
+  created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                            ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pages_slug (slug),
+  KEY idx_pages_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS blog_categories (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug             VARCHAR(160)    NOT NULL,
+  name             VARCHAR(160)    NOT NULL,
+  description      VARCHAR(500)         NULL,
+  meta_title       VARCHAR(200)         NULL,
+  meta_description VARCHAR(320)         NULL,
+  created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                            ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_categories_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  slug             VARCHAR(160)    NOT NULL,
+  title            VARCHAR(200)    NOT NULL,
+  excerpt          VARCHAR(500)         NULL,
+  body_markdown    MEDIUMTEXT      NOT NULL,
+  -- Deleting a category must not delete the writing filed under it.
+  category_id      BIGINT UNSIGNED      NULL,
+  cover_image_url  VARCHAR(500)         NULL,
+  meta_title       VARCHAR(200)         NULL,
+  meta_description VARCHAR(320)         NULL,
+  status           ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  -- Set the first time a post is published, then left alone, so re-editing
+  -- an old post does not shuffle it back to the top of the blog.
+  published_at     DATETIME             NULL,
+  author_name      VARCHAR(160)         NULL,
+  updated_by       VARCHAR(190)         NULL,
+  created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                            ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_posts_slug (slug),
+  KEY idx_posts_published (status, published_at),
+  KEY idx_posts_category (category_id, status),
+  CONSTRAINT fk_posts_category FOREIGN KEY (category_id)
+    REFERENCES blog_categories (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

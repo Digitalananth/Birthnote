@@ -24,5 +24,11 @@ export function middleware(request: NextRequest) {
 export const config = {
   // Everything under /admin except the pages a signed-out admin must reach:
   // login, forgot-password and the reset link.
-  matcher: ['/admin', '/admin/orders/:path*', '/admin/users/:path*'],
+  matcher: [
+    '/admin',
+    '/admin/orders/:path*',
+    '/admin/users/:path*',
+    '/admin/pages/:path*',
+    '/admin/blog/:path*',
+  ],
 };

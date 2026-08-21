@@ -8,7 +8,8 @@ import type { AdminUser } from '@/lib/admin-roles';
  * The admin header bar.
  *
  * "Admins" appears only for owners. That is presentation, not protection —
- * the page and its API routes check the role themselves.
+ * the page and its API routes check the role themselves. Pages and Blog are
+ * open to both roles; see `requireContentAdmin`.
  */
 export default function AdminNav({ admin }: { admin: AdminUser }) {
   return (
@@ -20,6 +21,20 @@ export default function AdminNav({ admin }: { admin: AdminUser }) {
         >
           <Icon name="ArchiveBoxIcon" size={16} />
           Orders
+        </Link>
+        <Link
+          href="/admin/pages"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Icon name="DocumentTextIcon" size={16} />
+          Pages
+        </Link>
+        <Link
+          href="/admin/blog"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Icon name="EnvelopeOpenIcon" size={16} />
+          Blog
         </Link>
         {admin.role === 'owner' && (
           <Link
