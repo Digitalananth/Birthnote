@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import AdminLoginForm from '@/app/admin/components/AdminLoginForm';
 import { isAdminAuthenticated } from '@/lib/auth';
@@ -35,6 +36,11 @@ export default async function AdminLoginPage({
         <div className="card-warm p-8">
           <AdminLoginForm next={target} />
         </div>
+        <p className="text-center text-sm text-muted-foreground mt-5">
+          <Link href="/admin/forgot-password" className="text-primary underline">
+            Forgotten your password?
+          </Link>
+        </p>
       </div>
     </main>
   );

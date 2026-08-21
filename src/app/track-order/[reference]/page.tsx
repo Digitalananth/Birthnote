@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
-import { getOrderByReference, getOrderEvents } from '@/lib/orders';
+import OrderNotes from '@/components/OrderNotes';
+import { getOrderByReference, getOrderEvents, summariseOrder } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import {
   STATUS_CONFIG,
@@ -65,10 +66,21 @@ export default async function TrackedOrderPage({ params }: PageProps) {
               {order.reference}
             </p>
             <p className="font-serif italic text-lg text-muted-foreground">
-              A banknote from{' '}
-              <span className="text-primary font-semibold not-italic font-mono">
-                {order.displayDate}
-              </span>
+              {order.items.length > 1 ? (
+                <>
+                  <span className="text-primary font-semibold not-italic">
+                    {order.items.length} banknotes
+                  </span>{' '}
+                  in one order
+                </>
+              ) : (
+                <>
+                  A banknote from{' '}
+                  <span className="text-primary font-semibold not-italic font-mono">
+                    {summariseOrder(order)}
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
@@ -147,32 +159,17 @@ export default async function TrackedOrderPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* What we found */}
-          {order.noteDenomination && (
-            <div className="card-warm p-6 mb-8">
-              <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
-                Your note
-              </h2>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                {[
-                  ['Denomination', order.noteDenomination],
-                  ['Country', order.noteCountry],
-                  ['Condition', order.noteCondition],
-                  ['Serial prefix', order.noteSerial],
-                  ['Tracking number', order.trackingNumber],
-                ]
-                  .filter(([, value]) => Boolean(value))
-                  .map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-muted-foreground text-xs uppercase tracking-wide mb-0.5">
-                        {label}
-                      </dt>
-                      <dd className="text-foreground font-medium">{value}</dd>
-                    </div>
-                  ))}
-              </dl>
-            </div>
-          )}
+          {/* The notes in this order */}
+          <div className="card-warm p-6 mb-8">
+            <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
+              {order.items.length > 1 ? `Your ${order.items.length} notes` : 'Your note'}
+            </h2>
+            <OrderNotes
+              order={order}
+              showDetails
+              showPrices={order.status !== 'pending' && order.status !== 'checking'}
+            />
+          </div>
 
           {/* Timeline */}
           <div className="card-warm p-6 mb-10">

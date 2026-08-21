@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/auth';
+import { getCurrentAdmin } from '@/lib/auth';
 import {
   getOrderByReference,
   updateOrderStatus,
+  availableItems,
   ORDER_STATUSES,
   type OrderStatus,
 } from '@/lib/orders';
 import { isValidReference } from '@/lib/validation';
-import {
-  sendMail,
-  availabilityConfirmedEmail,
-  unavailableEmail,
-  shippedEmail,
-} from '@/lib/mail';
+import { sendMail, availabilityConfirmedEmail, unavailableEmail, shippedEmail } from '@/lib/mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,7 +24,8 @@ interface Context {
  * the admin never has to write one by hand.
  */
 export async function PATCH(request: Request, { params }: Context) {
-  if (!(await isAdminAuthenticated())) {
+  const admin = await getCurrentAdmin();
+  if (!admin) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
@@ -59,20 +56,46 @@ export async function PATCH(request: Request, { params }: Context) {
     );
   }
 
+  /*
+   * Two statuses are claims about the notes, so they are checked against the
+   * notes rather than trusted. The admin UI already disables these buttons —
+   * but a disabled button is presentation, and confirming an order with
+   * nothing priced would email the customer a payment link for ₹0.
+   */
+  if (status === 'confirmed' || status === 'unavailable') {
+    const current = await getOrderByReference(reference);
+    if (!current) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+
+    if (status === 'confirmed') {
+      const priced = availableItems(current).filter((item) => (item.pricePaise ?? 0) > 0);
+      if (!priced.length) {
+        return NextResponse.json(
+          { error: 'Mark at least one note found and give it a price before confirming.' },
+          { status: 409 }
+        );
+      }
+    } else if (!current.items.every((item) => item.availability === 'unavailable')) {
+      return NextResponse.json(
+        {
+          error:
+            'Some notes are still found or unchecked. Mark every note not found before declining the whole order.',
+        },
+        { status: 409 }
+      );
+    }
+  }
+
+  // What was found for each note, and its price, are set per note through
+  // /items/:id — this route only moves the order as a whole.
   const str = (key: string) => (body[key] == null ? null : String(body[key]).trim() || null);
 
   const order = await updateOrderStatus(reference, {
     status,
+    // The timeline names whoever made the change, now that there is more than
+    // one person who could have.
+    actor: admin.email,
     note: str('note'),
-    noteDenomination: str('noteDenomination'),
-    noteCondition: str('noteCondition'),
-    noteSerial: str('noteSerial'),
-    noteCountry: str('noteCountry'),
     trackingNumber: str('trackingNumber'),
-    pricePaise:
-      typeof body.pricePaise === 'number' && body.pricePaise > 0
-        ? Math.round(body.pricePaise)
-        : null,
   });
 
   if (!order) {
@@ -91,7 +114,8 @@ export async function PATCH(request: Request, { params }: Context) {
 
 /** GET /api/admin/orders/:reference — full record including admin fields. */
 export async function GET(_request: Request, { params }: Context) {
-  if (!(await isAdminAuthenticated())) {
+  const admin = await getCurrentAdmin();
+  if (!admin) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
   const { reference } = await params;

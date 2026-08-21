@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
-import type { Order, OrderStatus } from '@/lib/orders';
+import { availableItems, type Order, type OrderStatus } from '@/lib/order-types';
 
 /**
  * The fulfilment control for one order.
@@ -56,10 +56,6 @@ export default function StatusActions({ order }: { order: Order }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [fields, setFields] = useState({
-    noteDenomination: order.noteDenomination ?? '',
-    noteCountry: order.noteCountry ?? 'India',
-    noteCondition: order.noteCondition ?? '',
-    noteSerial: order.noteSerial ?? '',
     trackingNumber: order.trackingNumber ?? '',
     note: '',
   });
@@ -103,29 +99,49 @@ export default function StatusActions({ order }: { order: Order }) {
 
   const locked = order.status === 'paid' || order.status === 'shipped';
 
+  // What the order-level actions are allowed to say, derived from the notes.
+  const priced = availableItems(order).filter((item) => (item.pricePaise ?? 0) > 0);
+  const undecided = order.items.filter((item) => item.availability === 'pending');
+  const allMissing =
+    order.items.length > 0 && order.items.every((item) => item.availability === 'unavailable');
+
   return (
     <div className="flex flex-col gap-5">
+      {/*
+        What was found for each note is set per note, above this control. All
+        that is left at the order level is what applies to the whole parcel.
+      */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {field('noteDenomination', 'Denomination', '₹10 Reserve Bank of India Note')}
-        {field('noteCountry', 'Country')}
-        {field('noteCondition', 'Condition', 'Fine (F)')}
-        {field('noteSerial', 'Serial prefix', '9AB')}
         {field('trackingNumber', 'Tracking number')}
         {field('note', 'Internal note', 'Shown on the customer timeline')}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {ACTIONS.map((action) => {
+          // Confirming needs something priced to charge for; declining the
+          // whole order needs every note to have actually been looked for.
+          const blocked =
+            (action.status === 'confirmed' && priced.length === 0) ||
+            (action.status === 'unavailable' && !allMissing);
+
           const disabled =
             isPending ||
             active !== null ||
             action.status === order.status ||
+            blocked ||
             (locked && action.status !== 'shipped');
+
+          const title = blocked
+            ? action.status === 'confirmed'
+              ? 'Mark at least one note found and give it a price first.'
+              : 'Only when every note has been marked not found.'
+            : action.hint;
+
           return (
             <button
               key={action.status}
               type="button"
-              title={action.hint}
+              title={title}
               disabled={disabled}
               onClick={() => submit(action.status)}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${action.tone}`}
@@ -137,6 +153,9 @@ export default function StatusActions({ order }: { order: Order }) {
       </div>
 
       <p className="text-xs text-muted-foreground leading-relaxed">
+        {undecided.length > 0 && !locked
+          ? `${undecided.length} of ${order.items.length} notes still to check. `
+          : ''}
         Payment status is set automatically by the Stripe webhook — it cannot be set by hand.
       </p>
 

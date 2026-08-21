@@ -6,17 +6,67 @@
  * feedback, the server copy is the one that actually protects the database.
  */
 
-export interface RequestFormValues {
+/** One requested note. An order carries one or more of these. */
+export interface RequestItemValues {
   day: string;
   month: string;
   year: string;
-  name: string;
-  email: string;
+  denomination: string;
+  giftRelationship?: string;
   giftFor?: string;
-  message?: string;
 }
 
-export type RequestFormErrors = Partial<Record<keyof RequestFormValues, string>>;
+export interface RequestFormValues {
+  name: string;
+  email: string;
+  message?: string;
+  items: RequestItemValues[];
+}
+
+/**
+ * Upper bound on notes per order.
+ *
+ * Not a business rule so much as a guard: the form posts every row in one
+ * request, and each one becomes a row to search by hand.
+ */
+export const MAX_ITEMS_PER_ORDER = 20;
+
+/**
+ * The note values a customer may ask for, in rupees.
+ *
+ * Single source of truth for the <select> options and the server-side
+ * membership check, so the two can never drift apart.
+ */
+export const DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100, 200, 500] as const;
+
+export const GIFT_RELATIONSHIPS = [
+  'Father',
+  'Mother',
+  'Wife',
+  'Husband',
+  'Son',
+  'Daughter',
+  'Brother',
+  'Sister',
+  'Uncle',
+  'Aunt',
+  'Friend',
+  'Someone else',
+] as const;
+
+export type GiftRelationship = (typeof GIFT_RELATIONSHIPS)[number];
+
+export type RequestItemErrors = Partial<Record<keyof RequestItemValues, string>>;
+
+export interface RequestFormErrors {
+  name?: string;
+  email?: string;
+  message?: string;
+  /** Whole-order problems: no rows, too many, duplicates. */
+  items?: string;
+  /** Per-row errors, keyed by the row's index in the form. */
+  itemErrors?: Record<number, RequestItemErrors>;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -44,39 +94,41 @@ export function isRealDate(day: number, month: number, fullYear: number): boolea
   );
 }
 
+export interface NormalisedItem {
+  /** YYYY-MM-DD, for the DATE column. */
+  noteDate: string;
+  /** DD/MM/YY, the format shown to the customer. */
+  displayDate: string;
+  denomination: number;
+  giftRelationship: string | null;
+  giftFor: string | null;
+}
+
 export interface ValidatedRequest {
   errors: RequestFormErrors;
   valid: boolean;
   /** Present only when valid. */
   normalised?: {
-    day: string;
-    month: string;
-    year: string;
-    fullYear: number;
-    /** YYYY-MM-DD, for the DATE column. */
-    noteDate: string;
-    /** DD/MM/YY, the format shown to the customer. */
-    displayDate: string;
     name: string;
     email: string;
-    giftFor: string | null;
     message: string | null;
+    items: NormalisedItem[];
   };
 }
 
-export function validateRequest(
-  values: Partial<RequestFormValues>,
+/** Validates one row of the form. Exported so the UI can check a row as it changes. */
+export function validateRequestItem(
+  values: Partial<RequestItemValues>,
   now = new Date()
-): ValidatedRequest {
-  const errors: RequestFormErrors = {};
+): { errors: RequestItemErrors; normalised?: NormalisedItem } {
+  const errors: RequestItemErrors = {};
 
   const dayRaw = (values.day ?? '').trim();
   const monthRaw = (values.month ?? '').trim();
   const yearRaw = (values.year ?? '').trim();
-  const name = (values.name ?? '').trim();
-  const email = (values.email ?? '').trim().toLowerCase();
+  const denominationRaw = (values.denomination ?? '').trim();
+  const giftRelationship = (values.giftRelationship ?? '').trim();
   const giftFor = (values.giftFor ?? '').trim();
-  const message = (values.message ?? '').trim();
 
   const day = Number.parseInt(dayRaw, 10);
   const month = Number.parseInt(monthRaw, 10);
@@ -96,13 +148,51 @@ export function validateRequest(
     fullYear = expandYear(yearRaw, now);
     if (!isRealDate(day, month, fullYear)) {
       errors.day = 'That date does not exist';
-    } else {
-      const requested = Date.UTC(fullYear, month - 1, day);
-      if (requested > now.getTime()) {
-        errors.year = 'Choose a date in the past';
-      }
+    } else if (Date.UTC(fullYear, month - 1, day) > now.getTime()) {
+      errors.year = 'Choose a date in the past';
     }
   }
+
+  const denomination = Number.parseInt(denominationRaw, 10);
+  if (!denominationRaw) {
+    errors.denomination = 'Choose a denomination';
+  } else if (!DENOMINATIONS.includes(denomination as (typeof DENOMINATIONS)[number])) {
+    errors.denomination = 'Choose one of the listed denominations';
+  }
+
+  if (giftRelationship && !GIFT_RELATIONSHIPS.includes(giftRelationship as GiftRelationship)) {
+    errors.giftRelationship = 'Choose one of the listed options';
+  }
+  if (giftFor.length > 160) {
+    errors.giftFor = 'Keep this under 160 characters';
+  }
+
+  if (Object.keys(errors).length) return { errors };
+
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  return {
+    errors,
+    normalised: {
+      noteDate: `${fullYear}-${mm}-${dd}`,
+      displayDate: `${dd}/${mm}/${yearRaw}`,
+      denomination,
+      giftRelationship: giftRelationship || null,
+      giftFor: giftFor || null,
+    },
+  };
+}
+
+export function validateRequest(
+  values: Partial<RequestFormValues>,
+  now = new Date()
+): ValidatedRequest {
+  const errors: RequestFormErrors = {};
+
+  const name = (values.name ?? '').trim();
+  const email = (values.email ?? '').trim().toLowerCase();
+  const message = (values.message ?? '').trim();
+  const rows = Array.isArray(values.items) ? values.items : [];
 
   if (!name) {
     errors.name = 'Please enter your name';
@@ -116,34 +206,45 @@ export function validateRequest(
     errors.email = 'Enter a valid email address';
   }
 
-  if (giftFor.length > 160) {
-    errors.giftFor = 'Keep this under 160 characters';
-  }
   if (message.length > 2000) {
     errors.message = 'Keep your message under 2000 characters';
   }
 
-  const valid = Object.keys(errors).length === 0;
-  if (!valid) return { errors, valid };
+  if (!rows.length) {
+    errors.items = 'Add at least one date';
+  } else if (rows.length > MAX_ITEMS_PER_ORDER) {
+    errors.items = `That is more than ${MAX_ITEMS_PER_ORDER} notes — email us and we will handle it by hand`;
+  }
 
-  const dd = String(day).padStart(2, '0');
-  const mm = String(month).padStart(2, '0');
+  const itemErrors: Record<number, RequestItemErrors> = {};
+  const items: NormalisedItem[] = [];
+  rows.slice(0, MAX_ITEMS_PER_ORDER).forEach((row, index) => {
+    const result = validateRequestItem(row, now);
+    if (result.normalised) items.push(result.normalised);
+    else itemErrors[index] = result.errors;
+  });
+  if (Object.keys(itemErrors).length) errors.itemErrors = itemErrors;
+
+  // The same date twice in one order is almost always a mis-click, and it
+  // would send the admin hunting for a note they already found.
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = `${item.noteDate}|${item.denomination}`;
+    if (seen.has(key)) {
+      errors.items = 'That order lists the same date and denomination more than once';
+      break;
+    }
+    seen.add(key);
+  }
+
+  const valid =
+    !errors.name && !errors.email && !errors.message && !errors.items && !errors.itemErrors;
+  if (!valid) return { errors, valid };
 
   return {
     errors,
     valid,
-    normalised: {
-      day: dd,
-      month: mm,
-      year: yearRaw,
-      fullYear,
-      noteDate: `${fullYear}-${mm}-${dd}`,
-      displayDate: `${dd}/${mm}/${yearRaw}`,
-      name,
-      email,
-      giftFor: giftFor || null,
-      message: message || null,
-    },
+    normalised: { name, email, message: message || null, items },
   };
 }
 

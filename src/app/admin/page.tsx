@@ -1,11 +1,16 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
-import LogoutButton from '@/app/admin/components/LogoutButton';
-import { isAdminAuthenticated } from '@/lib/auth';
-import { listOrders, getStatusCounts, ORDER_STATUSES, type OrderStatus } from '@/lib/orders';
+import AdminNav from '@/app/admin/components/AdminNav';
+import { requireAdmin } from '@/lib/auth';
+import {
+  listOrders,
+  getStatusCounts,
+  summariseOrder,
+  ORDER_STATUSES,
+  type OrderStatus,
+} from '@/lib/orders';
 import { formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
 
@@ -30,8 +35,9 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
-  // The middleware only checks the cookie exists; this verifies its signature.
-  if (!(await isAdminAuthenticated())) redirect('/admin/login?next=/admin');
+  // The middleware only checks the cookie exists; this resolves the session
+  // and gives us the admin whose name goes on anything they change.
+  const admin = await requireAdmin('/admin');
 
   const { status, q, page } = await searchParams;
   const activeStatus = ORDER_STATUSES.includes(status as OrderStatus)
@@ -63,17 +69,15 @@ export default async function AdminOrdersPage({
   return (
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
-              BirthNote
-            </p>
-            <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
-              Order queue
-            </h1>
-          </div>
-          <LogoutButton />
+        <AdminNav admin={admin} />
+
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
+            BirthNote
+          </p>
+          <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
+            Order queue
+          </h1>
         </div>
 
         {/* Status filters */}
@@ -146,7 +150,7 @@ export default async function AdminOrdersPage({
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-mono font-bold text-sm text-primary">{order.displayDate}</p>
+                    <p className="font-mono font-bold text-sm text-primary">{summariseOrder(order)}</p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(order.createdAt)}
                     </p>

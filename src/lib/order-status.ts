@@ -4,7 +4,7 @@
  * Client-safe (no server-only imports) so the tracking page, the admin panel
  * and the email templates all describe a status the same way.
  */
-import type { OrderStatus } from '@/lib/orders';
+import type { OrderStatus } from '@/lib/order-types';
 
 export interface StatusPresentation {
   label: string;

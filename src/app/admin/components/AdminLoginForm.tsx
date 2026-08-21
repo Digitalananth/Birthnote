@@ -6,7 +6,7 @@ import Icon from '@/components/ui/AppIcon';
 
 export default function AdminLoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const [password, setPassword] = useState('');
+  const [values, setValues] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
@@ -18,7 +18,7 @@ export default function AdminLoginForm({ next }: { next: string }) {
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(values),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Login failed.');
@@ -30,24 +30,41 @@ export default function AdminLoginForm({ next }: { next: string }) {
     }
   };
 
+  const input =
+    'px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40';
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <label htmlFor="email" className="text-sm font-semibold text-foreground">
+        Email address
+      </label>
+      <input
+        id="email"
+        type="email"
+        autoComplete="username"
+        value={values.email}
+        onChange={(event) => setValues((p) => ({ ...p, email: event.target.value }))}
+        className={input}
+      />
+
       <label htmlFor="password" className="text-sm font-semibold text-foreground">
-        Admin password
+        Password
       </label>
       <input
         id="password"
         type="password"
         autoComplete="current-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        className="px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40"
+        value={values.password}
+        onChange={(event) => setValues((p) => ({ ...p, password: event.target.value }))}
+        className={input}
       />
+
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}
         </p>
       )}
+
       <button
         type="submit"
         disabled={pending}

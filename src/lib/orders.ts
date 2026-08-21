@@ -1,82 +1,40 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import { getPool, query, transaction } from '@/lib/db';
-import { env } from '@/lib/env';
+import {
+  ORDER_STATUSES,
+  availableItems,
+  summariseOrder,
+  type Order,
+  type OrderEvent,
+  type OrderItem,
+  type OrderStatus,
+  type ItemAvailability,
+  type NewOrderInput,
+} from '@/lib/order-types';
 
-export type OrderStatus =
-  | 'pending'
-  | 'checking'
-  | 'confirmed'
-  | 'unavailable'
-  | 'paid'
-  | 'shipped';
-
-export const ORDER_STATUSES: OrderStatus[] = [
-  'pending',
-  'checking',
-  'confirmed',
-  'unavailable',
-  'paid',
-  'shipped',
-];
-
-export interface Order {
-  id: number;
-  reference: string;
-  noteDate: string;
-  displayDate: string;
-  customerName: string;
-  customerEmail: string;
-  giftFor: string | null;
-  message: string | null;
-  status: OrderStatus;
-  pricePaise: number;
-  currency: string;
-  noteDenomination: string | null;
-  noteCondition: string | null;
-  noteSerial: string | null;
-  noteCountry: string | null;
-  adminNotes: string | null;
-  stripeSessionId: string | null;
-  paidAt: string | null;
-  trackingNumber: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface OrderEvent {
-  status: string;
-  note: string | null;
-  actor: string;
-  createdAt: string;
-}
-
-export interface NewOrderInput {
-  noteDate: string;
-  displayDate: string;
-  customerName: string;
-  customerEmail: string;
-  giftFor?: string | null;
-  message?: string | null;
-}
+export { ORDER_STATUSES, availableItems, summariseOrder };
+export type {
+  Order,
+  OrderEvent,
+  OrderItem,
+  OrderStatus,
+  ItemAvailability,
+  NewOrderInput,
+  NewOrderItemInput,
+} from '@/lib/order-types';
 
 interface OrderRow extends RowDataPacket {
   id: number;
   reference: string;
-  note_date: string;
-  display_date: string;
+  user_id: number | null;
   customer_name: string;
   customer_email: string;
-  gift_for: string | null;
   message: string | null;
   status: OrderStatus;
   price_paise: number;
   currency: string;
-  note_denomination: string | null;
-  note_condition: string | null;
-  note_serial: string | null;
-  note_country: string | null;
   admin_notes: string | null;
   stripe_session_id: string | null;
   paid_at: Date | null;
@@ -85,40 +43,102 @@ interface OrderRow extends RowDataPacket {
   updated_at: Date;
 }
 
-function mapOrder(row: OrderRow): Order {
+interface ItemRow extends RowDataPacket {
+  id: number;
+  order_id: number;
+  position: number;
+  note_date: string;
+  display_date: string;
+  requested_denomination: number | null;
+  gift_relationship: string | null;
+  gift_for: string | null;
+  availability: ItemAvailability;
+  price_paise: number | null;
+  note_denomination: string | null;
+  note_condition: string | null;
+  note_serial: string | null;
+  note_country: string | null;
+}
+
+function mapItem(row: ItemRow): OrderItem {
   return {
     id: row.id,
-    reference: row.reference,
+    position: row.position,
     noteDate: row.note_date,
     displayDate: row.display_date,
-    customerName: row.customer_name,
-    customerEmail: row.customer_email,
+    requestedDenomination: row.requested_denomination,
+    giftRelationship: row.gift_relationship,
     giftFor: row.gift_for,
-    message: row.message,
-    status: row.status,
+    availability: row.availability,
     pricePaise: row.price_paise,
-    currency: row.currency,
     noteDenomination: row.note_denomination,
     noteCondition: row.note_condition,
     noteSerial: row.note_serial,
     noteCountry: row.note_country,
+  };
+}
+
+function mapOrder(row: OrderRow, items: OrderItem[]): Order {
+  return {
+    id: row.id,
+    reference: row.reference,
+    userId: row.user_id,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    message: row.message,
+    status: row.status,
+    pricePaise: row.price_paise,
+    currency: row.currency,
     adminNotes: row.admin_notes,
     stripeSessionId: row.stripe_session_id,
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
     trackingNumber: row.tracking_number,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    items,
   };
 }
 
 const SELECT_ORDER = 'SELECT * FROM orders';
 
 /**
+ * Loads the items for a set of orders in one query.
+ *
+ * The admin queue lists 25 orders at a time; fetching each one's items
+ * separately would be 25 round trips for a page that used to take one.
+ */
+async function loadItems(orderIds: number[]): Promise<Map<number, OrderItem[]>> {
+  const grouped = new Map<number, OrderItem[]>();
+  if (!orderIds.length) return grouped;
+
+  // The ids come from rows this process just read, so they are numbers; the
+  // placeholder list is built from their count, never from their values.
+  const placeholders = orderIds.map(() => '?').join(',');
+  const rows = await query<ItemRow[]>(
+    `SELECT * FROM order_items WHERE order_id IN (${placeholders})
+      ORDER BY order_id, position, id`,
+    orderIds
+  );
+  for (const row of rows) {
+    const list = grouped.get(row.order_id) ?? [];
+    list.push(mapItem(row));
+    grouped.set(row.order_id, list);
+  }
+  return grouped;
+}
+
+async function withItems(rows: OrderRow[]): Promise<Order[]> {
+  const items = await loadItems(rows.map((row) => row.id));
+  return rows.map((row) => mapOrder(row, items.get(row.id) ?? []));
+}
+
+/**
  * Reference format: BN-DDMMYY-XXXX.
  *
- * The suffix comes from crypto.randomBytes rather than Math.random so a
- * reference cannot be guessed from another one — it is the only credential
- * protecting the tracking and payment pages.
+ * The date part comes from the first requested note, so a reference still
+ * reads like the order it belongs to. The suffix comes from crypto.randomBytes
+ * rather than Math.random so one reference cannot be guessed from another — it
+ * is the only credential protecting the tracking and payment pages.
  */
 export function generateReference(displayDate: string): string {
   const datePart = displayDate.replace(/\D/g, '');
@@ -131,38 +151,84 @@ export function generateReference(displayDate: string): string {
   return `BN-${datePart}-${suffix}`;
 }
 
+/**
+ * The order total: every available item's price added up.
+ *
+ * Denormalised onto `orders` because Stripe, the receipt email and the payment
+ * page all want one number, and recomputing it on every read would mean none
+ * of them could trust the amount the customer was actually charged.
+ */
+async function recomputeTotal(conn: PoolConnection, orderId: number): Promise<void> {
+  await conn.execute(
+    `UPDATE orders o
+        SET price_paise = COALESCE((
+              SELECT SUM(i.price_paise) FROM order_items i
+               WHERE i.order_id = o.id AND i.availability = 'available'
+            ), 0)
+      WHERE o.id = ?`,
+    [orderId]
+  );
+}
+
 export async function createOrder(input: NewOrderInput): Promise<Order> {
+  if (!input.items.length) {
+    throw new Error('An order needs at least one note.');
+  }
+
   // Retry on the (vanishingly unlikely) unique-key collision.
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const reference = generateReference(input.displayDate);
+    const reference = generateReference(input.items[0].displayDate);
     try {
       return await transaction(async (conn) => {
         const [result] = await conn.execute<ResultSetHeader>(
           `INSERT INTO orders
-             (reference, note_date, display_date, customer_name, customer_email,
-              gift_for, message, status, price_paise, currency)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'INR')`,
+             (reference, user_id, customer_name, customer_email, message,
+              status, price_paise, currency)
+           VALUES (?, ?, ?, ?, ?, 'pending', 0, 'INR')`,
           [
             reference,
-            input.noteDate,
-            input.displayDate,
+            input.userId || null,
             input.customerName,
             input.customerEmail,
-            input.giftFor || null,
             input.message || null,
-            env.pricePaise,
           ]
         );
+        const orderId = result.insertId;
+
+        for (const [index, item] of input.items.entries()) {
+          await conn.execute(
+            `INSERT INTO order_items
+               (order_id, position, note_date, display_date, requested_denomination,
+                gift_relationship, gift_for)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              orderId,
+              index + 1,
+              item.noteDate,
+              item.displayDate,
+              item.requestedDenomination || null,
+              item.giftRelationship || null,
+              item.giftFor || null,
+            ]
+          );
+        }
+
+        const note =
+          input.items.length === 1
+            ? 'Request received.'
+            : `Request received — ${input.items.length} notes.`;
         await conn.execute(
           `INSERT INTO order_events (order_id, status, note, actor)
-           VALUES (?, 'pending', 'Request received.', 'system')`,
-          [result.insertId]
+           VALUES (?, 'pending', ?, 'system')`,
+          [orderId, note]
         );
-        const [rows] = await conn.execute<OrderRow[]>(
-          `${SELECT_ORDER} WHERE id = ?`,
-          [result.insertId]
+
+        const [rows] = await conn.execute<OrderRow[]>(`${SELECT_ORDER} WHERE id = ?`, [orderId]);
+        const [items] = await conn.execute<ItemRow[]>(
+          'SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id',
+          [orderId]
         );
-        return mapOrder(rows[0]);
+        return mapOrder(rows[0], items.map(mapItem));
       });
     } catch (error) {
       const code = (error as { code?: string }).code;
@@ -176,24 +242,52 @@ export async function getOrderByReference(reference: string): Promise<Order | nu
   const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE reference = ? LIMIT 1`, [
     reference.trim().toUpperCase(),
   ]);
-  return rows.length ? mapOrder(rows[0]) : null;
+  return rows.length ? (await withItems(rows))[0] : null;
+}
+
+/** Every order belonging to an account, newest first — the My Orders list. */
+export async function listOrdersForUser(userId: number): Promise<Order[]> {
+  const rows = await query<OrderRow[]>(
+    `${SELECT_ORDER} WHERE user_id = ? ORDER BY created_at DESC`,
+    [userId]
+  );
+  return withItems(rows);
+}
+
+/**
+ * One order, scoped to its owner.
+ *
+ * The ownership check lives in the SQL rather than in the caller so there is
+ * no path where a signed-in customer can read another customer's order by
+ * pasting a reference into /account/orders.
+ */
+export async function getUserOrderByReference(
+  userId: number,
+  reference: string
+): Promise<Order | null> {
+  const rows = await query<OrderRow[]>(
+    `${SELECT_ORDER} WHERE user_id = ? AND reference = ? LIMIT 1`,
+    [userId, reference.trim().toUpperCase()]
+  );
+  return rows.length ? (await withItems(rows))[0] : null;
 }
 
 export async function getOrderByStripeSession(sessionId: string): Promise<Order | null> {
-  const rows = await query<OrderRow[]>(
-    `${SELECT_ORDER} WHERE stripe_session_id = ? LIMIT 1`,
-    [sessionId]
-  );
-  return rows.length ? mapOrder(rows[0]) : null;
+  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE stripe_session_id = ? LIMIT 1`, [
+    sessionId,
+  ]);
+  return rows.length ? (await withItems(rows))[0] : null;
 }
 
 export async function getOrderEvents(orderId: number): Promise<OrderEvent[]> {
-  const rows = await query<(RowDataPacket & {
-    status: string;
-    note: string | null;
-    actor: string;
-    created_at: Date;
-  })[]>(
+  const rows = await query<
+    (RowDataPacket & {
+      status: string;
+      note: string | null;
+      actor: string;
+      created_at: Date;
+    })[]
+  >(
     `SELECT status, note, actor, created_at FROM order_events
      WHERE order_id = ? ORDER BY created_at ASC, id ASC`,
     [orderId]
@@ -219,13 +313,18 @@ export async function listOrders(filters: OrderListFilters = {}) {
   const params: unknown[] = [];
 
   if (status) {
-    where.push('status = ?');
+    where.push('o.status = ?');
     params.push(status);
   }
   if (search) {
-    where.push('(reference LIKE ? OR customer_email LIKE ? OR customer_name LIKE ?)');
+    // Searching a date has to reach into the items now that dates live there.
+    where.push(
+      `(o.reference LIKE ? OR o.customer_email LIKE ? OR o.customer_name LIKE ?
+        OR EXISTS (SELECT 1 FROM order_items i
+                    WHERE i.order_id = o.id AND i.display_date LIKE ?))`
+    );
     const like = `%${search}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
 
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -238,16 +337,17 @@ export async function listOrders(filters: OrderListFilters = {}) {
   const safeOffset = Math.min(Math.max(Math.trunc(offset) || 0, 0), 1_000_000);
 
   const rows = await query<OrderRow[]>(
-    `${SELECT_ORDER} ${clause} ORDER BY created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+    `SELECT o.* FROM orders o ${clause}
+      ORDER BY o.created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`,
     params
   );
 
   const [countRow] = await query<(RowDataPacket & { total: number })[]>(
-    `SELECT COUNT(*) AS total FROM orders ${clause}`,
+    `SELECT COUNT(*) AS total FROM orders o ${clause}`,
     params
   );
 
-  return { orders: rows.map(mapOrder), total: Number(countRow?.total ?? 0) };
+  return { orders: await withItems(rows), total: Number(countRow?.total ?? 0) };
 }
 
 export async function getStatusCounts(): Promise<Record<string, number>> {
@@ -261,12 +361,7 @@ export interface StatusUpdate {
   status: OrderStatus;
   note?: string | null;
   actor?: string;
-  noteDenomination?: string | null;
-  noteCondition?: string | null;
-  noteSerial?: string | null;
-  noteCountry?: string | null;
   trackingNumber?: string | null;
-  pricePaise?: number | null;
 }
 
 export async function updateOrderStatus(
@@ -279,18 +374,14 @@ export async function updateOrderStatus(
       [reference.trim().toUpperCase()]
     );
     if (!existing.length) return null;
+    const orderId = existing[0].id;
 
     const fields: string[] = ['status = ?'];
     const params: unknown[] = [update.status];
 
     const optionalColumns: Array<[string, unknown]> = [
-      ['note_denomination', update.noteDenomination],
-      ['note_condition', update.noteCondition],
-      ['note_serial', update.noteSerial],
-      ['note_country', update.noteCountry],
       ['tracking_number', update.trackingNumber],
       ['admin_notes', update.note],
-      ['price_paise', update.pricePaise],
     ];
     for (const [column, value] of optionalColumns) {
       if (value !== undefined && value !== null && value !== '') {
@@ -299,19 +390,107 @@ export async function updateOrderStatus(
       }
     }
 
-    params.push(existing[0].id);
+    params.push(orderId);
     await conn.execute(`UPDATE orders SET ${fields.join(', ')} WHERE id = ?`, params as never[]);
 
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor) VALUES (?, ?, ?, ?)`,
-      [existing[0].id, update.status, update.note || null, update.actor || 'admin']
+      [orderId, update.status, update.note || null, update.actor || 'admin']
     );
 
-    const [rows] = await conn.execute<OrderRow[]>(`${SELECT_ORDER} WHERE id = ?`, [
-      existing[0].id,
-    ]);
-    return mapOrder(rows[0]);
+    return readOrder(conn, orderId);
   });
+}
+
+export interface ItemUpdate {
+  availability?: ItemAvailability;
+  pricePaise?: number | null;
+  noteDenomination?: string | null;
+  noteCondition?: string | null;
+  noteSerial?: string | null;
+  noteCountry?: string | null;
+}
+
+/**
+ * Updates one note within an order and recomputes the order total.
+ *
+ * Refuses once the order is paid: the customer has been charged a specific
+ * amount for a specific set of notes, and quietly changing either afterwards
+ * would leave the receipt and the record disagreeing.
+ */
+export async function updateOrderItem(
+  reference: string,
+  itemId: number,
+  update: ItemUpdate
+): Promise<Order | null> {
+  return transaction(async (conn) => {
+    const [existing] = await conn.execute<OrderRow[]>(
+      `${SELECT_ORDER} WHERE reference = ? LIMIT 1 FOR UPDATE`,
+      [reference.trim().toUpperCase()]
+    );
+    if (!existing.length) return null;
+    const order = existing[0];
+    if (order.status === 'paid' || order.status === 'shipped') {
+      throw new PaidOrderError();
+    }
+
+    const [items] = await conn.execute<ItemRow[]>(
+      'SELECT id FROM order_items WHERE id = ? AND order_id = ? LIMIT 1',
+      [itemId, order.id]
+    );
+    if (!items.length) return null;
+
+    const fields: string[] = [];
+    const params: unknown[] = [];
+    const columns: Array<[string, unknown]> = [
+      ['availability', update.availability],
+      ['note_denomination', update.noteDenomination],
+      ['note_condition', update.noteCondition],
+      ['note_serial', update.noteSerial],
+      ['note_country', update.noteCountry],
+    ];
+    for (const [column, value] of columns) {
+      if (value === undefined) continue;
+      fields.push(`${column} = ?`);
+      params.push(value === '' ? null : value);
+    }
+    // Price is handled separately: 0 and null both mean "no price", and the
+    // loop above would treat an explicit null as a value worth writing.
+    if (update.pricePaise !== undefined) {
+      fields.push('price_paise = ?');
+      params.push(
+        update.pricePaise && update.pricePaise > 0 ? Math.round(update.pricePaise) : null
+      );
+    }
+
+    if (fields.length) {
+      params.push(itemId);
+      await conn.execute(
+        `UPDATE order_items SET ${fields.join(', ')} WHERE id = ?`,
+        params as never[]
+      );
+    }
+
+    await recomputeTotal(conn, order.id);
+    return readOrder(conn, order.id);
+  });
+}
+
+/** Thrown when an admin tries to change the notes on an order already paid for. */
+export class PaidOrderError extends Error {
+  constructor() {
+    super('This order has been paid for — its notes can no longer be changed.');
+    this.name = 'PaidOrderError';
+  }
+}
+
+async function readOrder(conn: PoolConnection, orderId: number): Promise<Order> {
+  const [rows] = await conn.execute<OrderRow[]>(`${SELECT_ORDER} WHERE id = ?`, [orderId]);
+  const [items] = await conn.execute<ItemRow[]>(
+    'SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id',
+    [orderId]
+  );
+  return mapOrder(rows[0], items.map(mapItem));
 }
 
 export async function attachStripeSession(orderId: number, sessionId: string) {
@@ -350,10 +529,7 @@ export async function markOrderPaid(
       [order.id]
     );
 
-    const [updated] = await conn.execute<OrderRow[]>(`${SELECT_ORDER} WHERE id = ?`, [
-      order.id,
-    ]);
-    return mapOrder(updated[0]);
+    return readOrder(conn, order.id);
   });
 }
 

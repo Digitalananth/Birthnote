@@ -1,0 +1,163 @@
+'use client';
+
+import React, { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Icon from '@/components/ui/AppIcon';
+import type { Order, OrderItem, ItemAvailability } from '@/lib/order-types';
+import { formatPrice } from '@/lib/validation';
+
+/**
+ * The fulfilment control for one note within an order.
+ *
+ * Availability and price are per note, so finding four dates out of five costs
+ * the customer only the one that is missing. The order total is recomputed
+ * server-side from these rows — nobody types a total anywhere.
+ */
+export default function ItemActions({ order, item }: { order: Order; item: OrderItem }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [fields, setFields] = useState({
+    // Prefilled from what the customer asked for, so the common case is one
+    // click rather than retyping the denomination they already told us.
+    noteDenomination:
+      item.noteDenomination ?? (item.requestedDenomination ? `₹${item.requestedDenomination}` : ''),
+    noteCountry: item.noteCountry ?? 'India',
+    noteCondition: item.noteCondition ?? '',
+    noteSerial: item.noteSerial ?? '',
+    rupees: item.pricePaise ? String(item.pricePaise / 100) : '',
+  });
+
+  const locked = order.status === 'paid' || order.status === 'shipped';
+
+  const save = async (availability?: ItemAvailability) => {
+    setError('');
+    setBusy(true);
+    try {
+      const rupees = Number.parseFloat(fields.rupees);
+      const response = await fetch(`/api/admin/orders/${order.reference}/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          availability,
+          noteDenomination: fields.noteDenomination,
+          noteCountry: fields.noteCountry,
+          noteCondition: fields.noteCondition,
+          noteSerial: fields.noteSerial,
+          // Rupees in the form, paise in the database — the conversion
+          // happens here so the admin never types a minor unit.
+          pricePaise: Number.isFinite(rupees) && rupees > 0 ? Math.round(rupees * 100) : null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Update failed.');
+      startTransition(() => router.refresh());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Update failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = (name: keyof typeof fields, label: string, placeholder = '') => (
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <input
+        value={fields[name]}
+        placeholder={placeholder}
+        disabled={locked}
+        onChange={(event) => setFields((prev) => ({ ...prev, [name]: event.target.value }))}
+        className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+      />
+    </label>
+  );
+
+  const state = {
+    pending: { label: 'Not checked yet', color: 'text-muted-foreground' },
+    available: { label: 'Found', color: 'text-green-700' },
+    unavailable: { label: 'Not found', color: 'text-red-600' },
+  }[item.availability];
+
+  return (
+    <div className="border border-border rounded-xl p-5 flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <p className="font-mono font-bold text-foreground tracking-wide">
+            {item.displayDate}
+            {item.requestedDenomination && (
+              <span className="font-sans font-medium text-sm text-muted-foreground">
+                {' '}
+                · ₹{item.requestedDenomination} asked for
+              </span>
+            )}
+          </p>
+          {(item.giftFor || item.giftRelationship) && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {item.giftRelationship && `For ${item.giftRelationship.toLowerCase()}`}
+              {item.giftFor && ` — ${item.giftFor}`}
+            </p>
+          )}
+        </div>
+        <p className={`text-xs font-semibold ${state.color}`}>
+          {state.label}
+          {item.pricePaise ? ` · ${formatPrice(item.pricePaise, order.currency)}` : ''}
+        </p>
+      </div>
+
+      {!locked && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {field('noteDenomination', 'Denomination found', '₹10 Reserve Bank of India Note')}
+            {field('noteCountry', 'Country')}
+            {field('noteCondition', 'Condition', 'Fine (F)')}
+            {field('noteSerial', 'Serial prefix', '9AB')}
+            {field('rupees', 'Price for this note (₹)', '2499')}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || isPending}
+              onClick={() => save('available')}
+              className="px-3.5 py-2 rounded-lg bg-green-700 text-white text-xs font-semibold hover:bg-green-800 transition-colors disabled:opacity-40"
+            >
+              {busy ? 'Saving…' : 'Found — save'}
+            </button>
+            <button
+              type="button"
+              disabled={busy || isPending}
+              onClick={() => save('unavailable')}
+              className="px-3.5 py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-40"
+            >
+              Not found
+            </button>
+            {item.availability !== 'pending' && (
+              <button
+                type="button"
+                disabled={busy || isPending}
+                onClick={() => save('pending')}
+                className="px-3.5 py-2 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {locked && (
+        <p className="text-xs text-muted-foreground">
+          Paid for — the notes on this order can no longer be changed.
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="flex items-start gap-2 text-xs text-red-600">
+          <Icon name="ExclamationTriangleIcon" size={14} className="mt-0.5 shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}

@@ -4,15 +4,17 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import RequestHeroSection from '@/app/request-a-banknote/components/RequestHeroSection';
 import RequestFormSection from '@/app/request-a-banknote/components/RequestFormSection';
+import { getCurrentUser } from '@/lib/session';
 
 /**
- * Rendering strategy: SSG.
+ * Rendering strategy: SSR.
  *
- * The page is identical for every visitor — only the form inside it is
- * interactive — so it is prerendered once at build time and served as static
- * HTML. The submission goes to /api/requests, which is dynamic.
+ * This page was static until accounts arrived. It now reads the session so a
+ * signed-in customer's name and email are already filled in, which cannot be
+ * done from a prerendered page. Fetching the user from the browser instead
+ * would keep the HTML static but flash an empty form on every load.
  */
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Request a banknote — BirthNote',
@@ -21,13 +23,15 @@ export const metadata: Metadata = {
   alternates: { canonical: '/request-a-banknote' },
 };
 
-export default function RequestABanknotePage() {
+export default async function RequestABanknotePage() {
+  const user = await getCurrentUser();
+
   return (
     <>
       <Header />
       <main>
         <RequestHeroSection />
-        <RequestFormSection />
+        <RequestFormSection user={user && { name: user.name, email: user.email }} />
       </main>
       <Footer />
     </>

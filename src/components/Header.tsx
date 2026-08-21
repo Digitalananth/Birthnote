@@ -29,6 +29,10 @@ export default function Header() {
     { label: 'What You Receive', href: '/#what-you-receive' },
     { label: 'Stories', href: '/#stories' },
     { label: 'Track Order', href: '/track-order' },
+    // Deliberately not personalised: showing the signed-in name here would
+    // force every page carrying the header to render per request, costing the
+    // home page its ISR. /account redirects to /login when nobody is signed in.
+    { label: 'My Account', href: '/account' },
   ];
 
   return (

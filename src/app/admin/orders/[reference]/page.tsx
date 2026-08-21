@@ -1,10 +1,11 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import StatusActions from '@/app/admin/components/StatusActions';
-import { isAdminAuthenticated } from '@/lib/auth';
+import ItemActions from '@/app/admin/components/ItemActions';
+import { requireAdmin } from '@/lib/auth';
 import { getOrderByReference, getOrderEvents } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
@@ -27,9 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AdminOrderPage({ params }: PageProps) {
   const { reference } = await params;
-  if (!(await isAdminAuthenticated())) {
-    redirect(`/admin/login?next=/admin/orders/${reference}`);
-  }
+  await requireAdmin(`/admin/orders/${reference}`);
   if (!isValidReference(reference)) notFound();
 
   const order = await getOrderByReference(reference);
@@ -69,12 +68,13 @@ export default async function AdminOrderPage({ params }: PageProps) {
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
             {[
-              ['Date requested', order.displayDate],
-              ['Full date', order.noteDate],
+              ['Notes requested', String(order.items.length)],
               ['Customer', order.customerName],
               ['Email', order.customerEmail],
-              ['Gift for', order.giftFor],
-              ['Price', formatPrice(order.pricePaise, order.currency)],
+              ['Account', order.userId ? 'Registered customer' : 'Guest checkout'],
+              // Summed from the notes marked found and priced below — never
+              // typed by hand, so the total and the breakdown cannot disagree.
+              ['Total', formatPrice(order.pricePaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
               ['Stripe session', order.stripeSessionId],
             ]
@@ -99,6 +99,22 @@ export default async function AdminOrderPage({ params }: PageProps) {
               </p>
             </div>
           )}
+        </div>
+
+        {/* One control per requested note */}
+        <div className="card-warm p-8">
+          <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-2">
+            {order.items.length > 1 ? `The ${order.items.length} notes` : 'The note'}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+            Mark each one found or not found and give the found ones a price. The order total is the
+            sum of what you price here.
+          </p>
+          <div className="flex flex-col gap-4">
+            {order.items.map((item) => (
+              <ItemActions key={item.id} order={order} item={item} />
+            ))}
+          </div>
         </div>
 
         {/* Fulfilment actions */}

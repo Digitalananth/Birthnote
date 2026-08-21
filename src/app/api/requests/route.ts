@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { validateRequest, type RequestFormValues } from '@/lib/validation';
-import { createOrder } from '@/lib/orders';
+import { createOrder, summariseOrder } from '@/lib/orders';
 import { sendMail, requestReceivedEmail, newRequestAdminEmail } from '@/lib/mail';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
+import { getCurrentUser } from '@/lib/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // A signed-in customer owns the order; guests still get one with no owner.
+  const user = await getCurrentUser();
+
   const result = validateRequest(payload);
   if (!result.valid || !result.normalised) {
     return NextResponse.json({ errors: result.errors }, { status: 422 });
@@ -42,12 +46,17 @@ export async function POST(request: Request) {
 
   try {
     const order = await createOrder({
-      noteDate: values.noteDate,
-      displayDate: values.displayDate,
-      customerName: values.name,
-      customerEmail: values.email,
-      giftFor: values.giftFor,
+      customerName: user ? user.name : values.name,
+      customerEmail: user ? user.email : values.email,
+      userId: user?.id ?? null,
       message: values.message,
+      items: values.items.map((item) => ({
+        noteDate: item.noteDate,
+        displayDate: item.displayDate,
+        requestedDenomination: item.denomination,
+        giftRelationship: item.giftRelationship,
+        giftFor: item.giftFor,
+      })),
     });
 
     // Email is a side effect: awaited so SMTP errors are logged, but its
@@ -59,7 +68,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         reference: order.reference,
-        displayDate: order.displayDate,
+        summary: summariseOrder(order),
+        itemCount: order.items.length,
         status: order.status,
         trackUrl: `/track-order/${order.reference}`,
       },

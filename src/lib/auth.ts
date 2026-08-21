@@ -1,60 +1,30 @@
 import 'server-only';
-import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
+import { cache } from 'react';
+import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { env } from '@/lib/env';
+import { redirect } from 'next/navigation';
+import type { RowDataPacket } from 'mysql2';
+import { query } from '@/lib/db';
+import { getAdminById, type AdminUser } from '@/lib/admin-users';
 
 /**
- * Minimal signed-cookie session for the admin panel.
+ * Admin sessions.
  *
- * There is exactly one admin (the shop owner), so a full user table would be
- * overhead. The cookie holds `issuedAt.nonce.hmac`; without the server secret
- * it cannot be forged, and the timestamp expires it.
+ * This used to be a stateless signed cookie holding nothing but a timestamp,
+ * because there was exactly one admin and one shared password. With real
+ * accounts that no longer works: removing someone's access has to end their
+ * session immediately, and a signed cookie cannot be taken back.
+ *
+ * Same shape as the customer sessions in `src/lib/session.ts` — a random
+ * token in the cookie, only its SHA-256 in the table.
  */
-const COOKIE_NAME = 'birthnote_admin';
+const COOKIE_NAME = 'birthnote_admin_session';
+
+/**
+ * Twelve hours, matching the old cookie: an admin session lives on a machine
+ * that also handles money, so it expires far sooner than a customer's 30 days.
+ */
 const MAX_AGE_SECONDS = 60 * 60 * 12;
-
-function sign(payload: string): string {
-  return createHmac('sha256', env.admin.sessionSecret()).update(payload).digest('hex');
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
-export function createSessionToken(): string {
-  const payload = `${Date.now()}.${randomBytes(12).toString('hex')}`;
-  return `${payload}.${sign(payload)}`;
-}
-
-export function verifySessionToken(token: string | undefined): boolean {
-  if (!token) return false;
-  const parts = token.split('.');
-  if (parts.length !== 3) return false;
-  const [issuedAt, nonce, signature] = parts;
-  if (!safeEqual(signature, sign(`${issuedAt}.${nonce}`))) return false;
-  const age = (Date.now() - Number.parseInt(issuedAt, 10)) / 1000;
-  return Number.isFinite(age) && age >= 0 && age < MAX_AGE_SECONDS;
-}
-
-/** Constant-time password check so the endpoint leaks no timing signal. */
-export function checkAdminPassword(candidate: string): boolean {
-  const expected = env.admin.password();
-  const a = createHmac('sha256', 'pw').update(candidate).digest();
-  const b = createHmac('sha256', 'pw').update(expected).digest();
-  return timingSafeEqual(a, b);
-}
-
-export async function isAdminAuthenticated(): Promise<boolean> {
-  try {
-    const store = await cookies();
-    return verifySessionToken(store.get(COOKIE_NAME)?.value);
-  } catch {
-    return false;
-  }
-}
 
 export const adminCookie = {
   name: COOKIE_NAME,
@@ -66,3 +36,95 @@ export const adminCookie = {
     maxAge: MAX_AGE_SECONDS,
   },
 };
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+export async function createAdminSession(
+  adminUserId: number,
+  userAgent?: string | null
+): Promise<string> {
+  const token = randomBytes(32).toString('hex');
+  await query(
+    `INSERT INTO admin_sessions (admin_user_id, token_hash, user_agent, expires_at)
+     VALUES (?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND)`,
+    [adminUserId, hashToken(token), userAgent?.slice(0, 255) || null, MAX_AGE_SECONDS]
+  );
+  return token;
+}
+
+/**
+ * The signed-in admin, or null.
+ *
+ * Re-reads `is_active` on every request, so revoking an account takes effect
+ * on their next click rather than whenever their session happens to expire.
+ */
+export const getCurrentAdmin = cache(async (): Promise<AdminUser | null> => {
+  let token: string | undefined;
+  try {
+    token = (await cookies()).get(COOKIE_NAME)?.value;
+  } catch {
+    return null;
+  }
+  if (!token) return null;
+
+  const rows = await query<(RowDataPacket & { admin_user_id: number })[]>(
+    `SELECT admin_user_id FROM admin_sessions
+      WHERE token_hash = ? AND expires_at > UTC_TIMESTAMP() LIMIT 1`,
+    [hashToken(token)]
+  );
+  if (!rows.length) return null;
+
+  const admin = await getAdminById(rows[0].admin_user_id);
+  return admin?.isActive ? admin : null;
+});
+
+export async function isAdminAuthenticated(): Promise<boolean> {
+  return (await getCurrentAdmin()) !== null;
+}
+
+/** Guard for admin pages. Redirects to the login screen when signed out. */
+export async function requireAdmin(next = '/admin'): Promise<AdminUser> {
+  const admin = await getCurrentAdmin();
+  if (!admin) redirect(`/admin/login?next=${encodeURIComponent(next)}`);
+  return admin;
+}
+
+/**
+ * Guard for user management.
+ *
+ * Sends a signed-in but unauthorised admin to the order queue rather than the
+ * login page — they are not anonymous, they simply cannot come in here.
+ */
+export async function requireOwner(next = '/admin/users'): Promise<AdminUser> {
+  const admin = await requireAdmin(next);
+  if (admin.role !== 'owner') redirect('/admin');
+  return admin;
+}
+
+export async function destroyAdminSession(): Promise<void> {
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  if (token) {
+    await query('DELETE FROM admin_sessions WHERE token_hash = ?', [hashToken(token)]);
+  }
+}
+
+/**
+ * Ends every session for an admin.
+ *
+ * Called when an account is deactivated, deleted, or has its password changed
+ * by someone else — the point of those actions is that the person is out now,
+ * not in twelve hours.
+ */
+export async function destroyAllAdminSessions(adminUserId: number): Promise<void> {
+  await query('DELETE FROM admin_sessions WHERE admin_user_id = ?', [adminUserId]);
+}
+
+export async function pruneExpiredAdminSessions(): Promise<void> {
+  try {
+    await query('DELETE FROM admin_sessions WHERE expires_at < UTC_TIMESTAMP()');
+  } catch (error) {
+    console.error('[admin-session] prune failed', error);
+  }
+}

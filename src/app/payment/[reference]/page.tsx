@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
+import OrderNotes from '@/components/OrderNotes';
 import PaymentHeroSection from '@/app/payment/components/PaymentHeroSection';
 import CheckoutButton from '@/app/payment/components/CheckoutButton';
 import { getOrderByReference } from '@/lib/orders';
@@ -112,36 +113,22 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
                 Order summary
               </h2>
 
-              <div className="flex items-baseline justify-between pb-4 mb-4 border-b border-border">
-                <div>
-                  <p className="font-sans font-bold text-foreground">
-                    Banknote from{' '}
-                    <span className="font-mono text-primary">{order.displayDate}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Reference {order.reference}
-                  </p>
-                </div>
-                <p className="font-sans font-bold text-foreground">{amountLabel}</p>
+              <div className="pb-4 mb-4 border-b border-border">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Reference {order.reference}
+                </p>
+                {/*
+                  Every requested note is listed, found or not, so the customer
+                  can see exactly what they are being charged for and what they
+                  are not.
+                */}
+                <OrderNotes order={order} showPrices showDetails />
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-6">
-                {[
-                  ['Denomination', order.noteDenomination],
-                  ['Country', order.noteCountry],
-                  ['Condition', order.noteCondition],
-                  ['Serial prefix', order.noteSerial],
-                ]
-                  .filter(([, value]) => Boolean(value))
-                  .map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-muted-foreground text-xs uppercase tracking-wide mb-0.5">
-                        {label}
-                      </dt>
-                      <dd className="text-foreground font-medium">{value}</dd>
-                    </div>
-                  ))}
-              </dl>
+              <div className="flex items-baseline justify-between mb-6">
+                <p className="font-sans font-bold text-foreground">Total</p>
+                <p className="font-sans font-bold text-foreground">{amountLabel}</p>
+              </div>
 
               <div className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {[

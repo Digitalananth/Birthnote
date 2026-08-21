@@ -63,9 +63,16 @@ export const env = {
     enabled: () => bool('MAIL_ENABLED', true) && Boolean(optional('SMTP_USER')),
   },
 
+  /**
+   * Bootstrap credentials for the very first admin account.
+   *
+   * Read only by scripts/migrate.mjs, and only when admin_users is empty.
+   * Admins are real records now — there is no shared password, and admin
+   * sessions carry an opaque token, so there is nothing left to sign.
+   */
   admin: {
-    password: () => required('ADMIN_PASSWORD'),
-    sessionSecret: () => required('ADMIN_SESSION_SECRET'),
+    bootstrapEmail: () => optional('ADMIN_EMAIL'),
+    bootstrapPassword: () => optional('ADMIN_PASSWORD'),
   },
 
   /** Order total in paise. ₹2,499 by default — set the real price in .env. */

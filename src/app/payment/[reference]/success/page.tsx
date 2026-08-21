@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
-import { getOrderByReference } from '@/lib/orders';
+import { getOrderByReference, availableItems } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 
 /**
@@ -40,6 +40,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
   if (!order) notFound();
 
   const settled = order.status === 'paid' || order.status === 'shipped';
+  const notes = availableItems(order);
 
   return (
     <>
@@ -61,11 +62,23 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
             </h1>
 
             <p className="font-serif italic text-lg text-muted-foreground mb-2 leading-relaxed">
-              Your note from{' '}
-              <span className="text-primary font-semibold not-italic font-mono">
-                {order.displayDate}
-              </span>{' '}
-              {settled ? 'is on its way.' : 'is nearly yours.'}
+              {notes.length > 1 ? (
+                <>
+                  Your{' '}
+                  <span className="text-primary font-semibold not-italic">
+                    {notes.length} notes
+                  </span>{' '}
+                  {settled ? 'are on their way.' : 'are nearly yours.'}
+                </>
+              ) : (
+                <>
+                  Your note from{' '}
+                  <span className="text-primary font-semibold not-italic font-mono">
+                    {notes[0]?.displayDate}
+                  </span>{' '}
+                  {settled ? 'is on its way.' : 'is nearly yours.'}
+                </>
+              )}
             </p>
 
             <p className="text-sm text-muted-foreground mb-10 leading-relaxed">
