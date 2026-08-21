@@ -203,6 +203,34 @@ Things worth knowing before changing this code:
 - **Deleting a category keeps its posts** — the foreign key nulls their
   `category_id` rather than cascading.
 
+## Installable app and WhatsApp updates
+
+The site is installable as a PWA — manifest at `src/app/manifest.ts`, worker
+at `public/sw.js`, offline fallback at `/offline`. It is not offline-capable
+and does not pretend to be: everything past the marketing copy is an order, an
+account or a payment.
+
+**Nothing personal is ever cached.** `NEVER_CACHE` in `public/sw.js` sends
+`/api`, `/admin`, `/account`, `/payment`, `/track-order` and the auth pages
+straight to the network. A phone is often shared, and a cached tracking page
+would show one person's order to the next. Change that list carefully.
+
+Order updates also go out on WhatsApp through the Meta Cloud API, alongside
+the emails:
+
+- **Consent is per order** (`orders.whatsapp_opt_in`), because guests order
+  too and consent is given at the point of ordering. A signed-in customer's
+  number is prefilled from their profile, but the box still starts unticked.
+- **Messages must use templates Meta approved in advance.** Nothing here can
+  send free text — the wording lives in Meta's dashboard and
+  `src/lib/whatsapp.ts` supplies only the placeholder values. The five
+  templates and their placeholders are listed in
+  `docs/phase-5-pwa-whatsapp.md`; create them before switching this on.
+- **Failures are logged and swallowed**, exactly as with email. Leave
+  `WHATSAPP_ACCESS_TOKEN` blank to log messages instead of sending them.
+
+`GET /api/health` reports whether WhatsApp is wired up.
+
 ## Rendering strategy
 
 Each route picks the cheapest mode that is still correct:
@@ -222,6 +250,7 @@ Each route picks the cheapest mode that is still correct:
 | `/admin/pages`, `/admin/blog` | **SSR** | Content lists and editors |
 | `/<slug>`, `/blog/[slug]`, `/blog/category/[slug]` | **ISR** (`revalidate = 3600`) | CMS content: cached, but never prerendered at build |
 | `/blog`, `/sitemap.xml` | **SSR** | Read the whole collection, so always rendered fresh |
+| `/offline` | **SSG** | Must render from the cache with no network |
 | `/admin/login`, `/admin/reset-password/[token]` | **SSR** | Session state and token validity are read fresh |
 | `/api/*` | Dynamic route handlers | — |
 
@@ -255,7 +284,8 @@ npm run db:migrate        # creates the tables
 npm run dev               # http://localhost:4028
 ```
 
-`GET /api/health` reports whether the database, Stripe, and mail are wired up.
+`GET /api/health` reports whether the database, Stripe, mail and WhatsApp are
+wired up.
 
 ### Environment
 
@@ -359,6 +389,7 @@ src/
 │   ├── order-types.ts          order shapes + helpers (client-safe)
 │   ├── content.ts              pages, posts and categories
 │   ├── markdown.ts             Markdown rendering, with HTML and URLs locked down
+│   ├── whatsapp.ts             Meta Cloud API template messages
 │   ├── rate-limit.ts           DB-backed request throttling
 │   └── validation.ts           rules shared by the form and the API
 └── middleware.ts               redirects unauthenticated /admin traffic

@@ -31,6 +31,8 @@ interface OrderRow extends RowDataPacket {
   user_id: number | null;
   customer_name: string;
   customer_email: string;
+  whatsapp: string | null;
+  whatsapp_opt_in: number;
   message: string | null;
   status: OrderStatus;
   price_paise: number;
@@ -85,6 +87,8 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
     userId: row.user_id,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
+    whatsapp: row.whatsapp,
+    whatsappOptIn: Boolean(row.whatsapp_opt_in),
     message: row.message,
     status: row.status,
     pricePaise: row.price_paise,
@@ -182,14 +186,16 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
       return await transaction(async (conn) => {
         const [result] = await conn.execute<ResultSetHeader>(
           `INSERT INTO orders
-             (reference, user_id, customer_name, customer_email, message,
-              status, price_paise, currency)
-           VALUES (?, ?, ?, ?, ?, 'pending', 0, 'INR')`,
+             (reference, user_id, customer_name, customer_email, whatsapp,
+              whatsapp_opt_in, message, status, price_paise, currency)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, 'INR')`,
           [
             reference,
             input.userId || null,
             input.customerName,
             input.customerEmail,
+            input.whatsapp || null,
+            input.whatsappOptIn ? 1 : 0,
             input.message || null,
           ]
         );

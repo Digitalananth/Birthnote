@@ -22,6 +22,8 @@ interface ItemRow extends RequestItemValues {
 interface FormData {
   name: string;
   email: string;
+  whatsapp: string;
+  whatsappOptIn: boolean;
   message: string;
   /** Honeypot — hidden from humans, filled in by bots. */
   website: string;
@@ -52,13 +54,17 @@ interface Props {
    * name and email from the session rather than the body, so editing these
    * fields in the browser cannot change whose order it is.
    */
-  user?: { name: string; email: string } | null;
+  user?: { name: string; email: string; whatsapp?: string | null } | null;
 }
 
 export default function RequestFormSection({ user = null }: Props) {
   const [formData, setFormData] = useState<FormData>({
     name: user?.name ?? '',
     email: user?.email ?? '',
+    // Prefilled from the profile, but the consent box still starts unticked:
+    // having someone's number is not the same as being asked to use it.
+    whatsapp: user?.whatsapp ?? '',
+    whatsappOptIn: false,
     message: '',
     website: '',
   });
@@ -506,6 +512,51 @@ export default function RequestFormSection({ user = null }: Props) {
                     </Link>{' '}
                     to keep every order in one place — or carry on as a guest.
                   </p>
+                )}
+              </div>
+
+              {/* WhatsApp updates */}
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.whatsappOptIn}
+                    onChange={(e) =>
+                      setFormData((p) => ({ ...p, whatsappOptIn: e.target.checked }))
+                    }
+                    className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-primary/30"
+                  />
+                  <span className="text-sm text-foreground leading-relaxed">
+                    Send me order updates on WhatsApp
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Availability, payment and dispatch — the same updates we email. Nothing else,
+                      and you can reply STOP at any time.
+                    </span>
+                  </span>
+                </label>
+
+                {formData.whatsappOptIn && (
+                  <div className="mt-4">
+                    <label
+                      htmlFor="whatsapp"
+                      className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
+                    >
+                      WhatsApp Number <span className="text-accent">*</span>
+                    </label>
+                    <div className={underline(errors.whatsapp)}>
+                      <input
+                        id="whatsapp"
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))}
+                        className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
+                      />
+                    </div>
+                    {errors.whatsapp && (
+                      <p className="text-xs text-red-500 mt-1">{errors.whatsapp}</p>
+                    )}
+                  </div>
                 )}
               </div>
 

@@ -4,6 +4,7 @@ import { createOrder, summariseOrder } from '@/lib/orders';
 import { sendMail, requestReceivedEmail, newRequestAdminEmail } from '@/lib/mail';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
+import { sendWhatsApp, orderReceivedWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,8 @@ export async function POST(request: Request) {
       customerEmail: user ? user.email : values.email,
       userId: user?.id ?? null,
       message: values.message,
+      whatsapp: values.whatsapp,
+      whatsappOptIn: values.whatsappOptIn,
       items: values.items.map((item) => ({
         noteDate: item.noteDate,
         displayDate: item.displayDate,
@@ -64,6 +67,9 @@ export async function POST(request: Request) {
     await sendMail(requestReceivedEmail(order));
     const adminMail = newRequestAdminEmail(order);
     if (adminMail) await sendMail(adminMail);
+
+    // Same rule as email: a side effect of the order, never part of it.
+    if (whatsAppRecipient(order)) await sendWhatsApp(orderReceivedWhatsApp(order));
 
     return NextResponse.json(
       {

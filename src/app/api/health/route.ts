@@ -14,6 +14,7 @@ export async function GET() {
       database,
       stripe: env.stripe.configured(),
       mail: env.smtp.enabled(),
+      whatsapp: env.whatsapp.enabled(),
       time: new Date().toISOString(),
     },
     { status: database ? 200 : 503 }

@@ -44,6 +44,10 @@ export interface Order {
   userId: number | null;
   customerName: string;
   customerEmail: string;
+  /** Where to send WhatsApp updates. Null when none was given. */
+  whatsapp: string | null;
+  /** Consent, captured per order — guests opt in too. */
+  whatsappOptIn: boolean;
   message: string | null;
   status: OrderStatus;
   /** The sum of the available items' prices. Recomputed whenever one changes. */
@@ -77,6 +81,8 @@ export interface NewOrderItemInput {
 export interface NewOrderInput {
   customerName: string;
   customerEmail: string;
+  whatsapp?: string | null;
+  whatsappOptIn?: boolean;
   userId?: number | null;
   message?: string | null;
   items: NewOrderItemInput[];

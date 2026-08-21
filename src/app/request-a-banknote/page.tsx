@@ -31,7 +31,9 @@ export default async function RequestABanknotePage() {
       <Header />
       <main>
         <RequestHeroSection />
-        <RequestFormSection user={user && { name: user.name, email: user.email }} />
+        <RequestFormSection
+          user={user && { name: user.name, email: user.email, whatsapp: user.whatsapp }}
+        />
       </main>
       <Footer />
     </>

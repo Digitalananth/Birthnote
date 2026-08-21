@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { markOrderPaid } from '@/lib/orders';
 import { sendMail, paymentReceivedEmail } from '@/lib/mail';
+import { sendWhatsApp, orderPaidWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -44,7 +45,12 @@ export async function POST(request: Request) {
           typeof session.payment_intent === 'string' ? session.payment_intent : null;
         // Returns null when another delivery of this event already applied it.
         const order = await markOrderPaid(session.id, paymentIntent);
-        if (order) await sendMail(paymentReceivedEmail(order));
+        // markOrderPaid returns the order only on the delivery that actually
+        // flipped it, so Stripe's retries cannot send this twice.
+        if (order) {
+          await sendMail(paymentReceivedEmail(order));
+          if (whatsAppRecipient(order)) await sendWhatsApp(orderPaidWhatsApp(order));
+        }
       }
     }
   } catch (error) {

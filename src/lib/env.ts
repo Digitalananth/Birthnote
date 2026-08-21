@@ -75,6 +75,40 @@ export const env = {
     bootstrapPassword: () => optional('ADMIN_PASSWORD'),
   },
 
+  /**
+   * WhatsApp via the Meta Cloud API.
+   *
+   * Business-initiated messages must use templates approved by Meta in
+   * advance, so the template *names* live here: the wording is edited in
+   * Meta's dashboard, and this code only supplies the placeholder values.
+   * Leave WHATSAPP_ACCESS_TOKEN blank to log messages instead of sending
+   * them, exactly as MAIL_ENABLED does for email.
+   */
+  whatsapp: {
+    /**
+     * Overridable so the integration can be pointed at a local stub in tests
+     * or at an outbound proxy, without touching the sending code.
+     */
+    apiBase: optional('WHATSAPP_API_BASE', 'https://graph.facebook.com').replace(/\/+$/, ''),
+    apiVersion: optional('WHATSAPP_API_VERSION', 'v21.0'),
+    phoneNumberId: () => required('WHATSAPP_PHONE_NUMBER_ID'),
+    accessToken: () => required('WHATSAPP_ACCESS_TOKEN'),
+    languageCode: optional('WHATSAPP_LANGUAGE', 'en'),
+    /** Most numbers here are Indian, so a bare 10-digit number gets +91. */
+    defaultCountryCode: optional('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
+    templates: {
+      received: optional('WHATSAPP_TEMPLATE_RECEIVED', 'order_received'),
+      confirmed: optional('WHATSAPP_TEMPLATE_CONFIRMED', 'order_confirmed'),
+      unavailable: optional('WHATSAPP_TEMPLATE_UNAVAILABLE', 'order_unavailable'),
+      paid: optional('WHATSAPP_TEMPLATE_PAID', 'order_paid'),
+      shipped: optional('WHATSAPP_TEMPLATE_SHIPPED', 'order_shipped'),
+    },
+    enabled: () =>
+      bool('WHATSAPP_ENABLED', true) &&
+      Boolean(optional('WHATSAPP_ACCESS_TOKEN')) &&
+      Boolean(optional('WHATSAPP_PHONE_NUMBER_ID')),
+  },
+
   /** Order total in paise. ₹2,499 by default — set the real price in .env. */
   pricePaise: int('BANKNOTE_PRICE_PAISE', 249900),
 };

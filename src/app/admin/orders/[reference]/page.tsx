@@ -72,6 +72,10 @@ export default async function AdminOrderPage({ params }: PageProps) {
               ['Customer', order.customerName],
               ['Email', order.customerEmail],
               ['Account', order.userId ? 'Registered customer' : 'Guest checkout'],
+              [
+                'WhatsApp',
+                order.whatsappOptIn ? order.whatsapp : order.whatsapp ? 'Not opted in' : null,
+              ],
               // Summed from the notes marked found and priced below — never
               // typed by hand, so the total and the breakdown cannot disagree.
               ['Total', formatPrice(order.pricePaise, order.currency)],

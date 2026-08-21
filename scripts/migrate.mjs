@@ -73,6 +73,19 @@ const alterations = [
     requiresColumn: 'display_date',
     ddl: 'ADD COLUMN requested_denomination SMALLINT UNSIGNED NULL AFTER message',
   },
+  // Phase 5: where to send WhatsApp updates, and whether the customer asked
+  // for them. Opt-in is stored per order rather than per person because
+  // consent is given at the point of ordering, including by guests.
+  {
+    table: 'orders',
+    column: 'whatsapp',
+    ddl: 'ADD COLUMN whatsapp VARCHAR(24) NULL AFTER customer_email',
+  },
+  {
+    table: 'orders',
+    column: 'whatsapp_opt_in',
+    ddl: 'ADD COLUMN whatsapp_opt_in TINYINT(1) NOT NULL DEFAULT 0 AFTER whatsapp',
+  },
   {
     table: 'orders',
     column: 'gift_relationship',

@@ -9,6 +9,13 @@ import {
 } from '@/lib/orders';
 import { isValidReference } from '@/lib/validation';
 import { sendMail, availabilityConfirmedEmail, unavailableEmail, shippedEmail } from '@/lib/mail';
+import {
+  sendWhatsApp,
+  whatsAppRecipient,
+  orderConfirmedWhatsApp,
+  orderUnavailableWhatsApp,
+  orderShippedWhatsApp,
+} from '@/lib/whatsapp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -103,13 +110,21 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   let emailed = false;
+  let messaged = false;
   if (body.notify !== false) {
-    if (status === 'confirmed') emailed = await sendMail(availabilityConfirmedEmail(order));
-    else if (status === 'unavailable') emailed = await sendMail(unavailableEmail(order));
-    else if (status === 'shipped') emailed = await sendMail(shippedEmail(order));
+    if (status === 'confirmed') {
+      emailed = await sendMail(availabilityConfirmedEmail(order));
+      if (whatsAppRecipient(order)) messaged = await sendWhatsApp(orderConfirmedWhatsApp(order));
+    } else if (status === 'unavailable') {
+      emailed = await sendMail(unavailableEmail(order));
+      if (whatsAppRecipient(order)) messaged = await sendWhatsApp(orderUnavailableWhatsApp(order));
+    } else if (status === 'shipped') {
+      emailed = await sendMail(shippedEmail(order));
+      if (whatsAppRecipient(order)) messaged = await sendWhatsApp(orderShippedWhatsApp(order));
+    }
   }
 
-  return NextResponse.json({ order, emailed });
+  return NextResponse.json({ order, emailed, messaged });
 }
 
 /** GET /api/admin/orders/:reference — full record including admin fields. */

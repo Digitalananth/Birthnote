@@ -19,6 +19,9 @@ export interface RequestItemValues {
 export interface RequestFormValues {
   name: string;
   email: string;
+  /** Optional: only used when whatsappOptIn is also true. */
+  whatsapp?: string;
+  whatsappOptIn?: boolean;
   message?: string;
   items: RequestItemValues[];
 }
@@ -61,6 +64,7 @@ export type RequestItemErrors = Partial<Record<keyof RequestItemValues, string>>
 export interface RequestFormErrors {
   name?: string;
   email?: string;
+  whatsapp?: string;
   message?: string;
   /** Whole-order problems: no rows, too many, duplicates. */
   items?: string;
@@ -111,6 +115,8 @@ export interface ValidatedRequest {
   normalised?: {
     name: string;
     email: string;
+    whatsapp: string | null;
+    whatsappOptIn: boolean;
     message: string | null;
     items: NormalisedItem[];
   };
@@ -192,6 +198,9 @@ export function validateRequest(
   const name = (values.name ?? '').trim();
   const email = (values.email ?? '').trim().toLowerCase();
   const message = (values.message ?? '').trim();
+  const whatsapp = (values.whatsapp ?? '').replace(/[\s\-()]/g, '');
+  // Consent without a number, or a number without consent, are both just "no".
+  const whatsappOptIn = Boolean(values.whatsappOptIn) && Boolean(whatsapp);
   const rows = Array.isArray(values.items) ? values.items : [];
 
   if (!name) {
@@ -208,6 +217,13 @@ export function validateRequest(
 
   if (message.length > 2000) {
     errors.message = 'Keep your message under 2000 characters';
+  }
+
+  // Only complain when they actually asked for WhatsApp updates.
+  if (values.whatsappOptIn && !whatsapp) {
+    errors.whatsapp = 'Add a WhatsApp number, or untick the box';
+  } else if (whatsapp && !/^\+?\d{8,15}$/.test(whatsapp)) {
+    errors.whatsapp = 'Enter a valid WhatsApp number';
   }
 
   if (!rows.length) {
@@ -238,13 +254,25 @@ export function validateRequest(
   }
 
   const valid =
-    !errors.name && !errors.email && !errors.message && !errors.items && !errors.itemErrors;
+    !errors.name &&
+    !errors.email &&
+    !errors.whatsapp &&
+    !errors.message &&
+    !errors.items &&
+    !errors.itemErrors;
   if (!valid) return { errors, valid };
 
   return {
     errors,
     valid,
-    normalised: { name, email, message: message || null, items },
+    normalised: {
+      name,
+      email,
+      whatsapp: whatsapp || null,
+      whatsappOptIn,
+      message: message || null,
+      items,
+    },
   };
 }
 

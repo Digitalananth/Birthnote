@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS orders (
   display_date      VARCHAR(10)     NOT NULL,
   customer_name     VARCHAR(160)    NOT NULL,
   customer_email    VARCHAR(190)    NOT NULL,
+  -- Added by migrate.mjs on databases that predate Phase 5.
+  whatsapp          VARCHAR(24)          NULL,
+  whatsapp_opt_in   TINYINT(1)      NOT NULL DEFAULT 0,
   gift_for          VARCHAR(160)         NULL,
   message           TEXT                 NULL,
   status            ENUM('pending','checking','confirmed','unavailable','paid','shipped')
