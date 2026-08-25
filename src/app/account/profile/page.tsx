@@ -1,7 +1,6 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import ProfileForm from '@/app/account/components/ProfileForm';
-import ChangePasswordForm from '@/app/account/components/ChangePasswordForm';
 import { requireUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -28,13 +27,6 @@ export default async function ProfilePage() {
             whatsapp: user.whatsapp,
           }}
         />
-      </section>
-
-      <section className="card-warm p-8">
-        <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-6">
-          Password
-        </h2>
-        <ChangePasswordForm />
       </section>
     </div>
   );

@@ -3,9 +3,8 @@ import { imageHosts } from './image-hosts.config.mjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: true,
-  // Emits .next/standalone with a self-contained server.js and only the
-  // node_modules actually used — this is what gets uploaded to Hostinger.
-  output: 'standalone',
+  // Hostinger Web Apps builds from source and starts the app with
+  // `npm start` (next start), so no standalone output is needed.
   poweredByHeader: false,
   compress: true,
   experimental: {

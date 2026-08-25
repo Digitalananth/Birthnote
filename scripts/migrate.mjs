@@ -109,6 +109,65 @@ const widenings = [
   },
 ];
 
+/**
+ * Columns that stopped being mandatory when the mobile number became the way
+ * in. Guarded on IS_NULLABLE so a deploy does not rebuild `users` every run.
+ *
+ * Dropping NOT NULL is the safe direction: every existing row already
+ * satisfies the looser rule, so this cannot fail on live data.
+ */
+const relaxations = [
+  {
+    table: 'users',
+    column: 'email',
+    // Accounts now sign in by SMS; an address is an optional extra for
+    // receipts, so it has to be allowed to be absent.
+    ddl: 'MODIFY COLUMN email VARCHAR(190) NULL',
+  },
+  {
+    table: 'users',
+    column: 'name',
+    // Someone can be signed in before they have told us their name.
+    ddl: "MODIFY COLUMN name VARCHAR(160) NOT NULL DEFAULT ''",
+  },
+];
+
+/**
+ * What the move to sign-in codes left behind.
+ *
+ * Both are dropped rather than left in place. A column of password hashes that
+ * nothing can ever check is not harmless: it is a store of secrets, still worth
+ * stealing and still worth someone's time to crack, kept for a login that no
+ * longer exists. The same goes for reset tokens whose reset flow is gone.
+ *
+ * This is irreversible, and it is meant to be — the passwords behind those
+ * hashes cannot sign anyone in any more either way. Anyone who had one signs in
+ * with a code from now on, exactly like a new customer.
+ */
+const drops = [
+  {
+    kind: 'column',
+    table: 'users',
+    column: 'password_hash',
+    ddl: 'ALTER TABLE users DROP COLUMN password_hash',
+  },
+  {
+    kind: 'table',
+    table: 'password_resets',
+    ddl: 'DROP TABLE IF EXISTS password_resets',
+  },
+  // Superseded by `auth_otps`, which keys on an identifier and a channel so a
+  // code can go to an address as well as to a number. The old table is dropped
+  // rather than migrated because nothing in it is worth keeping: every row is
+  // either already spent or a code that dies within ten minutes, and anyone
+  // mid-sign-in at deploy time simply asks for another one.
+  {
+    kind: 'table',
+    table: 'phone_otps',
+    ddl: 'DROP TABLE IF EXISTS phone_otps',
+  },
+];
+
 const indexes = [
   {
     table: 'orders',
@@ -206,6 +265,96 @@ async function backfillOrderItems() {
 }
 
 /**
+ * Canonical phone form, mirroring `normalisePhoneNumber` in
+ * src/lib/auth-validation.ts.
+ *
+ * Duplicated rather than imported because this script is plain Node and the
+ * app is TypeScript — keep the two in step if the rules ever change.
+ */
+function canonicalPhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  const cc = process.env.NEXT_PUBLIC_AUTH_DEFAULT_COUNTRY_CODE || process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || '91';
+  if (digits.length === 10) digits = `${cc}${digits}`;
+  if (digits.length === 11 && digits.startsWith('0')) digits = `${cc}${digits.slice(1)}`;
+  return digits.length >= 10 && digits.length <= 15 ? digits : null;
+}
+
+/**
+ * Prepares `users.phone` to be the account identifier.
+ *
+ * Before this change the column was a free-text optional field, so it holds
+ * whatever people typed: "+91 98765 43210", "098765 43210", blanks. Sign-in
+ * looks the number up by exact match, so every stored value is rewritten into
+ * the same canonical digits-only form first — otherwise a returning customer
+ * would fail to match their own row and get a second, empty account.
+ *
+ * The UNIQUE key is added only once no two accounts share a number. Two rows
+ * with the same number is a real conflict a script must not resolve by
+ * guessing which account is the person's, so it reports them and leaves the
+ * key off; sign-in still works, and the next run adds the key once the
+ * duplicates have been merged by hand.
+ */
+async function prepareUserPhones() {
+  const [rows] = await connection.query(
+    "SELECT id, phone FROM users WHERE phone IS NOT NULL AND phone <> ''"
+  );
+
+  let rewritten = 0;
+  let cleared = 0;
+  for (const row of rows) {
+    const canonical = canonicalPhone(row.phone);
+    if (canonical === row.phone) continue;
+    // A value that cannot be a real number is worse than no value: it can
+    // never be signed in with, and it could block the UNIQUE key.
+    await connection.query('UPDATE users SET phone = ? WHERE id = ?', [canonical, row.id]);
+    if (canonical) rewritten += 1;
+    else cleared += 1;
+  }
+  if (rewritten) console.log(`  Normalised ${rewritten} stored phone number(s)`);
+  if (cleared) console.log(`  Cleared ${cleared} unusable phone number(s)`);
+
+  // Empty strings would collide with each other under the UNIQUE key, where
+  // any number of NULLs are allowed.
+  await connection.query("UPDATE users SET phone = NULL WHERE phone = ''");
+  await connection.query("UPDATE users SET email = NULL WHERE email = ''");
+
+  // Accounts that predate sign-in codes may have no number on file, and the
+  // number is now the only way in. Nothing can be done about that from here —
+  // the point of saying so is that the shop owner learns it from a migration
+  // log rather than from a customer who cannot sign in.
+  const [[{ stranded }]] = await connection.query(
+    'SELECT COUNT(*) AS stranded FROM users WHERE phone IS NULL'
+  );
+  if (Number(stranded) > 0) {
+    console.warn(
+      `  ! ${stranded} account(s) have no mobile number and cannot sign in.\n` +
+        '    Their orders are safe and still reachable by reference. They will get\n' +
+        '    a new account when they next sign in with a number.'
+    );
+  }
+
+  if (await indexExists('users', 'uq_users_phone')) return;
+
+  const [dupes] = await connection.query(
+    `SELECT phone, COUNT(*) AS total FROM users
+      WHERE phone IS NOT NULL GROUP BY phone HAVING total > 1`
+  );
+  if (dupes.length) {
+    console.warn(
+      `  ! ${dupes.length} phone number(s) are on more than one account, so the\n` +
+        '    unique key was not added. Merge them, then re-run this script:\n' +
+        dupes.map((d) => `      ${d.phone} (${d.total} accounts)`).join('\n')
+    );
+    return;
+  }
+
+  await connection.query('ALTER TABLE users ADD UNIQUE KEY uq_users_phone (phone)');
+  console.log('  Added uq_users_phone');
+}
+
+/**
  * Hashes a password in the same `scrypt$salt$key` format as src/lib/users.ts.
  *
  * Duplicated here rather than imported because this script is plain Node and
@@ -260,6 +409,13 @@ const columnExists = (table, column) =>
     [process.env.MYSQL_DATABASE, table, column]
   );
 
+const tableExists = (table) =>
+  exists(
+    `SELECT COUNT(*) FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+    [process.env.MYSQL_DATABASE, table]
+  );
+
 const indexExists = (table, name) =>
   exists(
     `SELECT COUNT(*) FROM information_schema.STATISTICS
@@ -294,6 +450,29 @@ try {
     await connection.query(`ALTER TABLE ${table} ${ddl}`);
     applied.push(`${table}.${column} widened`);
   }
+  for (const { table, column, ddl } of relaxations) {
+    const [rows] = await connection.query(
+      `SELECT IS_NULLABLE AS nullable, COLUMN_DEFAULT AS deflt
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [process.env.MYSQL_DATABASE, table, column]
+    );
+    if (!rows.length) continue;
+    // `name` stays NOT NULL — for it the change is the default, not nullability.
+    const done = column === 'name' ? rows[0].deflt === '' : rows[0].nullable === 'YES';
+    if (done) continue;
+    await connection.query(`ALTER TABLE ${table} ${ddl}`);
+    applied.push(`${table}.${column} relaxed`);
+  }
+  for (const drop of drops) {
+    const present =
+      drop.kind === 'column'
+        ? await columnExists(drop.table, drop.column)
+        : await tableExists(drop.table);
+    if (!present) continue;
+    await connection.query(drop.ddl);
+    applied.push(`dropped ${drop.kind === 'column' ? `${drop.table}.${drop.column}` : drop.table}`);
+  }
   for (const { table, name, ddl } of indexes) {
     if (await indexExists(table, name)) continue;
     await connection.query(`ALTER TABLE ${table} ${ddl}`);
@@ -306,6 +485,7 @@ try {
   }
 
   await backfillOrderItems();
+  await prepareUserPhones();
   await seedFirstAdmin();
 
   const [tables] = await connection.query('SHOW TABLES');

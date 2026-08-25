@@ -67,11 +67,27 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 -- Phase 1: customer accounts
 -- ---------------------------------------------------------------------------
 
+-- The mobile number is the account identifier: people sign in with a one-time
+-- code sent by SMS, so `phone` is the unique key and `email` is an optional
+-- extra we use for receipts.
+--
+-- There is no `password_hash` column: a customer account has no password at
+-- all, only a number that can be sent a code. Admins are a separate table and
+-- keep theirs.
+--
+-- Two columns are nullable that the old email-and-password design would not
+-- have allowed, and each for a reason:
+--   * `email` — optional now, so it must accept NULL. MySQL permits any number
+--     of NULLs in a UNIQUE key, which is exactly the behaviour wanted: at most
+--     one account per address, unlimited accounts with no address at all.
+--   * `phone` — NOT NULL for anyone created from here on, but accounts that
+--     predate this change have no number on file and must not be deleted. The
+--     column stays nullable so they survive; they add a number the first time
+--     they sign in.
 CREATE TABLE IF NOT EXISTS users (
   id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name            VARCHAR(160)    NOT NULL,
-  email           VARCHAR(190)    NOT NULL,
-  password_hash   VARCHAR(255)    NOT NULL,
+  name            VARCHAR(160)    NOT NULL DEFAULT '',
+  email           VARCHAR(190)         NULL,
   phone           VARCHAR(24)          NULL,
   whatsapp        VARCHAR(24)          NULL,
   phone_verified  TINYINT(1)      NOT NULL DEFAULT 0,
@@ -80,7 +96,38 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
                                            ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email)
+  UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time sign-in codes.
+--
+-- A code belongs to an identifier — a canonical mobile number or an email
+-- address — and to the channel it went out on. Both are in the key: a code
+-- texted to a number must not be spendable against an address, or offering two
+-- ways in would become one way in for someone holding neither.
+--
+-- Only the SHA-256 of each code is stored, for the same reason session tokens
+-- are hashed: a database leak must not hand anyone a working credential. A
+-- six-digit code is small enough to brute-force in seconds if guessing were
+-- free, so `attempts` caps it at five tries and the row is spent either way.
+--
+-- Rows are kept after use rather than deleted, so `consumed_at` can prove a
+-- code was already redeemed and refuse to honour it twice.
+CREATE TABLE IF NOT EXISTS auth_otps (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  -- Wide enough for an email address; `users.email` is the same 190.
+  identifier   VARCHAR(190)    NOT NULL,
+  channel      VARCHAR(8)      NOT NULL DEFAULT 'sms',
+  code_hash    CHAR(64)        NOT NULL,
+  purpose      VARCHAR(24)     NOT NULL DEFAULT 'auth',
+  attempts     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  consumed_at  DATETIME             NULL,
+  expires_at   DATETIME        NOT NULL,
+  created_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_auth_otps_lookup (identifier, channel, purpose, expires_at),
+  KEY idx_auth_otps_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Only the SHA-256 of each session token is stored, so a database leak does
@@ -100,19 +147,9 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS password_resets (
-  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id     BIGINT UNSIGNED NOT NULL,
-  token_hash  CHAR(64)        NOT NULL,
-  expires_at  DATETIME        NOT NULL,
-  used_at     DATETIME             NULL,
-  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_resets_token (token_hash),
-  KEY idx_resets_user (user_id),
-  CONSTRAINT fk_resets_user FOREIGN KEY (user_id)
-    REFERENCES users (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- There is no `password_resets` table: customers have no password to reset.
+-- Losing access means asking for another code, which expires in ten minutes.
+-- Admins keep theirs, as `admin_password_resets` below.
 
 -- ---------------------------------------------------------------------------
 -- Phase 2: admin users and roles

@@ -1,9 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
-import LoginForm from '@/components/auth/LoginForm';
+import OtpAuthForm from '@/components/auth/OtpAuthForm';
 import { getCurrentUser } from '@/lib/session';
 
 /**
@@ -30,25 +29,12 @@ export default async function LoginPage({
   return (
     <AuthShell
       title="Welcome back."
-      subtitle="Sign in to see your requests, their status and tracking."
-      footer={
-        <>
-          New here?{' '}
-          <Link
-            href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
-            className="text-primary underline"
-          >
-            Create an account
-          </Link>
-        </>
-      }
+      subtitle="Enter your mobile number or email address and we will send you a code. Nothing to remember."
+      // No "create an account" link: the same two steps make one if the number
+      // or address has none, so a second route would be the same door offered
+      // twice. /signup exists for anyone who arrives with that link already.
     >
-      <LoginForm next={next} />
-      <p className="text-sm text-muted-foreground mt-6">
-        <Link href="/forgot-password" className="text-primary underline">
-          Forgotten your password?
-        </Link>
-      </p>
+      <OtpAuthForm next={next} />
     </AuthShell>
   );
 }

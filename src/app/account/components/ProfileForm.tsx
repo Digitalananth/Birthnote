@@ -5,32 +5,28 @@ import { useRouter } from 'next/navigation';
 import Field from '@/components/auth/Field';
 import SubmitButton from '@/components/auth/SubmitButton';
 import FormAlert from '@/components/auth/FormAlert';
-import { validateProfile, type FieldErrors, type ProfileValues } from '@/lib/auth-validation';
-
-interface Errors extends FieldErrors<ProfileValues> {
-  email?: string;
-  currentPassword?: string;
-}
+import {
+  validateProfile,
+  formatPhoneNumber,
+  type FieldErrors,
+  type ProfileValues,
+} from '@/lib/auth-validation';
 
 export default function ProfileForm({
   user,
 }: {
-  user: { name: string; email: string; phone: string | null; whatsapp: string | null };
+  user: { name: string; email: string | null; phone: string | null; whatsapp: string | null };
 }) {
   const router = useRouter();
   const [values, setValues] = useState({
     name: user.name,
-    email: user.email,
-    phone: user.phone ?? '',
+    email: user.email ?? '',
     whatsapp: user.whatsapp ?? '',
-    currentPassword: '',
   });
-  const [errors, setErrors] = useState<Errors>({});
+  const [errors, setErrors] = useState<FieldErrors<ProfileValues>>({});
   const [failure, setFailure] = useState('');
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const emailChanging = values.email.trim().toLowerCase() !== user.email;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -59,9 +55,8 @@ export default function ProfileForm({
         return;
       }
 
-      setValues((p) => ({ ...p, currentPassword: '' }));
       setSaved(true);
-      // The layout header shows the name and email, so re-render the server tree.
+      // The layout header shows the name, so re-render the server tree.
       router.refresh();
     } catch {
       setFailure('We could not reach the server. Check your connection and try again.');
@@ -72,10 +67,29 @@ export default function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+      {/*
+        The mobile number is shown, never edited: it is what this account signs
+        in with, so moving it would need a code sent to the new number to prove
+        it. Rendered as plain text rather than a disabled input so it does not
+        read as a field that is temporarily unavailable.
+      */}
+      <div>
+        <span className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">
+          Mobile number
+        </span>
+        <p className="py-3 text-base font-medium text-foreground border-b-2 border-border">
+          {formatPhoneNumber(user.phone) || 'Not set'}
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          This is how you sign in. Contact us if you need to change it.
+        </p>
+      </div>
+
       <Field
         id="name"
         label="Name"
         autoComplete="name"
+        placeholder="Full name"
         value={values.name}
         onChange={(name) => setValues((p) => ({ ...p, name }))}
         error={errors.name}
@@ -84,22 +98,13 @@ export default function ProfileForm({
         id="email"
         label="Email address"
         type="email"
+        optional
         autoComplete="email"
+        placeholder="your@email.com"
         value={values.email}
         onChange={(email) => setValues((p) => ({ ...p, email }))}
         error={errors.email}
-        hint="This is where every order update is sent."
-      />
-      <Field
-        id="phone"
-        label="Phone"
-        type="tel"
-        optional
-        autoComplete="tel"
-        placeholder="+91 98765 43210"
-        value={values.phone}
-        onChange={(phone) => setValues((p) => ({ ...p, phone }))}
-        error={errors.phone}
+        hint="Where receipts and order updates are sent. Leave it blank if you would rather not give one."
       />
       <Field
         id="whatsapp"
@@ -112,23 +117,6 @@ export default function ProfileForm({
         error={errors.whatsapp}
         hint="We will use this for order updates once WhatsApp notifications are live."
       />
-
-      {/*
-        Only asked for when the email is actually changing — the address is the
-        login identifier, so taking it over must cost more than an open tab.
-      */}
-      {emailChanging && (
-        <Field
-          id="currentPassword"
-          label="Current password"
-          type="password"
-          autoComplete="current-password"
-          value={values.currentPassword}
-          onChange={(currentPassword) => setValues((p) => ({ ...p, currentPassword }))}
-          error={errors.currentPassword}
-          hint="Required to change the email address on the account."
-        />
-      )}
 
       {failure && <FormAlert tone="error">{failure}</FormAlert>}
       {saved && <FormAlert tone="success">Your details have been saved.</FormAlert>}

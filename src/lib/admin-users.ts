@@ -1,7 +1,8 @@
 import 'server-only';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { query } from '@/lib/db';
-import { hashPassword, EmailTakenError } from '@/lib/users';
+import { hashPassword } from '@/lib/password';
+import { EmailTakenError } from '@/lib/users';
 import { ADMIN_ROLES, type AdminRole, type AdminUser } from '@/lib/admin-roles';
 
 /**

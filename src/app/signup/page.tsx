@@ -1,12 +1,20 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import AuthShell from '@/components/auth/AuthShell';
-import SignupForm from '@/components/auth/SignupForm';
+import OtpAuthForm from '@/components/auth/OtpAuthForm';
 import { getCurrentUser } from '@/lib/session';
 
-/** Rendering strategy: SSR — see /login. */
+/**
+ * Rendering strategy: SSR — see /login.
+ *
+ * Signing up and signing in are one flow now: enter a mobile number or an email
+ * address, enter the code, and an account is created if it has none. This page
+ * therefore renders the same form as /login and differs only in its wording. It
+ * is kept rather than redirected because "create an account" links to it from
+ * several places, and landing on a page titled "Welcome back" would read as
+ * having been sent somewhere else.
+ */
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -25,20 +33,9 @@ export default async function SignupPage({
   return (
     <AuthShell
       title="Create your account."
-      subtitle="One place for every date you ask us to find — with its status, price and tracking."
-      footer={
-        <>
-          Already have an account?{' '}
-          <Link
-            href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}
-            className="text-primary underline"
-          >
-            Sign in
-          </Link>
-        </>
-      }
+      subtitle="Just a mobile number or an email address — we will send a code to confirm it."
     >
-      <SignupForm next={next} />
+      <OtpAuthForm next={next} />
     </AuthShell>
   );
 }

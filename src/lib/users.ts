@@ -1,28 +1,21 @@
 import 'server-only';
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { query } from '@/lib/db';
 
-const scrypt = promisify(scryptCallback) as (
-  password: string,
-  salt: Buffer,
-  keylen: number
-) => Promise<Buffer>;
-
 /**
- * scrypt rather than bcrypt: bcrypt needs a native build that shared hosting
- * often cannot compile, while scrypt ships inside Node itself. N=16384 keeps a
- * single hash around 100ms on the small CPU this runs on — slow enough to make
- * offline cracking expensive, fast enough that a login is not noticeably slow.
+ * Customer accounts.
+ *
+ * An account is a mobile number. There is no password here and no
+ * `password_hash` column behind it: people sign in with a one-time code
+ * (`src/lib/otp.ts`), so the only credential that ever exists is the session
+ * token in `src/lib/session.ts`. The scrypt helpers that used to live in this
+ * file moved to `src/lib/password.ts`, which now serves admin accounts alone.
  */
-const KEY_LENGTH = 64;
-const SALT_LENGTH = 16;
-
 export interface User {
   id: number;
   name: string;
-  email: string;
+  /** Optional: accounts are identified by `phone`, not by an address. */
+  email: string | null;
   phone: string | null;
   whatsapp: string | null;
   phoneVerified: boolean;
@@ -33,8 +26,7 @@ export interface User {
 interface UserRow extends RowDataPacket {
   id: number;
   name: string;
-  email: string;
-  password_hash: string;
+  email: string | null;
   phone: string | null;
   whatsapp: string | null;
   phone_verified: number;
@@ -55,36 +47,22 @@ function mapUser(row: UserRow): User {
   };
 }
 
-/** Stored as `scrypt$<salt-hex>$<key-hex>` so the format can evolve later. */
-export async function hashPassword(plain: string): Promise<string> {
-  const salt = randomBytes(SALT_LENGTH);
-  const derived = await scrypt(plain, salt, KEY_LENGTH);
-  return `scrypt$${salt.toString('hex')}$${derived.toString('hex')}`;
-}
-
-export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
-  const [scheme, saltHex, keyHex] = stored.split('$');
-  if (scheme !== 'scrypt' || !saltHex || !keyHex) return false;
-  const expected = Buffer.from(keyHex, 'hex');
-  const derived = await scrypt(plain, Buffer.from(saltHex, 'hex'), expected.length);
-  return derived.length === expected.length && timingSafeEqual(derived, expected);
-}
-
-/**
- * Burns roughly one password hash worth of CPU without checking anything.
- *
- * The login route calls this when the email is unknown, so a missing account
- * and a wrong password take the same time — otherwise the response latency
- * alone tells an attacker which addresses are registered.
- */
-export async function fakePasswordCheck(): Promise<void> {
-  await scrypt('not-a-real-password', randomBytes(SALT_LENGTH), KEY_LENGTH);
-}
-
 const SELECT_USER = 'SELECT * FROM users';
 
 export async function getUserByEmail(email: string): Promise<User | null> {
   const rows = await query<UserRow[]>(`${SELECT_USER} WHERE email = ? LIMIT 1`, [email]);
+  return rows.length ? mapUser(rows[0]) : null;
+}
+
+/**
+ * Lookup by the account identifier.
+ *
+ * `phone` must already be in canonical form — `normalisePhoneNumber` — because
+ * this is an exact match. Passing what the customer typed would miss their row
+ * and silently create a duplicate account on the next sign-in.
+ */
+export async function getUserByPhone(phone: string): Promise<User | null> {
+  const rows = await query<UserRow[]>(`${SELECT_USER} WHERE phone = ? LIMIT 1`, [phone]);
   return rows.length ? mapUser(rows[0]) : null;
 }
 
@@ -93,20 +71,18 @@ export async function getUserById(id: number): Promise<User | null> {
   return rows.length ? mapUser(rows[0]) : null;
 }
 
-/** The hash is fetched on its own so it never rides along on a `User`. */
-export async function getPasswordHash(userId: number): Promise<string | null> {
-  const rows = await query<(RowDataPacket & { password_hash: string })[]>(
-    'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
-    [userId]
-  );
-  return rows[0]?.password_hash ?? null;
-}
-
 export interface NewUserInput {
-  name: string;
-  email: string;
-  password: string;
+  /**
+   * Canonical form — see `normalisePhoneNumber`. Null for an account opened
+   * with an email address, which has no number until its owner adds one.
+   */
   phone?: string | null;
+  name?: string;
+  email?: string | null;
+  /** True when the number was proved by a one-time code. */
+  phoneVerified?: boolean;
+  /** True when the address was proved by a one-time code. */
+  emailVerified?: boolean;
 }
 
 export class EmailTakenError extends Error {
@@ -116,43 +92,133 @@ export class EmailTakenError extends Error {
   }
 }
 
+export class PhoneTakenError extends Error {
+  constructor() {
+    super('That mobile number already has an account.');
+    this.name = 'PhoneTakenError';
+  }
+}
+
+/**
+ * Turns a duplicate-key error into the specific one the caller can explain.
+ *
+ * MySQL names the key it collided on in the message, which is the only way to
+ * tell "this number is taken" from "this address is taken" — and telling
+ * someone the wrong one sends them off correcting a field that was fine.
+ */
+function duplicateError(error: unknown): Error {
+  const message = (error as { message?: string }).message ?? '';
+  return message.includes('uq_users_phone') ? new PhoneTakenError() : new EmailTakenError();
+}
+
 export async function createUser(input: NewUserInput): Promise<User> {
-  const passwordHash = await hashPassword(input.password);
   try {
     const result = await query<ResultSetHeader>(
-      `INSERT INTO users (name, email, password_hash, phone) VALUES (?, ?, ?, ?)`,
-      [input.name, input.email, passwordHash, input.phone || null]
+      `INSERT INTO users (name, email, phone, phone_verified, email_verified)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        input.name?.trim() || '',
+        input.email || null,
+        input.phone || null,
+        input.phoneVerified ? 1 : 0,
+        input.emailVerified ? 1 : 0,
+      ]
     );
     const user = await getUserById(result.insertId);
     if (!user) throw new Error('User vanished immediately after insert.');
     return user;
   } catch (error) {
-    // The unique key is the real guard: two simultaneous signups with the same
-    // address both pass a pre-check, and only this catches the second one.
-    if ((error as { code?: string }).code === 'ER_DUP_ENTRY') throw new EmailTakenError();
+    // The unique keys are the real guard: two simultaneous signups with the
+    // same number both pass a pre-check, and only this catches the second.
+    if ((error as { code?: string }).code === 'ER_DUP_ENTRY') throw duplicateError(error);
     throw error;
   }
 }
 
+/**
+ * Records that a number has been proved by a one-time code.
+ *
+ * Also fills in the name and address if the account has none — someone whose
+ * first contact was a guest order has a row with no name, and the first time
+ * they sign in is the first chance to ask. Existing values are never
+ * overwritten here: changing them is what the profile page is for.
+ */
+export async function markPhoneVerified(
+  userId: number,
+  extras: { name?: string; email?: string | null } = {}
+): Promise<User | null> {
+  await query(
+    `UPDATE users
+        SET phone_verified = 1,
+            name = IF(name = '' AND ? <> '', ?, name),
+            email = COALESCE(email, ?)
+      WHERE id = ?`,
+    [extras.name?.trim() || '', extras.name?.trim() || '', extras.email || null, userId]
+  );
+  return getUserById(userId);
+}
+
+/**
+ * The same, for someone who proved an address instead of a number.
+ *
+ * `phone` is filled in only when the account has none, exactly as `email` is
+ * above: a number already on file is what that person signs in with, and a
+ * form post is not allowed to move it — see `updateProfile`.
+ */
+export async function markEmailVerified(
+  userId: number,
+  extras: { name?: string; phone?: string | null } = {}
+): Promise<User | null> {
+  try {
+    await query(
+      `UPDATE users
+          SET email_verified = 1,
+              name = IF(name = '' AND ? <> '', ?, name),
+              phone = COALESCE(phone, ?)
+        WHERE id = ?`,
+      [extras.name?.trim() || '', extras.name?.trim() || '', extras.phone || null, userId]
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ER_DUP_ENTRY') throw new PhoneTakenError();
+    throw error;
+  }
+  return getUserById(userId);
+}
+
+/**
+ * Finds the account a sign-in code was sent to.
+ *
+ * Which column is matched follows the channel and nothing else. Searching both
+ * would mean a code proving one identifier could open the account holding the
+ * other, which is the whole reason `auth_otps` keys on the channel too.
+ */
+export async function getUserByIdentifier(
+  identifier: string,
+  channel: 'sms' | 'email'
+): Promise<User | null> {
+  return channel === 'email' ? getUserByEmail(identifier) : getUserByPhone(identifier);
+}
+
+/**
+ * Saves the editable part of an account.
+ *
+ * `phone` is not among them and must not be: it is what the account is signed
+ * in with, so moving it needs a code sent to the new number, not a form post.
+ */
 export async function updateProfile(
   userId: number,
-  values: { name: string; phone: string | null; whatsapp: string | null }
+  values: { name: string; whatsapp: string | null }
 ): Promise<User | null> {
-  await query('UPDATE users SET name = ?, phone = ?, whatsapp = ? WHERE id = ?', [
+  await query('UPDATE users SET name = ?, whatsapp = ? WHERE id = ?', [
     values.name,
-    values.phone,
     values.whatsapp,
     userId,
   ]);
   return getUserById(userId);
 }
 
-export async function setPassword(userId: number, plain: string): Promise<void> {
-  const passwordHash = await hashPassword(plain);
-  await query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
-}
-
-export async function changeEmail(userId: number, email: string): Promise<User | null> {
+/** Passing null removes the address — it is optional, not a credential. */
+export async function changeEmail(userId: number, email: string | null): Promise<User | null> {
   try {
     await query('UPDATE users SET email = ?, email_verified = 0 WHERE id = ?', [email, userId]);
   } catch (error) {
@@ -172,10 +238,34 @@ export async function changeEmail(userId: number, email: string): Promise<User |
  * Only rows with no owner are touched, so this can never move an order from
  * one account to another.
  */
-export async function claimGuestOrders(userId: number, email: string): Promise<number> {
+export async function claimGuestOrders(
+  userId: number,
+  match: { email?: string | null; phone?: string | null }
+): Promise<number> {
+  // `orders.whatsapp` is the only number an order carries, and it holds
+  // whatever the customer typed — it was never normalised. Comparing only the
+  // last ten digits is what makes "+91 98765 43210" on an order match the
+  // canonical "919876543210" on the account, and it is safe here because a
+  // wrong match costs nothing: the `user_id IS NULL` guard below means an
+  // order can only ever be claimed once, never moved between accounts.
+  const conditions: string[] = [];
+  const params: (string | number)[] = [userId];
+  if (match.email) {
+    conditions.push('customer_email = ?');
+    params.push(match.email);
+  }
+  if (match.phone) {
+    conditions.push(
+      "RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(whatsapp, ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?"
+    );
+    params.push(match.phone.slice(-10));
+  }
+  if (!conditions.length) return 0;
+
   const result = await query<ResultSetHeader>(
-    'UPDATE orders SET user_id = ? WHERE customer_email = ? AND user_id IS NULL',
-    [userId, email]
+    `UPDATE orders SET user_id = ?
+      WHERE user_id IS NULL AND (${conditions.join(' OR ')})`,
+    params
   );
   return result.affectedRows ?? 0;
 }

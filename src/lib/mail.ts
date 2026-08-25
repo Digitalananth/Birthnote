@@ -45,7 +45,16 @@ interface MailPayload {
  * not roll back a paid order or return a 500 to the customer. Failures are
  * logged for follow-up and the caller carries on.
  */
-export async function sendMail(payload: MailPayload): Promise<boolean> {
+/**
+ * Sends one message. Never throws.
+ *
+ * Accepts null so a caller can hand over a message that had nowhere to go —
+ * accounts identified by mobile number need not have an email address, and
+ * `if (payload) await sendMail(payload)` at a dozen call sites is a dozen
+ * chances to forget.
+ */
+export async function sendMail(payload: MailPayload | null): Promise<boolean> {
+  if (!payload) return false;
   if (!env.smtp.enabled()) {
     console.info(
       `[mail:disabled] To: ${payload.to}\nSubject: ${payload.subject}\n\n${payload.text}\n`
@@ -388,7 +397,44 @@ Admin: ${env.siteUrl}/admin`,
   };
 }
 
-export function welcomeEmail(user: { name: string; email: string }): MailPayload {
+/**
+ * The sign-in code, for someone who gave us an address instead of a number.
+ *
+ * Deliberately plain: no link to click, nothing to log in through, just the
+ * digits. A sign-in email carrying a button is the shape every phishing mail
+ * imitates, and teaching customers to click one is worse than the small
+ * convenience it buys. The reminder at the end is there because the commonest
+ * real attack on code sign-in is asking someone to read their code aloud.
+ */
+export function signInCodeEmail(
+  email: string,
+  code: string,
+  expiresInMinutes: number
+): MailPayload {
+  const html = layout(
+    'Your sign-in code',
+    `<p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Enter this code to sign in to BirthNote:</p>
+     <p style="margin:0 0 18px;font-size:34px;letter-spacing:8px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(code)}</p>
+     <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#6B5C4A;">It works for ${expiresInMinutes} minutes and once only.</p>
+     <p style="margin:0;font-size:14px;line-height:1.6;color:#6B5C4A;">If you did not ask to sign in, ignore this email. Nobody from BirthNote will ever ask you for this code.</p>`
+  );
+  return {
+    to: email,
+    subject: `${code} is your BirthNote sign-in code`,
+    html,
+    text: `Your BirthNote sign-in code is ${code}
+
+It works for ${expiresInMinutes} minutes and once only.
+
+If you did not ask to sign in, ignore this email. Nobody from BirthNote will ever ask you for this code.
+
+— BirthNote`,
+  };
+}
+
+/** Returns null when the account has no address — see `sendMail`. */
+export function welcomeEmail(user: { name: string; email: string | null }): MailPayload | null {
+  if (!user.email) return null;
   const accountUrl = `${env.siteUrl}/account`;
   const html = layout(
     'Your BirthNote account is ready.',
@@ -416,44 +462,14 @@ ${accountUrl}
 }
 
 /**
- * The reset link.
- *
- * The token is in the URL rather than the body text so it cannot be read out
- * of a preview pane, and the copy states the expiry — a link that silently
- * stops working reads as a broken site.
+ * Sent after a password actually changes, so a hijack is visible to the owner.
+ * Returns null when the account has no address — see `sendMail`.
  */
-export function passwordResetEmail(
-  user: { name: string; email: string },
-  token: string
-): MailPayload {
-  const resetUrl = `${env.siteUrl}/reset-password/${token}`;
-  const html = layout(
-    'Reset your password.',
-    p(`Hi ${escapeHtml(user.name.split(' ')[0])},`) +
-      p(
-        'Use the button below to choose a new password. The link works once and expires in one hour.'
-      ) +
-      p('If you did not ask for this, you can ignore this email — your password stays as it is.'),
-    { label: 'Choose a new password', url: resetUrl }
-  );
-  return {
-    to: user.email,
-    subject: 'Reset your BirthNote password',
-    html,
-    text: `Hi ${user.name},
-
-Use this link to choose a new password. It works once and expires in one hour.
-
-${resetUrl}
-
-If you did not ask for this, ignore this email — your password stays as it is.
-
-— BirthNote`,
-  };
-}
-
-/** Sent after a password actually changes, so a hijack is visible to the owner. */
-export function passwordChangedEmail(user: { name: string; email: string }): MailPayload {
+export function passwordChangedEmail(user: {
+  name: string;
+  email: string | null;
+}): MailPayload | null {
+  if (!user.email) return null;
   const html = layout(
     'Your password was changed.',
     p(`Hi ${escapeHtml(user.name.split(' ')[0])},`) +

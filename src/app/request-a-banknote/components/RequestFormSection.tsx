@@ -54,7 +54,8 @@ interface Props {
    * name and email from the session rather than the body, so editing these
    * fields in the browser cannot change whose order it is.
    */
-  user?: { name: string; email: string; whatsapp?: string | null } | null;
+  /** `email` is null for an account that signed up with a mobile number only. */
+  user?: { name: string; email: string | null; whatsapp?: string | null } | null;
 }
 
 export default function RequestFormSection({ user = null }: Props) {
@@ -466,9 +467,9 @@ export default function RequestFormSection({ user = null }: Props) {
                     placeholder="Full name"
                     value={formData.name}
                     onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                    readOnly={Boolean(user)}
+                    readOnly={Boolean(user?.name)}
                     className={`void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40 ${
-                      user ? 'opacity-70' : ''
+                      user?.name ? 'opacity-70' : ''
                     }`}
                   />
                 </div>
@@ -490,20 +491,27 @@ export default function RequestFormSection({ user = null }: Props) {
                     placeholder="your@email.com"
                     value={formData.email}
                     onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                    readOnly={Boolean(user)}
+                    // Locked to the account's address, unless there isn't one:
+                    // accounts created with a mobile number alone have no
+                    // email, and a receipt has to go somewhere.
+                    readOnly={Boolean(user?.email)}
                     className={`void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40 ${
-                      user ? 'opacity-70' : ''
+                      user?.email ? 'opacity-70' : ''
                     }`}
                   />
                 </div>
                 {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-                {user ? (
+                {user?.email ? (
                   <p className="text-xs text-muted-foreground mt-2">
                     Signed in as {user.email}. Change it in{' '}
                     <Link href="/account/profile" className="text-primary underline">
                       your profile
                     </Link>
                     .
+                  </p>
+                ) : user ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    We&apos;ll send your receipt and updates here, and save it to your account.
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-2">

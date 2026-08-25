@@ -1,5 +1,12 @@
 # Phase 1 — Customer accounts, denomination, My Account
 
+> **Superseded in part by [Phase 6](phase-6-otp-sign-in.md).** Customer accounts
+> no longer have passwords: they are identified by a mobile number and signed
+> in with an SMS code. The signup, login, forgot-password and reset-password
+> routes described below are gone, along with `users.password_hash` and the
+> `password_resets` table. Sessions, guest-order claiming and the `/account`
+> pages work as written here.
+
 **Goal:** a customer can create an account, log in, see every order they have
 ever placed, and edit their profile. The request form captures the
 denomination and the relationship the gift is for.

@@ -4,6 +4,7 @@ import { createOrder, summariseOrder } from '@/lib/orders';
 import { sendMail, requestReceivedEmail, newRequestAdminEmail } from '@/lib/mail';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
+import { updateProfile, changeEmail, type User } from '@/lib/users';
 import { sendWhatsApp, orderReceivedWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 
 export const runtime = 'nodejs';
@@ -46,9 +47,12 @@ export async function POST(request: Request) {
   const values = result.normalised;
 
   try {
+    // An account created with a mobile number alone has no name or address
+    // yet, so the form asked for them and what came back is used — and, below,
+    // kept on the account so it is only ever asked once.
     const order = await createOrder({
-      customerName: user ? user.name : values.name,
-      customerEmail: user ? user.email : values.email,
+      customerName: user?.name || values.name,
+      customerEmail: user?.email || values.email,
       userId: user?.id ?? null,
       message: values.message,
       whatsapp: values.whatsapp,
@@ -61,6 +65,14 @@ export async function POST(request: Request) {
         giftFor: item.giftFor,
       })),
     });
+
+    // Backfill the account with whatever it was still missing, so a
+    // mobile-only account is asked for its name and address exactly once.
+    // Best-effort on purpose: if the address turns out to belong to someone
+    // else's account the order still stands, it simply is not saved here.
+    if (user && (!user.name || !user.email)) {
+      await backfillAccountDetails(user, order.customerName, order.customerEmail);
+    }
 
     // Email is a side effect: awaited so SMTP errors are logged, but its
     // failure never fails the request — the order is already safely stored.
@@ -87,5 +99,27 @@ export async function POST(request: Request) {
       { error: 'We could not save your request. Please try again in a moment.' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Saves the name and email an order collected onto the account behind it.
+ *
+ * Only ever fills blanks — an account that already has a name or an address
+ * keeps it, because the profile page is where those are changed and an order
+ * form must not quietly overwrite them.
+ */
+async function backfillAccountDetails(user: User, name: string, email: string): Promise<void> {
+  try {
+    if (!user.name && name) {
+      await updateProfile(user.id, { name, whatsapp: user.whatsapp });
+    }
+    if (!user.email && email) {
+      await changeEmail(user.id, email);
+    }
+  } catch (error) {
+    // Includes the address already being on another account. Logged, not
+    // raised: the order is stored and the customer is owed a confirmation.
+    console.error('[api/requests] could not backfill account details', error);
   }
 }

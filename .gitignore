@@ -39,3 +39,10 @@ turbo/
 .env
 .env.local
 .env*.local
+# Backups and copies of the above — same secrets, same rules.
+.env.backup*
+.env.bak
+.env.*.bak
+
+# Upload bundle
+birthnote-source.zip

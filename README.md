@@ -76,40 +76,67 @@ Ordering does **not** require an account — the guest funnel is unchanged, and
 once:
 
 ```
-/signup, /login, /forgot-password, /reset-password/[token]
+/login, /signup     the same two-step form: number or email, then the code
 /account            overview: anything awaiting payment, plus recent orders
 /account/orders     the full list
-/account/profile    name, email, phone, WhatsApp, and password
+/account/profile    name, email, WhatsApp
 ```
 
-Signing up or signing in also **claims past guest orders**: any order whose
-`customer_email` matches and which has no owner yet is attached to the
-account. Without that, someone who ordered before registering would find an
-empty My Orders page.
+**An account is a mobile number or an email address.** There is no password
+anywhere in the customer flow: you enter either one, we send a six-digit code
+to it — by SMS or by email — and entering the code signs you in, creating the
+account first if that identifier has none. `/login` and `/signup` render the
+same component and differ only in wording, because with a code as the only
+credential there is no separate act of registering.
+
+Which one you typed is decided by the `@` and nothing else, so there is one
+field rather than two tabs. A code is only ever valid for the identifier *and*
+the channel it was sent on.
+
+The second detail is **optional**: a new account made by SMS is offered an
+email address, one made by email is offered a number, and neither is required.
+An account with only a number works fully; it simply gets its updates by
+WhatsApp and on the site.
+
+Signing in also **claims past guest orders**: any order with no owner whose
+number or email matches is attached to the account. Without that, someone who
+ordered before signing in would find an empty My Orders page.
 
 A few decisions worth knowing before you change this code:
 
-- **Passwords use `scrypt` from `node:crypto`**, not bcrypt — bcrypt needs a
-  native build that shared hosting often cannot compile. Format:
-  `scrypt$<salt>$<key>`.
+- **The code is ours, MSG91 only delivers it.** `src/lib/otp.ts` generates it,
+  stores its SHA-256, and enforces the ten-minute expiry and five-attempt
+  limit; `src/lib/sms.ts` hands the finished digits to MSG91's `/api/v5/otp`
+  endpoint. Swapping SMS providers touches `sms.ts` and nothing else. Leave
+  `MSG91_AUTH_KEY` blank and codes are logged to the console instead of sent,
+  which is how the flow is exercised locally.
+- **`users.phone` is the unique key, and is not editable from the profile
+  page.** Changing it is changing who can sign in, so it would need a code
+  sent to the *new* number to prove it. Until that exists the number is fixed
+  at the value the account was created with.
+- **Requesting a code is defended three ways**: a 45-second per-number
+  cooldown, five per number per hour, twenty per IP per hour. Each SMS costs
+  money and lands on a phone that may not belong to whoever asked.
 - **Sessions are rows in `user_sessions`**, not signed stateless cookies like
-  the admin's. Customers need logout and password-reset to actually revoke a
-  session, which a stateless cookie cannot do. Only the SHA-256 of each token
-  is stored, so a database leak yields no live sessions.
-- **`/api/auth/login` and `/api/auth/forgot-password` never reveal whether an
-  address is registered.** Login answers with one generic message and burns
-  equal CPU on an unknown email; forgot-password always returns 200 — even
-  when rate-limited, since a 429 would itself be a signal.
-- **Login is rate-limited per email *and* per IP.** An IP limit alone does not
-  stop a botnet spraying one account.
+  the admin's. Customers need logout to actually revoke a session, which a
+  stateless cookie cannot do. Only the SHA-256 of each token is stored, so a
+  database leak yields no live sessions.
 - **`/api/requests` takes the customer's name and email from the session**, not
-  the request body, when someone is signed in.
+  the request body, when someone is signed in — except where the account has
+  neither yet, in which case the form collects them and they are saved back.
 - **Order pages are scoped by `user_id` inside the SQL**, never by a value
   posted from the browser (`getUserOrderByReference`).
 
-Mobile OTP is not built. The `phone`, `whatsapp` and `phone_verified` columns
-exist so adding it (via MSG91) is additive rather than a migration of live
-rows.
+**Migrating an existing database.** `npm run db:migrate` normalises every
+stored phone number to canonical digits, adds `uq_users_phone`, and drops
+`users.password_hash` and the `password_resets` table — a store of secrets
+kept for a login that no longer exists is worth stealing and worth nothing
+else. It reports any account left with no number: those people cannot sign in
+and will get a fresh account next time they do. Their orders are untouched and
+still reachable by reference.
+
+Admins are different and still use email and password — see below. The scrypt
+helpers moved to `src/lib/password.ts`, which now serves them alone.
 
 **No card data ever reaches this server.** Card details are entered on
 Stripe's hosted checkout page, which is what keeps the site out of PCI-DSS
@@ -239,9 +266,8 @@ Each route picks the cheapest mode that is still correct:
 | --- | --- | --- |
 | `/` | **ISR** (`revalidate = 3600`) | Static marketing HTML, regenerated hourly so copy edits go live without a rebuild |
 | `/request-a-banknote` | **SSR** (`force-dynamic`) | Reads the session so a signed-in customer's name and email are prefilled |
-| `/track-order`, `/terms`, `/privacy`, `/forgot-password` | **SSG** | Pure static content |
+| `/track-order`, `/terms`, `/privacy` | **SSG** | Pure static content |
 | `/login`, `/signup` | **SSR** | Bounce anyone already signed in, and read the `next` parameter |
-| `/reset-password/[token]` | **SSR** | The token is checked before the form renders |
 | `/account/*` | **SSR** | Per-customer, and guarded by `requireUser()` in the layout |
 | `/track-order/[reference]` | **SSR** (`force-dynamic`) | Order status must never be stale |
 | `/payment/[reference]`, `/payment/[reference]/success` | **SSR** | Payment eligibility is read fresh so nobody can pay twice from a cached page |

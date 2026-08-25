@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminSession, adminCookie, pruneExpiredAdminSessions } from '@/lib/auth';
 import { getActiveAdminByEmail, getAdminPasswordHash, touchLastLogin } from '@/lib/admin-users';
-import { verifyPassword, fakePasswordCheck } from '@/lib/users';
+import { verifyPassword, fakePasswordCheck } from '@/lib/password';
 import { normaliseEmail } from '@/lib/auth-validation';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
 

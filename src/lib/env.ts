@@ -109,6 +109,51 @@ export const env = {
       Boolean(optional('WHATSAPP_PHONE_NUMBER_ID')),
   },
 
+  /**
+   * MSG91, which delivers the one-time codes people sign in with.
+   *
+   * The code itself is generated and verified here, not by MSG91: their OTP
+   * endpoint accepts an `otp` parameter, so we keep the hash, the expiry and
+   * the attempt limit in our own database and use MSG91 purely as the
+   * delivery channel. That keeps sign-in working the same way whichever SMS
+   * provider is in front of it.
+   *
+   * Leave MSG91_AUTH_KEY blank and codes are logged to the server console
+   * instead of sent, exactly as MAIL_ENABLED does for email — which is what
+   * makes local development possible without spending money on SMS.
+   */
+  msg91: {
+    /** Overridable so tests can point at a stub instead of the real API. */
+    apiBase: optional('MSG91_API_BASE', 'https://control.msg91.com').replace(/\/+$/, ''),
+    authKey: () => required('MSG91_AUTH_KEY'),
+    /** The DLT-approved OTP template registered in the MSG91 dashboard. */
+    templateId: () => required('MSG91_TEMPLATE_ID'),
+    senderId: optional('MSG91_SENDER_ID'),
+    /** Sent as `otp_expiry` so MSG91's own text matches what we enforce. */
+    otpExpiryMinutes: int('MSG91_OTP_EXPIRY_MINUTES', 10),
+    enabled: () =>
+      bool('MSG91_ENABLED', true) &&
+      Boolean(optional('MSG91_AUTH_KEY')) &&
+      Boolean(optional('MSG91_TEMPLATE_ID')),
+  },
+
+  /**
+   * Sign-in by one-time code.
+   *
+   * `defaultCountryCode` is what makes a bare ten-digit Indian mobile number
+   * unambiguous — see `normalisePhoneNumber` in src/lib/auth-validation.ts.
+   */
+  auth: {
+    // NEXT_PUBLIC_ because the login form normalises the number before it is
+    // sent, so the browser and the API must agree on the country code. One
+    // variable rather than two keeps them from drifting apart.
+    defaultCountryCode: optional('NEXT_PUBLIC_AUTH_DEFAULT_COUNTRY_CODE', '91'),
+    otpTtlSeconds: int('AUTH_OTP_TTL_SECONDS', 10 * 60),
+    otpMaxAttempts: int('AUTH_OTP_MAX_ATTEMPTS', 5),
+    /** How long before the same number may ask for another code. */
+    otpResendSeconds: int('AUTH_OTP_RESEND_SECONDS', 45),
+  },
+
   /** Order total in paise. ₹2,499 by default — set the real price in .env. */
   pricePaise: int('BANKNOTE_PRICE_PAISE', 249900),
 };

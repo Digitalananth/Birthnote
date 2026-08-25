@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
 import LogoutButton from '@/app/account/components/LogoutButton';
+import { formatPhoneNumber } from '@/lib/auth-validation';
 import { requireUser } from '@/lib/session';
 
 /**
@@ -38,9 +39,18 @@ export default async function AccountLayout({ children }: { children: React.Reac
               className="font-sans font-extrabold text-foreground"
               style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', letterSpacing: '-0.03em' }}
             >
-              {user.name}
+              {user.name || formatPhoneNumber(user.phone)}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
+            {/*
+              The mobile number is what identifies the account, so it is the
+              subtitle. The email is shown alongside only when there is one —
+              it is optional now, and an empty line under the name reads as a
+              missing detail rather than a deliberate absence.
+            */}
+            <p className="text-sm text-muted-foreground mt-1">
+              {formatPhoneNumber(user.phone)}
+              {user.email ? ` · ${user.email}` : ''}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">

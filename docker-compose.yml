@@ -1,0 +1,67 @@
+# Local development stack: MariaDB plus the Next.js app.
+#
+#   docker compose up          # http://localhost:4028
+#   docker compose run --rm app npm run db:migrate
+#
+# Only for local work. Production is Hostinger, where the database is managed
+# and the app is built from `npm run build`.
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      # Local-only credentials. They are deliberately in the file rather than
+      # .env so that a fresh clone comes up without editing anything, and they
+      # must never be reused anywhere the database is reachable from outside.
+      MARIADB_ROOT_PASSWORD: birthnote_root
+      MARIADB_DATABASE: birthnote
+      MARIADB_USER: birthnote
+      MARIADB_PASSWORD: birthnote
+    ports:
+      # Exposed so tools on the host (TablePlus, mysql CLI) can reach it too.
+      - '3307:3306'
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # The app waits for this: MariaDB accepts TCP connections several seconds
+      # before it will answer a query, and migrate.mjs fails hard if it starts
+      # in that window.
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      # First boot creates the data directory and takes far longer than a
+      # restart; without this the app gives up before the database ever opens.
+      start_period: 180s
+
+  app:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      # Inside the network the database is `db:3306`, whatever .env says for the
+      # host. Everything else — MSG91 keys included — comes from .env.
+      MYSQL_HOST: db
+      MYSQL_PORT: '3306'
+      MYSQL_DATABASE: birthnote
+      MYSQL_USER: birthnote
+      MYSQL_PASSWORD: birthnote
+      # next dev only accepts connections from outside the container if it
+      # binds every interface.
+      HOSTNAME: '0.0.0.0'
+    env_file:
+      - .env
+    ports:
+      - '4028:4028'
+    volumes:
+      - .:/app
+      # Anonymous volumes: the host's node_modules and .next are built for
+      # macOS/arm64 and would break the Linux container (and vice versa).
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
