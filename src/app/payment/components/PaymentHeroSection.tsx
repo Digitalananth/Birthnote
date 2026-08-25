@@ -3,7 +3,7 @@ import Icon from '@/components/ui/AppIcon';
 
 export default function PaymentHeroSection() {
   return (
-    <section className="bg-secondary/40 pt-32 pb-12 md:pt-36 md:pb-16 relative overflow-hidden">
+    <section className="bg-secondary/40 pt-28 pb-8 md:pt-32 md:pb-10 relative overflow-hidden">
       {/* Background vol number */}
       <div
         className="absolute top-0 right-6 md:right-12 pointer-events-none select-none font-sans font-extrabold text-primary/5"
@@ -11,9 +11,9 @@ export default function PaymentHeroSection() {
       >
         PAY
       </div>
-      <div className="max-w-3xl mx-auto px-6 md:px-12 relative z-10">
+      <div className="max-w-2xl mx-auto px-6 md:px-12 relative z-10">
         {/* Progress breadcrumb */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-5">
           {[
             { label: 'Date Submitted', done: true },
             { label: 'Availability Confirmed', done: true },
@@ -41,10 +41,10 @@ export default function PaymentHeroSection() {
           ))}
         </div>
 
-        <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
+        <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-3">
           Step 3 of 3
         </span>
-        <h1 className="font-sans font-extrabold text-foreground mb-4"
+        <h1 className="font-sans font-extrabold text-foreground mb-3"
           style={{ fontSize: 'clamp(2rem, 5.5vw, 4rem)', lineHeight: 0.92, letterSpacing: '-0.04em' }}>
           Your note has
           <br />

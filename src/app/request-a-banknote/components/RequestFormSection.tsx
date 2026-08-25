@@ -296,7 +296,7 @@ export default function RequestFormSection({ user = null }: Props) {
     `border-b-2 transition-colors ${bad ? 'border-red-400' : 'border-border focus-within:border-accent'}`;
 
   return (
-    <section className="bg-background py-12 md:py-20 pb-24">
+    <section className="bg-background py-12 md:py-20">
       <div className="max-w-3xl mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 items-start">
           <div className="md:col-span-3">
