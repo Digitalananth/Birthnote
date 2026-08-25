@@ -81,6 +81,25 @@ export async function PATCH(request: Request, { params }: Context) {
           { status: 409 }
         );
       }
+      /*
+       * Every note must have an answer before the customer is told theirs.
+       *
+       * The confirmation email says what was found and what was not, and it
+       * builds both lists from the notes — so a note still marked "not checked
+       * yet" appears in neither. The customer would be sent a payment link
+       * that silently omits a date they asked about, and nothing afterwards
+       * would ever bring it up again. Finding some and still looking for
+       * others is normal; saying so before the search is finished is not.
+       */
+      const unchecked = current.items.filter((item) => item.availability === 'pending');
+      if (unchecked.length) {
+        return NextResponse.json(
+          {
+            error: `${unchecked.length} note${unchecked.length === 1 ? ' is' : 's are'} still unchecked. Mark every note found or not found before confirming.`,
+          },
+          { status: 409 }
+        );
+      }
     } else if (!current.items.every((item) => item.availability === 'unavailable')) {
       return NextResponse.json(
         {

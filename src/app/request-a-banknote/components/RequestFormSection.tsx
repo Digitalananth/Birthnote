@@ -14,7 +14,14 @@ import {
 
 type FormState = 'idle' | 'submitting' | 'submitted';
 
-/** A row in the form. `key` is stable so React does not reuse inputs on removal. */
+/**
+ * A date block in the form. `key` is stable so React does not reuse inputs on
+ * removal.
+ *
+ * One block can be several banknotes: it carries a set of denominations, and
+ * each one is a separate note to find, price and post. `noteCount` below is
+ * what the customer is actually ordering.
+ */
 interface ItemRow extends RequestItemValues {
   key: number;
 }
@@ -41,10 +48,13 @@ const emptyRow = (): ItemRow => ({
   day: '',
   month: '',
   year: '',
-  denomination: '',
+  denominations: [],
   giftRelationship: '',
   giftFor: '',
 });
+
+/** How many banknotes a set of date blocks comes to. */
+const noteCount = (rows: ItemRow[]) => rows.reduce((sum, row) => sum + row.denominations.length, 0);
 
 interface Props {
   /**
@@ -104,7 +114,8 @@ export default function RequestFormSection({ user = null }: Props) {
         throw new Error(body.error || 'Something went wrong. Please try again.');
       }
 
-      setResult({ reference: body.reference, count: body.itemCount ?? rows.length });
+      // The server counts notes, not date blocks; the fallback must agree.
+      setResult({ reference: body.reference, count: body.itemCount ?? noteCount(rows) });
       setFormState('submitted');
     } catch (error) {
       setSubmitError(
@@ -116,6 +127,29 @@ export default function RequestFormSection({ user = null }: Props) {
 
   const setRow = (index: number, patch: Partial<RequestItemValues>) => {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  /**
+   * Ticks or unticks one denomination for a date.
+   *
+   * Untick is always allowed. Tick is refused once the order is at the cap,
+   * because the alternative — accepting it and failing validation on submit —
+   * tells the customer only after they have finished filling the form in.
+   */
+  const toggleDenomination = (index: number, value: string) => {
+    setRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        const has = row.denominations.includes(value);
+        if (!has && noteCount(prev) >= MAX_ITEMS_PER_ORDER) return row;
+        return {
+          ...row,
+          denominations: has
+            ? row.denominations.filter((v) => v !== value)
+            : [...row.denominations, value],
+        };
+      })
+    );
   };
 
   /** Two digits only, and hop to the next box once this one is full. */
@@ -221,7 +255,7 @@ export default function RequestFormSection({ user = null }: Props) {
                   {
                     icon: 'CreditCardIcon' as const,
                     text: many
-                      ? "You'll get a secure payment link for whichever dates we find — you pay nothing for any we can't."
+                      ? "You'll get a secure payment link for whichever notes we find — you pay nothing for any we can't."
                       : "If available, you'll receive a secure payment link.",
                   },
                 ].map((item, i) => (
@@ -254,6 +288,9 @@ export default function RequestFormSection({ user = null }: Props) {
       </section>
     );
   }
+
+  /** Banknotes on the order as it stands — the number the cap applies to. */
+  const total = noteCount(rows);
 
   const underline = (bad?: string) =>
     `border-b-2 transition-colors ${bad ? 'border-red-400' : 'border-border focus-within:border-accent'}`;
@@ -291,7 +328,7 @@ export default function RequestFormSection({ user = null }: Props) {
                     {rows.length > 1 && (
                       <div className="flex items-center justify-between mb-4">
                         <p className="text-xs uppercase tracking-widest text-accent font-bold">
-                          Note {index + 1}
+                          Date {index + 1}
                         </p>
                         <button
                           type="button"
@@ -348,33 +385,56 @@ export default function RequestFormSection({ user = null }: Props) {
                         </p>
                       </div>
 
-                      {/* Denomination */}
-                      <div>
-                        <label
-                          htmlFor={`denomination-${row.key}`}
-                          className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                        >
-                          Denomination <span className="text-accent">*</span>
-                        </label>
-                        <div className={underline(rowErrors.denomination)}>
-                          <select
-                            id={`denomination-${row.key}`}
-                            value={row.denomination}
-                            onChange={(e) => setRow(index, { denomination: e.target.value })}
-                            className="void-input-warm w-full py-3 text-base font-medium text-foreground bg-transparent"
-                          >
-                            <option value="">Choose a note value…</option>
-                            {DENOMINATIONS.map((value) => (
-                              <option key={value} value={value}>
+                      {/*
+                        Denominations — checkboxes, not a <select multiple>,
+                        which on a phone is a scroll trap and on a desktop
+                        needs a held modifier key to pick a second value. Each
+                        tick is one more banknote, so the count is spelled out
+                        rather than left to be inferred from the price later.
+                      */}
+                      <fieldset>
+                        <legend className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">
+                          Denominations <span className="text-accent">*</span>
+                        </legend>
+                        <div className="flex flex-wrap gap-2">
+                          {DENOMINATIONS.map((value) => {
+                            const picked = row.denominations.includes(String(value));
+                            // Only the untick stays available at the cap.
+                            const blocked = !picked && total >= MAX_ITEMS_PER_ORDER;
+                            return (
+                              <label
+                                key={value}
+                                className={`relative inline-flex items-center rounded-full border px-4 py-2 text-base font-semibold transition-colors ${
+                                  picked
+                                    ? 'border-accent bg-accent/10 text-foreground'
+                                    : blocked
+                                      ? 'border-border text-muted-foreground/40 cursor-not-allowed'
+                                      : 'border-border text-muted-foreground hover:border-accent/60 cursor-pointer'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={picked}
+                                  disabled={blocked}
+                                  onChange={() => toggleDenomination(index, String(value))}
+                                  className="absolute w-px h-px opacity-0"
+                                />
                                 ₹{value}
-                              </option>
-                            ))}
-                          </select>
+                              </label>
+                            );
+                          })}
                         </div>
-                        {rowErrors.denomination && (
-                          <p className="text-xs text-red-500 mt-1">{rowErrors.denomination}</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {row.denominations.length === 0
+                            ? 'Pick every value you want for this date — each one is a separate note.'
+                            : row.denominations.length === 1
+                              ? 'One note for this date.'
+                              : `${row.denominations.length} notes for this date.`}
+                        </p>
+                        {rowErrors.denominations && (
+                          <p className="text-xs text-red-500 mt-1">{rowErrors.denominations}</p>
                         )}
-                      </div>
+                      </fieldset>
 
                       {/* Who it is for */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -441,16 +501,39 @@ export default function RequestFormSection({ user = null }: Props) {
                 </p>
               )}
 
-              {rows.length < MAX_ITEMS_PER_ORDER && (
-                <button
-                  type="button"
-                  onClick={() => setRows((prev) => [...prev, emptyRow()])}
-                  className="self-start inline-flex items-center gap-2 text-sm font-semibold text-primary border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
-                >
-                  <Icon name="GiftIcon" size={14} />
-                  Add another date
-                </button>
-              )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/*
+                  A new block starts empty, so it adds no notes and cannot
+                  itself breach the cap — what the cap stops is ticking a
+                  denomination inside it. Hiding the button at the cap is
+                  therefore about not offering a block that can hold nothing.
+                */}
+                {total < MAX_ITEMS_PER_ORDER ? (
+                  <button
+                    type="button"
+                    onClick={() => setRows((prev) => [...prev, emptyRow()])}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-primary border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
+                  >
+                    <Icon name="GiftIcon" size={14} />
+                    Add another date
+                  </button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    That is the most we can take in one order.
+                  </p>
+                )}
+
+                {/*
+                  Shown only once the order is more than a single note: with
+                  one note it states the obvious, and with several it is the
+                  only place the total appears before the confirmation email.
+                */}
+                {total > 1 && (
+                  <p className="text-sm font-semibold text-foreground">
+                    {total} notes in this order
+                  </p>
+                )}
+              </div>
 
               {/* Name */}
               <div>
@@ -602,9 +685,7 @@ export default function RequestFormSection({ user = null }: Props) {
                   </>
                 ) : (
                   <>
-                    {rows.length > 1
-                      ? `Submit ${rows.length} Date Requests`
-                      : 'Submit Date Request'}
+                    {total > 1 ? `Submit Request for ${total} Notes` : 'Submit Date Request'}
                     <Icon
                       name="ArrowRightIcon"
                       size={18}
@@ -630,7 +711,7 @@ export default function RequestFormSection({ user = null }: Props) {
 
               <p className="text-xs text-muted-foreground text-center leading-relaxed">
                 By submitting, you agree to be contacted by email. No payment until we confirm
-                availability, and you pay only for the dates we find.
+                availability, and you pay only for the notes we find.
               </p>
             </form>
           </div>

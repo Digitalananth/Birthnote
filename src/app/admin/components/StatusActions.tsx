@@ -116,41 +116,94 @@ export default function StatusActions({ order }: { order: Order }) {
         {field('note', 'Internal note', 'Shown on the customer timeline')}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {ACTIONS.map((action) => {
-          // Confirming needs something priced to charge for; declining the
-          // whole order needs every note to have actually been looked for.
-          const blocked =
-            (action.status === 'confirmed' && priced.length === 0) ||
-            (action.status === 'unavailable' && !allMissing);
+      {/*
+        Why an action cannot be taken yet, in the admin's words.
+        
+        Computed for every action up front rather than inside the buttons,
+        because a disabled button with no visible reason is the whole problem:
+        on an order where some notes are found and some are not, three of these
+        four are legitimately unavailable, and "it does nothing" is
+        indistinguishable from "it is broken" until the page says which. A
+        `title` tooltip does not count — it never appears on a touch screen and
+        few people hover a dead button.
+        
+        The reasons sit *below* the row rather than beside each button: the row
+        is how the four steps read as a sequence, and a caption on every one
+        breaks it into four unrelated lines.
+      */}
+      {(() => {
+        const reasonFor = (status: OrderStatus): string | null => {
+          if (status === order.status) return 'the order is already at this stage';
+          if (locked && status !== 'shipped') {
+            return 'the order is paid for and can only move on to dispatch';
+          }
+          if (status === 'confirmed') {
+            // Both conditions, in the order the admin meets them: find and
+            // price something, then finish checking the rest. The email names
+            // what was found *and* what was not, so a note still unchecked
+            // would appear in neither list and never be mentioned again.
+            if (priced.length === 0) {
+              return undecided.length
+                ? `mark a note found and give it a price first — ${undecided.length} of ${order.items.length} still to check`
+                : 'no note is both found and priced, so there is nothing to charge for';
+            }
+            if (undecided.length) {
+              return `${undecided.length} of ${order.items.length} notes still unchecked — mark each one found or not found, then confirm`;
+            }
+          }
+          if (status === 'unavailable' && !allMissing) {
+            return undecided.length
+              ? `only once every note has been marked not found — ${undecided.length} still to check`
+              : 'some notes were found, so decline those individually instead';
+          }
+          // Dispatch moves a *parcel*. Before payment there is no parcel, and
+          // sending this would email a tracking number for something nobody
+          // has paid for.
+          if (status === 'shipped' && order.status !== 'paid') {
+            return 'only once the customer has paid';
+          }
+          return null;
+        };
 
-          const disabled =
-            isPending ||
-            active !== null ||
-            action.status === order.status ||
-            blocked ||
-            (locked && action.status !== 'shipped');
+        const reasons = ACTIONS.map((action) => ({ action, reason: reasonFor(action.status) }));
 
-          const title = blocked
-            ? action.status === 'confirmed'
-              ? 'Mark at least one note found and give it a price first.'
-              : 'Only when every note has been marked not found.'
-            : action.hint;
+        return (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              {reasons.map(({ action, reason }) => (
+                <button
+                  key={action.status}
+                  type="button"
+                  title={reason ? `${action.label} — ${reason}` : action.hint}
+                  disabled={isPending || active !== null || reason !== null}
+                  onClick={() => submit(action.status)}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${action.tone}`}
+                >
+                  {active === action.status ? 'Working…' : action.label}
+                </button>
+              ))}
+            </div>
 
-          return (
-            <button
-              key={action.status}
-              type="button"
-              title={title}
-              disabled={disabled}
-              onClick={() => submit(action.status)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${action.tone}`}
-            >
-              {active === action.status ? 'Working…' : action.label}
-            </button>
-          );
-        })}
-      </div>
+            {/*
+              Only the blocked ones, and never the "already at this stage" one
+              — that reason is plain from the status shown above, and printing
+              it would put a line under every order.
+            */}
+            {reasons.some(({ action, reason }) => reason && action.status !== order.status) && (
+              <ul className="flex flex-col gap-1">
+                {reasons
+                  .filter(({ action, reason }) => reason && action.status !== order.status)
+                  .map(({ action, reason }) => (
+                    <li key={action.status} className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground/70">{action.label}</span> —{' '}
+                      {reason}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
 
       <p className="text-xs text-muted-foreground leading-relaxed">
         {undecided.length > 0 && !locked

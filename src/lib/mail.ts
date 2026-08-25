@@ -116,8 +116,10 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
 /**
  * Renders the notes in an order as a list.
  *
- * Every customer-facing email now describes a set rather than a single date,
- * because an order can hold up to twenty. For a one-note order this reads
+ * Every customer-facing email now describes a set rather than a single note,
+ * because an order can hold up to twenty — and several of them may share a
+ * date, since a date can be asked for in more than one denomination. That is
+ * why these lines count notes and not dates. For a one-note order this reads
  * exactly as the old copy did.
  */
 function itemLines(items: OrderItem[]): string[] {
@@ -155,11 +157,11 @@ export function requestReceivedEmail(order: Order): MailPayload {
   const lines = itemLines(order.items);
 
   const html = layout(
-    many ? `We have your ${order.items.length} dates.` : 'We have your date.',
+    many ? `We have your ${order.items.length} notes.` : 'We have your date.',
     p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
       p(
         many
-          ? `We're searching our collection for banknotes printed on these ${order.items.length} dates:`
+          ? `We're searching our collection for these ${order.items.length} banknotes:`
           : `We're searching our collection for a banknote printed on <strong>${escapeHtml(
               order.items[0].displayDate
             )}</strong>.`
@@ -168,7 +170,7 @@ export function requestReceivedEmail(order: Order): MailPayload {
       refBlock(order.reference) +
       p(
         many
-          ? "We usually confirm within a few hours. You'll get a secure payment link for whichever dates we find — you pay nothing for any we can't."
+          ? "We usually confirm within a few hours. You'll get a secure payment link for whichever notes we find — you pay nothing for any we can't."
           : "We usually confirm availability within a few hours. If we find your note we'll email you a secure payment link; if we can't, we'll tell you straight away and you pay nothing."
       ),
     { label: 'Track your request', url: trackUrl }
@@ -181,14 +183,14 @@ export function requestReceivedEmail(order: Order): MailPayload {
 
 ${
   many
-    ? `We're searching our collection for banknotes printed on:\n${lines.map((l) => `  - ${l}`).join('\n')}`
+    ? `We're searching our collection for these banknotes:\n${lines.map((l) => `  - ${l}`).join('\n')}`
     : `We're searching our collection for a banknote printed on ${order.items[0].displayDate}.`
 }
 
 Your reference: ${order.reference}
 Track it here: ${trackUrl}
 
-We usually confirm within a few hours. You pay nothing for any date we cannot find.
+We usually confirm within a few hours. You pay nothing for any note we cannot find.
 
 — BirthNote`,
   };
@@ -212,11 +214,16 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
       ) +
       itemListHtml(found) +
       // Told plainly rather than left to be noticed on the payment page: the
-      // customer asked for these dates and deserves to hear the answer.
+      // customer asked for these notes and deserves to hear the answer.
+      //
+      // Listed by note and not by date. One date can be asked for in several
+      // denominations, so naming the date alone produces "we found 31/03/90"
+      // above and "we could not find 31/03/90" here — a flat contradiction to
+      // anyone reading it.
       (missing.length
         ? p(
-            `We could not find ${missing.length === 1 ? 'a note for' : 'notes for'} ${escapeHtml(
-              missing.map((item) => item.displayDate).join(', ')
+            `We could not find ${missing.length === 1 ? 'a note' : 'notes'} for ${escapeHtml(
+              itemLines(missing).join(', ')
             )}. You have not been charged for ${missing.length === 1 ? 'it' : 'them'}.`
           )
         : '') +
@@ -229,7 +236,7 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
   );
   return {
     to: order.customerEmail,
-    subject: `Your ${many ? 'dates are' : 'date is'} available — ${order.reference}`,
+    subject: `Your ${many ? 'notes are' : 'date is'} available — ${order.reference}`,
     html,
     text: `Hi ${order.customerName},
 
@@ -239,7 +246,7 @@ ${itemLines(found)
   .join('\n')}
 ${
   missing.length
-    ? `\nWe could not find: ${missing.map((item) => item.displayDate).join(', ')}. You have not been charged for these.\n`
+    ? `\nWe could not find: ${itemLines(missing).join(', ')}. You have not been charged for these.\n`
     : ''
 }
 Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delivery anywhere in India.
@@ -261,7 +268,9 @@ Held for you for 7 days.
  */
 export function unavailableEmail(order: Order): MailPayload {
   const many = order.items.length > 1;
-  const dates = order.items.map((item) => item.displayDate).join(', ');
+  // Deduplicated: one date asked for in three denominations is three items
+  // but one date, and listing it three times reads as a mistake on our side.
+  const dates = [...new Set(order.items.map((item) => item.displayDate))].join(', ');
   const html = layout(
     many ? 'We could not find your dates.' : 'We could not find your date.',
     p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +

@@ -95,8 +95,8 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
       <main>
         <PaymentHeroSection />
 
-        <section className="bg-background py-12 md:py-20 pb-28">
-          <div className="max-w-2xl mx-auto px-6 md:px-12 flex flex-col gap-8">
+        <section className="bg-background py-8 md:py-12 pb-10">
+          <div className="max-w-2xl mx-auto px-6 md:px-12 flex flex-col gap-5">
             {cancelled && (
               <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-4">
                 <Icon name="InformationCircleIcon" size={18} className="text-accent mt-0.5 shrink-0" />
@@ -108,8 +108,8 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
             )}
 
             {/* Order summary */}
-            <div className="card-warm p-8">
-              <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-6">
+            <div className="card-warm p-6 md:p-8">
+              <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">
                 Order summary
               </h2>
 
@@ -125,7 +125,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
                 <OrderNotes order={order} showPrices showDetails />
               </div>
 
-              <div className="flex items-baseline justify-between mb-6">
+              <div className="flex items-baseline justify-between mb-5">
                 <p className="font-sans font-bold text-foreground">Total</p>
                 <p className="font-sans font-bold text-foreground">{amountLabel}</p>
               </div>
@@ -136,8 +136,8 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
                   'Tracked delivery anywhere in India, arriving in 3–7 working days.',
                   'Certificate of authenticity in every order.',
                 ].map((line) => (
-                  <div key={line} className="flex items-start gap-2">
-                    <Icon name="CheckIcon" size={14} className="text-accent mt-0.5 shrink-0" />
+                  <div key={line} className="flex items-start gap-3">
+                    <Icon name="CheckIcon" size={16} className="text-accent mt-0.5 shrink-0" />
                     <span className="leading-relaxed">{line}</span>
                   </div>
                 ))}

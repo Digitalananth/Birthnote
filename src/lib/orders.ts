@@ -462,7 +462,16 @@ export async function updateOrderItem(
     }
     // Price is handled separately: 0 and null both mean "no price", and the
     // loop above would treat an explicit null as a value worth writing.
-    if (update.pricePaise !== undefined) {
+    //
+    // A note we do not have cannot have a price, whatever was typed in the
+    // box beside it — the admin fills the details in *before* deciding, so a
+    // price left over from a note that turned out to be missing would sit in
+    // the row looking like a charge, and `recomputeTotal` only ignores it
+    // because of a join it would be easy to change later.
+    if (update.availability === 'unavailable') {
+      fields.push('price_paise = ?');
+      params.push(null);
+    } else if (update.pricePaise !== undefined) {
       fields.push('price_paise = ?');
       params.push(
         update.pricePaise && update.pricePaise > 0 ? Math.round(update.pricePaise) : null

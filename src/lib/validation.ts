@@ -6,12 +6,20 @@
  * feedback, the server copy is the one that actually protects the database.
  */
 
-/** One requested note. An order carries one or more of these. */
+/**
+ * One requested *date*, and every denomination wanted for it.
+ *
+ * A block is not a note: picking three denominations for one date asks for
+ * three banknotes, each sourced, priced and found-or-not independently. The
+ * expansion happens in `validateRequest`, so everything downstream — the API,
+ * `order_items`, the emails, the admin — still deals in one row per note.
+ */
 export interface RequestItemValues {
   day: string;
   month: string;
   year: string;
-  denomination: string;
+  /** Rupee values as strings, matching what the checkboxes hold. */
+  denominations: string[];
   giftRelationship?: string;
   giftFor?: string;
 }
@@ -31,6 +39,10 @@ export interface RequestFormValues {
  *
  * Not a business rule so much as a guard: the form posts every row in one
  * request, and each one becomes a row to search by hand.
+ *
+ * It counts *notes*, not date blocks — twenty dates with one denomination each
+ * and four dates with five each are the same twenty searches and the same
+ * parcel, so they cost the same allowance.
  */
 export const MAX_ITEMS_PER_ORDER = 20;
 
@@ -122,17 +134,22 @@ export interface ValidatedRequest {
   };
 }
 
-/** Validates one row of the form. Exported so the UI can check a row as it changes. */
+/**
+ * Validates one date block of the form, and expands it into its notes.
+ *
+ * Returns an array because one block can ask for several banknotes — the
+ * shared date and recipient repeated once per denomination. Exported so the UI
+ * can check a block as it changes.
+ */
 export function validateRequestItem(
   values: Partial<RequestItemValues>,
   now = new Date()
-): { errors: RequestItemErrors; normalised?: NormalisedItem } {
+): { errors: RequestItemErrors; normalised?: NormalisedItem[] } {
   const errors: RequestItemErrors = {};
 
   const dayRaw = (values.day ?? '').trim();
   const monthRaw = (values.month ?? '').trim();
   const yearRaw = (values.year ?? '').trim();
-  const denominationRaw = (values.denomination ?? '').trim();
   const giftRelationship = (values.giftRelationship ?? '').trim();
   const giftFor = (values.giftFor ?? '').trim();
 
@@ -159,11 +176,24 @@ export function validateRequestItem(
     }
   }
 
-  const denomination = Number.parseInt(denominationRaw, 10);
-  if (!denominationRaw) {
-    errors.denomination = 'Choose a denomination';
-  } else if (!DENOMINATIONS.includes(denomination as (typeof DENOMINATIONS)[number])) {
-    errors.denomination = 'Choose one of the listed denominations';
+  // Ticking the same value twice is not an error, it is one note — a repeat
+  // can only come from a mangled payload, and refusing the whole order over it
+  // would be pedantry. Sorted so the notes come out in a predictable order
+  // whatever sequence the boxes were ticked in.
+  const denominations = [
+    ...new Set(
+      (Array.isArray(values.denominations) ? values.denominations : [])
+        .map((value) => Number.parseInt(String(value).trim(), 10))
+        .filter((value) => !Number.isNaN(value))
+    ),
+  ].sort((a, b) => a - b);
+
+  if (!denominations.length) {
+    errors.denominations = 'Choose at least one denomination';
+  } else if (
+    denominations.some((value) => !DENOMINATIONS.includes(value as (typeof DENOMINATIONS)[number]))
+  ) {
+    errors.denominations = 'Choose from the listed denominations';
   }
 
   if (giftRelationship && !GIFT_RELATIONSHIPS.includes(giftRelationship as GiftRelationship)) {
@@ -179,13 +209,14 @@ export function validateRequestItem(
   const mm = String(month).padStart(2, '0');
   return {
     errors,
-    normalised: {
+    // One note per denomination, sharing the date and the recipient.
+    normalised: denominations.map((denomination) => ({
       noteDate: `${fullYear}-${mm}-${dd}`,
       displayDate: `${dd}/${mm}/${yearRaw}`,
       denomination,
       giftRelationship: giftRelationship || null,
       giftFor: giftFor || null,
-    },
+    })),
   };
 }
 
@@ -226,23 +257,32 @@ export function validateRequest(
     errors.whatsapp = 'Enter a valid WhatsApp number';
   }
 
-  if (!rows.length) {
-    errors.items = 'Add at least one date';
-  } else if (rows.length > MAX_ITEMS_PER_ORDER) {
-    errors.items = `That is more than ${MAX_ITEMS_PER_ORDER} notes — email us and we will handle it by hand`;
-  }
+  if (!rows.length) errors.items = 'Add at least one date';
 
   const itemErrors: Record<number, RequestItemErrors> = {};
   const items: NormalisedItem[] = [];
-  rows.slice(0, MAX_ITEMS_PER_ORDER).forEach((row, index) => {
+  // Every block is validated, not just the first twenty: the cap is on notes,
+  // and how many notes a block is worth is only known after it has been
+  // expanded. Slicing the rows first would have hidden a typo in block 21 of
+  // an order that was under the cap anyway.
+  rows.forEach((row, index) => {
     const result = validateRequestItem(row, now);
-    if (result.normalised) items.push(result.normalised);
+    if (result.normalised) items.push(...result.normalised);
     else itemErrors[index] = result.errors;
   });
   if (Object.keys(itemErrors).length) errors.itemErrors = itemErrors;
 
-  // The same date twice in one order is almost always a mis-click, and it
-  // would send the admin hunting for a note they already found.
+  if (items.length > MAX_ITEMS_PER_ORDER) {
+    errors.items =
+      `That comes to ${items.length} notes, and we can take ${MAX_ITEMS_PER_ORDER} in one order — ` +
+      'remove a date or a denomination, or email us and we will handle it by hand';
+  }
+
+  // The same date *and* denomination twice in one order is almost always a
+  // mis-click — two blocks for one date — and it would send the admin hunting
+  // for a note they already found. Within a block the duplicate is silently
+  // collapsed instead; there it can only be a mangled payload, never a
+  // deliberate second note.
   const seen = new Set<string>();
   for (const item of items) {
     const key = `${item.noteDate}|${item.denomination}`;
