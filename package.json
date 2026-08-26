@@ -40,7 +40,7 @@
   },
   "scripts": {
     "dev": "next dev -p 4028",
-    "build": "next build",
+    "build": "node scripts/migrate.mjs && next build",
     "start": "next start -p ${PORT:-4028}",
     "lint": "next lint",
     "lint:fix": "next lint --fix",

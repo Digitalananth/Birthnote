@@ -365,7 +365,14 @@ dependency. Keep it that way.
    app's environment panel *before the first build*. `NEXT_PUBLIC_*` are inlined
    at build time, so `NEXT_PUBLIC_SITE_URL` must be the real HTTPS domain and a
    change to it needs a rebuild, not just a restart.
-4. **Migrate** — from the app's terminal, `node scripts/migrate.mjs`.
+4. **Migrate** — automatic. `npm run build` runs `scripts/migrate.mjs` before
+   `next build`, so each deploy applies the schema and, on an empty
+   `admin_users`, seeds the first owner. The schema is `CREATE TABLE IF NOT
+   EXISTS` throughout and the seed is skipped once any admin exists, so it is
+   safe on every build. The flip side: an unreachable database now fails the
+   **build**, not just the request — run `node scripts/db-check.mjs` from the
+   app's terminal to see exactly which of host, port, credentials or schema is
+   wrong.
 5. **Stripe webhook** — point it at `https://your-domain/api/webhooks/stripe`
    and copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Without this,
    payments are taken but orders never move to `paid`.
@@ -386,9 +393,10 @@ npm ci --omit=dev && npm run build
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Dev server on :4028 |
-| `npm run build` | Production build (type errors fail the build) |
+| `npm run build` | Migrates the database, then builds (type errors fail the build) |
 | `npm start` | Production server on `$PORT`, default 4028 |
-| `npm run db:migrate` | Applies `scripts/schema.sql` |
+| `npm run db:migrate` | Applies `scripts/schema.sql` (also run by `npm run build`) |
+| `node scripts/db-check.mjs` | Diagnoses the MySQL connection and admin accounts |
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 

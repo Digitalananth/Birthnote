@@ -41,14 +41,41 @@ if (missing.length) {
 
 const sql = readFileSync(join(here, 'schema.sql'), 'utf8');
 
-const connection = await mysql.createConnection({
-  host: process.env.MYSQL_HOST || 'localhost',
-  port: Number(process.env.MYSQL_PORT || 3306),
-  database: process.env.MYSQL_DATABASE,
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASSWORD || '',
-  multipleStatements: true,
-});
+/**
+ * Renders a connection failure readably.
+ *
+ * Node tries every address the host resolves to and wraps one error per
+ * attempt in an AggregateError whose own `message` is empty — so logging
+ * `error.message` alone prints nothing useful. Unwrap `.errors` instead.
+ */
+function explain(error) {
+  if (error?.errors?.length) {
+    return error.errors.map((sub) => `${sub.code || ''} ${sub.message}`.trim()).join('; ');
+  }
+  return `${error.code || ''} ${error.message}`.trim();
+}
+
+const host = process.env.MYSQL_HOST || 'localhost';
+const port = Number(process.env.MYSQL_PORT || 3306);
+
+let connection;
+try {
+  connection = await mysql.createConnection({
+    host,
+    port,
+    database: process.env.MYSQL_DATABASE,
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD || '',
+    multipleStatements: true,
+  });
+} catch (error) {
+  console.error(`\u2717 Cannot reach MySQL at ${host}:${port} \u2014 ${explain(error)}`);
+  console.error(
+    '  Check MYSQL_HOST/MYSQL_PORT/MYSQL_USER/MYSQL_PASSWORD against\n' +
+      '  hPanel \u2192 Databases \u2192 Management, then run: node scripts/db-check.mjs'
+  );
+  process.exit(1);
+}
 
 /**
  * Columns added after the first release. MySQL has no
@@ -495,7 +522,7 @@ try {
     applied.length ? `  Added: ${applied.join(', ')}` : '  No new columns needed.'
   );
 } catch (error) {
-  console.error('\u2717 Migration failed:', error.message);
+  console.error('\u2717 Migration failed:', explain(error));
   process.exitCode = 1;
 } finally {
   await connection.end();
