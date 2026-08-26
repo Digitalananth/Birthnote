@@ -231,34 +231,37 @@ export async function changeEmail(userId: number, email: string | null): Promise
 /**
  * Attaches past guest orders to an account.
  *
- * Someone who ordered without signing up, then signs up later with the same
- * address, would otherwise see an empty My Orders page. Run on both signup and
- * login: the second covers orders placed as a guest *after* registering.
+ * Someone who ordered without signing up, then signs in later with the same
+ * number or address, would otherwise see an empty My Orders page. Run on every
+ * sign-in, not only the first: the later ones cover orders placed as a guest
+ * after the account was opened.
  *
- * Only rows with no owner are touched, so this can never move an order from
- * one account to another.
+ * Only identifiers the account has *proved* with a one-time code are matched,
+ * which is why this takes the whole `User` rather than loose strings. A guest
+ * order is claimed on nothing but the contact details it carries, and those
+ * details belong to a person who may well have no account at all — so an
+ * unproved address typed into the profile form, or a second contact detail
+ * offered at signup, would otherwise hand that person's order history to
+ * whoever typed it. The `user_id IS NULL` guard below stops an order moving
+ * between accounts, but the first claim is the one that matters: it is
+ * irreversible, and it is the rightful owner who is locked out by it.
  */
-export async function claimGuestOrders(
-  userId: number,
-  match: { email?: string | null; phone?: string | null }
-): Promise<number> {
+export async function claimGuestOrders(user: User): Promise<number> {
   // `orders.whatsapp` is the only number an order carries, and it holds
   // whatever the customer typed — it was never normalised. Comparing only the
   // last ten digits is what makes "+91 98765 43210" on an order match the
-  // canonical "919876543210" on the account, and it is safe here because a
-  // wrong match costs nothing: the `user_id IS NULL` guard below means an
-  // order can only ever be claimed once, never moved between accounts.
+  // canonical "919876543210" on the account.
   const conditions: string[] = [];
-  const params: (string | number)[] = [userId];
-  if (match.email) {
+  const params: (string | number)[] = [user.id];
+  if (user.emailVerified && user.email) {
     conditions.push('customer_email = ?');
-    params.push(match.email);
+    params.push(user.email);
   }
-  if (match.phone) {
+  if (user.phoneVerified && user.phone) {
     conditions.push(
       "RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(whatsapp, ''), ' ', ''), '-', ''), '(', ''), ')', ''), 10) = ?"
     );
-    params.push(match.phone.slice(-10));
+    params.push(user.phone.slice(-10));
   }
   if (!conditions.length) return 0;
 

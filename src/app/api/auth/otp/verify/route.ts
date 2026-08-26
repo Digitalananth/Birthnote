@@ -117,8 +117,11 @@ export async function POST(request: Request) {
         });
 
     // Orders placed before signing in belong to this person too — matched on
-    // whichever details the account now carries.
-    await claimGuestOrders(user.id, { phone: user.phone, email: user.email });
+    // whichever of the account's details have been proved by a code. The second
+    // contact detail collected above is not one of them: it is typed, not
+    // proved, so claiming on it would hand a stranger's order history to
+    // whoever typed their address or number.
+    await claimGuestOrders(user);
 
     // Only on a genuinely new account, and only when there is somewhere to
     // send it. A failure here is swallowed inside sendMail: a bounced welcome

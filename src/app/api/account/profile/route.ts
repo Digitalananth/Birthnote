@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateProfile, type ProfileValues } from '@/lib/auth-validation';
 import { getCurrentUser } from '@/lib/session';
-import { updateProfile, changeEmail, claimGuestOrders, EmailTakenError } from '@/lib/users';
+import { updateProfile, changeEmail, EmailTakenError } from '@/lib/users';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,9 +36,12 @@ export async function PATCH(request: Request) {
 
   try {
     if (email !== user.email) {
+      // `changeEmail` leaves the address unverified, and it stays that way
+      // until a code sent to it says otherwise. Nothing here claims the guest
+      // orders sitting against it: an address typed into this form is not
+      // proof of holding it, and a claim cannot be undone — see
+      // `claimGuestOrders`.
       await changeEmail(user.id, email);
-      // A newly added address may already have guest orders against it.
-      if (email) await claimGuestOrders(user.id, { email });
     }
 
     const updated = await updateProfile(user.id, { name, whatsapp });

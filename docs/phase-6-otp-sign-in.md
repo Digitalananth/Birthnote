@@ -87,6 +87,28 @@ another account is refused with `PhoneTakenError` rather than silently moved.
 `users.phone` is nullable, so an account opened with an address alone is a
 valid account with no number at all.
 
+## Claiming guest orders needs a proved identifier
+
+Orders placed without an account are matched to one on every sign-in:
+`claimGuestOrders` sets `orders.user_id` where the row has no owner and its
+`customer_email` or `whatsapp` matches the account.
+
+It matches **only identifiers the account has proved with a one-time code**,
+which is why it takes the whole `User` rather than loose strings. A guest order
+carries the contact details of a person who may well have no account, so a
+detail that was merely *typed* — the optional second contact offered at signup,
+or an address entered on the profile page — must never claim anything. The
+`user_id IS NULL` guard means an order cannot be moved between accounts, but
+that cuts the wrong way once a wrong claim happens: the first claim wins and the
+rightful owner is locked out of their own history for good.
+
+So the profile page no longer claims orders when the address changes, and
+`/api/auth/otp/verify` passes the user rather than the pair of details it
+collected. Without this, signing in with one's own number and then typing a
+stranger's address into the profile form handed over every guest order that
+address ever placed — name, email, WhatsApp number, recipient details, message,
+status and payment state.
+
 ## What an identifier being the identifier costs
 
 **The number cannot be edited from the profile page.** Changing it is changing
@@ -101,6 +123,15 @@ a credential without proving anything, while the number cannot. Editing an
 address clears `email_verified`, but the sign-in path does not currently
 require that flag. Closing this properly means the same code-to-the-new-address
 step the number needs.
+
+Until it is closed, one consequence is worth stating plainly: an unproved
+address on an account still *reserves* that address. Put someone else's address
+on your account and they cannot open one of their own with it, and when they
+ask for a code at that address the code proves the address but signs them into
+the account holding it. Guest orders are no longer part of the damage — see
+above — but the reservation is, and it is the same fix that closes both: an
+address must be proved before it is written, and an address only typed must
+lose to one actually proved.
 
 **Accounts that predate this have no number.** They cannot sign in. The
 migration counts them and says so, because the shop owner should learn that

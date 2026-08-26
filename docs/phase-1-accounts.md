@@ -124,6 +124,9 @@ Password hashing and the user record.
 - `claimGuestOrders(userId, email)` — on signup and on login, backfills
   `orders.user_id` where `customer_email` matches and `user_id IS NULL`.
   This is what makes "I ordered last month as a guest" show up in My Orders.
+  (Phase 6 narrows this: it takes the whole `User` and matches only on
+  identifiers the account has proved with a one-time code. See
+  `docs/phase-6-otp-sign-in.md`.)
 
 ### New — `src/lib/session.ts`
 - `createSession(userId, userAgent)` — 32 random bytes; stores the SHA-256,
