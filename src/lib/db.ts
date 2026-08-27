@@ -1,6 +1,7 @@
 import 'server-only';
 import mysql from 'mysql2/promise';
 import { env } from '@/lib/env';
+import { recordDbError } from '@/server/db-errors';
 
 /**
  * A single MySQL pool per Node process.
@@ -36,10 +37,15 @@ export async function query<T = mysql.RowDataPacket[]>(
   sql: string,
   params: unknown[] = []
 ): Promise<T> {
-  // mysql2 types the values as ExecuteValues; callers pass unknown[] and the
-  // driver serialises each value itself.
-  const [rows] = await getPool().execute(sql, params as never[]);
-  return rows as T;
+  try {
+    // mysql2 types the values as ExecuteValues; callers pass unknown[] and the
+    // driver serialises each value itself.
+    const [rows] = await getPool().execute(sql, params as never[]);
+    return rows as T;
+  } catch (error) {
+    recordDbError(error, sql);
+    throw error;
+  }
 }
 
 /** Run several statements inside one transaction. */
