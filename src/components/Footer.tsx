@@ -48,7 +48,7 @@ export default function Footer() {
               <span className="font-serif text-base font-medium text-foreground">BirthNote</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Original banknotes printed on the dates that matter — found, verified and framed.
+              Original banknotes printed on the dates that matter — found, verified and gift-boxed.
             </p>
           </div>
 
