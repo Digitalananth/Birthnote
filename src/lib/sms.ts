@@ -71,6 +71,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
     const payload = (await response.json().catch(() => null)) as {
       type?: string;
       message?: string;
+      request_id?: string;
     } | null;
 
     if (!response.ok || payload?.type === 'error') {
@@ -79,7 +80,13 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
       return { sent: false, reason };
     }
 
-    console.info(`[sms:sent] sign-in code to +${phone}`);
+    // MSG91 accepting the request is not the same as the operator delivering
+    // it, and the two are hours apart when a route is congested. `request_id`
+    // is the only handle their delivery-report lookup takes, so it is logged
+    // here — without it a "sent but never arrived" report cannot be traced
+    // past this line.
+    const requestId = payload?.request_id ?? 'none';
+    console.info(`[sms:sent] sign-in code to +${phone} (msg91 request_id=${requestId})`);
     return { sent: true };
   } catch (error) {
     // A network failure reaching MSG91 — same outcome for the customer as a
