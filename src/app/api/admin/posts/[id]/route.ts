@@ -16,6 +16,8 @@ function pathsFor(post: { slug: string; categorySlug: string | null }): string[]
     `/blog/${post.slug}`,
     '/blog',
     post.categorySlug ? `/blog/category/${post.categorySlug}` : null,
+    // The home page teases the three most recent posts.
+    '/',
     '/sitemap.xml',
   ].filter(Boolean) as string[];
 }

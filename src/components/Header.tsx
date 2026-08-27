@@ -28,6 +28,7 @@ export default function Header() {
     { label: 'How It Works', href: '/#how-it-works' },
     { label: 'What You Receive', href: '/#what-you-receive' },
     { label: 'Stories', href: '/#stories' },
+    { label: 'Journal', href: '/blog' },
     { label: 'Track Order', href: '/track-order' },
     // Deliberately not personalised: showing the signed-in name here would
     // force every page carrying the header to render per request, costing the

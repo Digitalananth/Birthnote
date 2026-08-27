@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   try {
     const post = await createPost(input as PostInput, auth.admin.name);
-    revalidateContent([`/blog/${post.slug}`, '/blog', '/sitemap.xml']);
+    revalidateContent([`/blog/${post.slug}`, '/blog', '/', '/sitemap.xml']);
     return NextResponse.json({ post }, { status: 201 });
   } catch (error) {
     if (error instanceof SlugTakenError) {

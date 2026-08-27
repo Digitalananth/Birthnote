@@ -26,6 +26,9 @@ export default function Footer() {
           <Link href="/#what-you-receive" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             What You Receive
           </Link>
+          <Link href="/blog" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Journal
+          </Link>
         </nav>
 
         {/* Copyright */}
