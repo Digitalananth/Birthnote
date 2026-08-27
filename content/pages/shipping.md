@@ -9,7 +9,7 @@ Everything below applies once your date has been confirmed and paid for. Submitt
 | Stage | Timing |
 | --- | --- |
 | We check your date | Within 24 hours of your request |
-| Packaging, after payment | Dispatched within 1 working day |
+| Packaging, after payment | Packaged and dispatched within 1–2 working days |
 | In transit | 3–5 days across India |
 
 Payments that clear after 4pm IST, or on a Sunday or public holiday, are dispatched the next working day.

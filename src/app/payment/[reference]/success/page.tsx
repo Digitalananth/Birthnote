@@ -100,7 +100,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
                   },
                   {
                     icon: 'TruckIcon' as const,
-                    text: 'Dispatched with tracked delivery, arriving in 3–7 working days.',
+                    text: 'Dispatched with tracked delivery, arriving in 3–5 days.',
                   },
                 ].map((item) => (
                   <div key={item.text} className="flex items-start gap-3">

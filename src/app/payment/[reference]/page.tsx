@@ -133,8 +133,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
               <div className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {[
                   'Archival sleeve and gift box included.',
-                  'Tracked delivery anywhere in India, arriving in 3–7 working days.',
-                  'Certificate of authenticity in every order.',
+                  'Tracked delivery anywhere in India, arriving in 3–5 days.',
                 ].map((line) => (
                   <div key={line} className="flex items-start gap-3">
                     <Icon name="CheckIcon" size={16} className="text-accent mt-0.5 shrink-0" />

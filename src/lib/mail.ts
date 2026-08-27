@@ -315,7 +315,7 @@ export function paymentReceivedEmail(order: Order): MailPayload {
       refBlock(order.reference) +
       `<ul style="margin:0;padding-left:20px;color:#4A3F33;font-size:15px;line-height:1.8;">
          <li>Packaged in an archival sleeve and gift box within 1–2 working days.</li>
-         <li>Dispatched with tracked delivery, arriving in 3–7 working days.</li>
+         <li>Dispatched with tracked delivery, arriving in 3–5 days.</li>
          <li>We'll email your tracking number as soon as it ships.</li>
        </ul>`,
     { label: 'Track your order', url: trackUrl }
@@ -334,7 +334,7 @@ ${itemLines(availableItems(order))
 Reference: ${order.reference}
 Track it: ${trackUrl}
 
-Everything ships together, packaged within 1-2 working days and delivered in 3-7 working days with tracking.
+Everything ships together, packaged within 1-2 working days and delivered in 3-5 days with tracking.
 
 — BirthNote`,
   };

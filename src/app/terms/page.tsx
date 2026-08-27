@@ -39,7 +39,7 @@ export default function TermsPage() {
             heading: 'Price and delivery',
             body: [
               'All prices are in Indian Rupees and are inclusive of applicable taxes. The price shown at checkout is the total, including tracked delivery anywhere in India.',
-              'Orders are packaged within 1–2 working days and typically arrive 3–7 working days after dispatch, depending on your location. We deliver within India only.',
+              'Orders are packaged within 1–2 working days and typically arrive 3–5 days after dispatch, depending on your location. We deliver within India only.',
             ],
           },
           {
