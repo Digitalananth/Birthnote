@@ -1,7 +1,7 @@
 import 'server-only';
 import mysql from 'mysql2/promise';
 import { env } from '@/lib/env';
-import { recordDbError } from '@/server/db-errors';
+import { recordError } from '@/server/errors';
 
 /**
  * A single MySQL pool per Node process.
@@ -43,7 +43,7 @@ export async function query<T = mysql.RowDataPacket[]>(
     const [rows] = await getPool().execute(sql, params as never[]);
     return rows as T;
   } catch (error) {
-    recordDbError(error, sql);
+    recordError('db', error, sql.trim().split('\n')[0].replace(/\s+/g, ' ').slice(0, 120));
     throw error;
   }
 }

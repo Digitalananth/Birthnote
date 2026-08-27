@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import { env } from '@/lib/env';
 import { getMigrationStatus } from '@/server/migration-status';
 import { checkSchema, type SchemaDrift } from '@/server/schema-check';
-import { recentDbErrors } from '@/server/db-errors';
+import { recentErrors } from '@/server/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,9 +56,9 @@ export async function GET() {
       migrations,
       // Tables/columns the code needs and the database lacks. Empty when fine.
       drift,
-      // Last few failed statements in this process: driver code and a
-      // value-redacted message. Empty when nothing has failed.
-      recentDatabaseErrors: recentDbErrors(),
+      // Last few server-side failures, from the app_errors table: scope,
+      // driver code and a value-redacted message. Empty when nothing failed.
+      recentErrors: database ? await recentErrors() : [],
       stripe: env.stripe.configured(),
       mail: env.smtp.enabled(),
       whatsapp: env.whatsapp.enabled(),

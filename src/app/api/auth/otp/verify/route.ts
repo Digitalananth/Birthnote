@@ -15,6 +15,7 @@ import { verifyOtp, pruneExpiredOtps } from '@/lib/otp';
 import { createSession, sessionCookie, pruneExpiredSessions } from '@/lib/session';
 import { sendMail, welcomeEmail } from '@/lib/mail';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
+import { recordError } from '@/server/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     );
   }
 
+  let existing: Awaited<ReturnType<typeof getUserByIdentifier>> = null;
   try {
     // The second contact detail is checked *before* the code is spent.
     // Getting it wrong is a typo, not an attack, and a one-time code that has
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
     // or address has an account, but `/request` already answers that with
     // `isNewAccount`, so nothing new is given away. The unique keys below stay
     // the real guard: this check can be raced, they cannot.
-    const existing = await getUserByIdentifier(identifier, channel);
+    existing = await getUserByIdentifier(identifier, channel);
     const clash =
       channel === 'email'
         ? phone && (await getUserByPhone(phone))
@@ -158,7 +160,7 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    console.error('[api/auth/otp/verify] failed', error);
+    recordError('api/auth/otp/verify', error, `channel=${channel} existing=${existing ? 'yes' : 'no'}`);
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
