@@ -381,26 +381,63 @@ dependency. Keep it that way.
 ### Every deploy
 
 ```bash
+git add -A && git commit                            # the zip is built from git, so commit first
 git push                                            # history first
-rm -f birthnote-source.zip
-git ls-files -z | xargs -0 zip -q birthnote-source.zip
+bash scripts/package-source.sh                      # → birthnote-source.zip
 ```
 
-Building the archive from `git ls-files` is what keeps `.env` out of it — the
-file sits in the working tree but is untracked, and a `zip -r .` would upload
-every secret to the server. The zip is gitignored for the same reason.
+`package-source.sh` zips exactly `git ls-files`, which is what keeps `.env`
+out of it — the file sits in the working tree but is untracked, and a
+`zip -r .` would upload every secret to the server. It also means **an
+uncommitted new file is not in the zip**; commit before packaging. The zip is
+gitignored for the same reason.
 
-Then upload `birthnote-source.zip` to `public_html` (hPanel → File Manager, or
-the Web App's own deploy control) and start a build. The build takes two to
-three minutes.
+Then get the zip to Hostinger, either way:
 
-**Verify** — `curl https://your-domain/api/health` should return
-`{"status":"ok","database":true,...}`. If it does not, the app's start-up log
-(hPanel → Web App → Logs) has a `[migrate]` line saying what happened: either
-which migrations ran, or `✗ failed:` with the reason — host, port or credentials.
+- **hPanel** — upload `birthnote-source.zip` to `public_html` (File Manager, or
+  the Web App's own deploy control) and start a build.
+- **Hostinger MCP from Claude Code** — `hosting_deployJsApplication` with the
+  zip's path and the domain. It uploads, resolves the build settings and starts
+  the build in one call; `hosting_listJsDeployments` shows its state. Claude
+  Code's auto mode blocks the first call as a production action — reply
+  "deploy" and it goes through.
+
+The build takes two to three minutes: `npm install` → `prebuild` → `next build`,
+then the app starts and migrates itself. The build log
+(`hosting_showJsDeploymentLogs`, or hPanel → Web App → Logs) covers the build
+only; nothing the running app prints is reachable from outside, which is why
+`/api/health` reports as much as it does.
+
+**Verify** — `curl https://your-domain/api/health`:
+
+```json
+{
+  "status": "ok",                         // "degraded" (HTTP 503) if anything below is wrong
+  "database": true,
+  "server": { "version": "11.8.8-MariaDB-log", "collation": "utf8mb4_unicode_ci" },
+  "schema": "0007",                       // MAX(version) in schema_migrations, read live
+  "migrations": { "state": "ok", "current": "0007", "applied": ["0007_app_errors"],
+                  "warnings": [], "error": null, "at": "…" },   // what THIS boot did
+  "drift": { "missingTables": [], "missingColumns": {} },       // code vs information_schema
+  "recentErrors": [],                     // last 5 rows of app_errors: scope, code, redacted message
+  "stripe": true, "mail": true, "whatsapp": false
+}
+```
+
+- `migrations.error` set → the boot-time migration failed; the text says why
+  (host, port, credentials, or the failing statement). Fix, restart.
+- `drift` non-empty → a table the app needs exists in another shape (pasted by
+  hand, edited in phpMyAdmin). The baseline is `IF NOT EXISTS` and will not
+  touch it; add a migration that adds the missing columns.
+- `recentErrors` non-empty → a route handler threw. `scope` is the route or
+  `db`, `code` is the driver's (`ER_…`), `message` has every quoted value
+  replaced by `…` so it never carries customer data, and `detail` names the
+  statement or the throwing frame. This is the runtime log Hostinger does not
+  give you.
+
 `node scripts/db-check.mjs` run *from your machine* with the same `MYSQL_*`
-values (after allowing your IP under hPanel → Databases → Remote MySQL) reports
-the same in more detail.
+values (after allowing your IP under hPanel → Databases → Remote MySQL) checks
+the connection in more detail.
 
 ### Database migrations
 
@@ -450,6 +487,32 @@ next start, so write it to tolerate a half-applied previous attempt.
 
 `MIGRATE_ON_BOOT=false` in the environment skips the whole step, for the rare
 case where the schema must be changed by hand first.
+
+**Test a migration before deploying it.** The same engine as production is one
+command away, and the boot-time run needs nothing else:
+
+```bash
+docker compose up -d db                              # local MariaDB on :3307
+npm run build
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_DATABASE=birthnote MYSQL_USER=birthnote \
+MYSQL_PASSWORD=birthnote npm start                   # watch for the [migrate] line
+curl localhost:4028/api/health                       # schema, drift, recentErrors
+```
+
+Run it twice: the second start must say `up to date`. Then test against a
+database in the *previous* shape — create it from the last release's
+migrations, or paste an older `schema.sql` from git — because production is
+never a fresh database.
+
+**A rule learned the hard way — never compare a bound parameter with a string
+literal in SQL.** `IF(name = '' AND ? <> '', …)` failed on Hostinger with
+`Illegal mix of collations (utf8mb4_general_ci,COERCIBLE) and
+(utf8mb4_unicode_ci,COERCIBLE)`: the parameter and the literal arrived with
+different collations and neither had a column to decide between them. It
+passed every local test because it only ran for *returning* customers.
+Comparisons must involve the column (`COALESCE(NULLIF(name, ''), ?)`), and
+`src/lib/db.ts` pins the pool to `utf8mb4_unicode_ci`, the collation every
+table is declared with.
 
 `.env` is deliberately untracked and never uploaded. The server gets its
 configuration from the Web App environment panel only.
