@@ -75,7 +75,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
   const url = new URL('/api/v5/otp', env.msg91.apiBase);
   url.searchParams.set('template_id', templateId);
   url.searchParams.set('mobile', phone);
-  url.searchParams.set('otp', code);
+  url.searchParams.set('authkey', env.msg91.authKey());
   url.searchParams.set('otp_expiry', String(env.msg91.otpExpiryMinutes));
   if (env.msg91.senderId) url.searchParams.set('sender', env.msg91.senderId);
 
@@ -86,9 +86,19 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
         authkey: env.msg91.authKey(),
         'Content-Type': 'application/json',
       },
-      // The endpoint takes its parameters in the query string, but rejects a
-      // POST with no body at all.
-      body: '{}',
+      // The routing parameters go in the query string, but the *template
+      // variables* are read from the JSON body, keyed by the placeholder name
+      // in the DLT-approved template — `OTP` here, for `##OTP##`.
+      //
+      // This is what was wrong before: the code was passed as an `otp` query
+      // parameter and the body was `{}`, so the template had no value to
+      // substitute. MSG91 still answered {"type":"success"} and only failed at
+      // submission, logging "Template ID Missing or Invalid Template" — which
+      // reads like a bad id and is really an unsatisfied variable.
+      //
+      // If the template is ever re-registered with a differently named
+      // placeholder, this key must change with it.
+      body: JSON.stringify({ OTP: code }),
       cache: 'no-store',
     });
 
