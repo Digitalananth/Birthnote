@@ -343,59 +343,79 @@ have not already, **rotate every key that was in it.**
 
 ## Deploying to Hostinger (Web Apps)
 
-Hostinger's **Web Apps** builds from GitHub on the server — it clones the repo,
-runs `npm install --omit=dev`, then `npm run build`, then `npm start`. Do not
-upload a prebuilt bundle; there is no source in one, and the build fails with
-`Couldn't find any \`pages\` or \`app\` directory`.
+The Web App is **not** connected to GitHub. Every deploy uploads a zip of the
+source to `public_html` and starts a Node.js build from it. Git is still where
+the history lives — push first, then deploy the same commit — but nothing on
+the server watches the repo, so a push alone changes nothing on the site.
+
+Hostinger builds the archive on the server: it unpacks it, runs
+`npm install --omit=dev`, then `npm run build`, then `npm start`. Ship
+**source**, not a prebuilt bundle — there is no `app` directory in one, and the
+build fails with `Couldn't find any \`pages\` or \`app\` directory`.
 
 Because the install omits dev dependencies, everything `next build` needs
 (`typescript`, `tailwindcss`, `postcss`, `autoprefixer`, the `@types/*`) lives
 in `dependencies`, not `devDependencies`. Only lint/format tooling is a dev
 dependency. Keep it that way.
 
+### First-time setup
+
 1. **Database** — hPanel → Databases → MySQL. Create a database and user, note
    the credentials.
-2. **Web App** — hPanel → Web Apps → create, connect this GitHub repo:
-   - Branch: `main`
-   - Root directory: `/`
-   - Build command: `npm run build`
-   - Start command: `npm start`
-   - Node version: 20 or newer
+2. **Web App** — hPanel → Web Apps → create one for the domain:
+   - App type: `next`, Node version: 22
+   - Root directory: `/`, Output directory: `.next`
+   - Build script: `build`
 3. **Environment variables** — add every variable from `.env.example` in the
    app's environment panel *before the first build*. `NEXT_PUBLIC_*` are inlined
    at build time, so `NEXT_PUBLIC_SITE_URL` must be the real HTTPS domain and a
    change to it needs a rebuild, not just a restart.
-4. **Migrate** — automatic. `npm run build` runs `scripts/migrate.mjs` before
-   `next build`, so each deploy applies the schema and, on an empty
-   `admin_users`, seeds the first owner. The schema is `CREATE TABLE IF NOT
-   EXISTS` throughout and the seed is skipped once any admin exists, so it is
-   safe on every build. The flip side: an unreachable database now fails the
-   **build**, not just the request — run `node scripts/db-check.mjs` from the
-   app's terminal to see exactly which of host, port, credentials or schema is
-   wrong.
+4. **Migrate** — from the app's terminal, `npm run db:migrate`. This applies
+   `scripts/schema.sql` and, on an empty `admin_users`, seeds the first owner
+   from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`.
 5. **Stripe webhook** — point it at `https://your-domain/api/webhooks/stripe`
    and copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Without this,
    payments are taken but orders never move to `paid`.
-6. **Verify** — `curl https://your-domain/api/health` should return
-   `{"status":"ok","database":true,...}`.
 
-`.env` is deliberately untracked. The server gets its configuration from the
-Web App environment panel only.
-
-To reproduce the server build locally before pushing:
+### Every deploy
 
 ```bash
-npm ci --omit=dev && npm run build
+git push                                            # history first
+rm -f birthnote-source.zip
+git ls-files -z | xargs -0 zip -q birthnote-source.zip
 ```
+
+Building the archive from `git ls-files` is what keeps `.env` out of it — the
+file sits in the working tree but is untracked, and a `zip -r .` would upload
+every secret to the server. The zip is gitignored for the same reason.
+
+Then upload `birthnote-source.zip` to `public_html` (hPanel → File Manager, or
+the Web App's own deploy control) and start a build. The build takes two to
+three minutes.
+
+**Migrations do not run during the build.** Hostinger builds in a sandbox with
+no route to the account's MySQL, so a migration in the build script fails with
+`ECONNREFUSED` and takes the whole deploy down with it. When a deploy changes
+the schema, run `npm run db:migrate` from the app's terminal *after* the build.
+`scripts/schema.sql` is `CREATE TABLE IF NOT EXISTS` throughout and the owner
+seed is skipped once any admin exists, so it is safe to run after every deploy.
+
+**Verify** — `curl https://your-domain/api/health` should return
+`{"status":"ok","database":true,...}`. If it does not, `node scripts/db-check.mjs`
+from the app's terminal says exactly which of host, port, credentials or schema
+is wrong.
+
+`.env` is deliberately untracked and never uploaded. The server gets its
+configuration from the Web App environment panel only.
 
 ## Scripts
 
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Dev server on :4028 |
-| `npm run build` | Migrates the database, then builds (type errors fail the build) |
+| `npm run build` | `next build` (type errors fail the build) |
 | `npm start` | Production server on `$PORT`, default 4028 |
-| `npm run db:migrate` | Applies `scripts/schema.sql` (also run by `npm run build`) |
+| `npm run db:migrate` | Applies `scripts/schema.sql`; run after a deploy that changes the schema |
 | `node scripts/db-check.mjs` | Diagnoses the MySQL connection and admin accounts |
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
