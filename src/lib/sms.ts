@@ -24,9 +24,18 @@ import { env } from '@/lib/env';
  * so rather than leaving them staring at a code entry box.
  */
 export interface SmsResult {
+  /**
+   * MSG91 *accepted* the send. Not proof of delivery, and — because their OTP
+   * endpoint validates the template only after responding — not proof that the
+   * message is even deliverable. The customer-facing flow treats this as good
+   * enough to show the code box, which is the best that can be done without a
+   * delivery-report callback.
+   */
   sent: boolean;
   /** Present when MSG91 rejected the send — for the log, never for the user. */
   reason?: string;
+  /** MSG91's handle for the send, for tracing it in their delivery log. */
+  requestId?: string;
 }
 
 /**
@@ -46,8 +55,25 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
     return { sent: true };
   }
 
+  const templateId = env.msg91.templateId();
+
+  // The commonest way this breaks is a DLT template id (a long run of digits,
+  // issued by the telecom regulator's portal) being pasted where MSG91 wants
+  // its own — a 24-character hex id from SMS -> Templates. Because MSG91
+  // accepts the send either way and only rejects it later, that mistake is
+  // otherwise invisible until someone reads the delivery log. Warn rather
+  // than throw: the format is a strong convention, not a documented
+  // guarantee, and a wrong guess here must not be what stops sign-in.
+  if (!/^[0-9a-f]{24}$/i.test(templateId)) {
+    console.warn(
+      `[sms:suspect-template] MSG91_TEMPLATE_ID=${templateId} is not a ` +
+        '24-character hex MSG91 template id. If this is the numeric DLT id, ' +
+        'MSG91 will accept every send and silently deliver none.'
+    );
+  }
+
   const url = new URL('/api/v5/otp', env.msg91.apiBase);
-  url.searchParams.set('template_id', env.msg91.templateId());
+  url.searchParams.set('template_id', templateId);
   url.searchParams.set('mobile', phone);
   url.searchParams.set('otp', code);
   url.searchParams.set('otp_expiry', String(env.msg91.otpExpiryMinutes));
@@ -66,8 +92,18 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
       cache: 'no-store',
     });
 
-    // MSG91 answers 200 with {"type":"error"} for a bad template or an
-    // unreachable number, so the status code alone is not enough.
+    // MSG91 answers 200 with {"type":"error"} for some rejections — a
+    // non-whitelisted IP, a malformed request — so the status code alone is
+    // not enough.
+    //
+    // It does NOT do so for a bad template. Verified against the live API on
+    // 2026-08-27: a request with a bogus template id, and even one with no
+    // `template_id` at all, both come back {"type":"success"} with a
+    // request_id. The template is resolved later, at submission, and a
+    // failure there appears only in the delivery log in the MSG91 dashboard
+    // ("Template ID Missing or Invalid Template"). `realTimeResponse=1` does
+    // not change this. There is therefore no synchronous signal here that
+    // separates a deliverable send from one that will be dropped.
     const payload = (await response.json().catch(() => null)) as {
       type?: string;
       message?: string;
@@ -80,14 +116,18 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
       return { sent: false, reason };
     }
 
-    // MSG91 accepting the request is not the same as the operator delivering
-    // it, and the two are hours apart when a route is congested. `request_id`
-    // is the only handle their delivery-report lookup takes, so it is logged
-    // here — without it a "sent but never arrived" report cannot be traced
-    // past this line.
+    // Acceptance is all that can be claimed here — see above. The operator
+    // may still drop the message, and a template fault is invisible until the
+    // delivery log. `request_id` is the only handle that log takes, so it is
+    // logged unconditionally: without it a "sent but never arrived" report
+    // cannot be traced past this line.
     const requestId = payload?.request_id ?? 'none';
-    console.info(`[sms:sent] sign-in code to +${phone} (msg91 request_id=${requestId})`);
-    return { sent: true };
+    console.info(
+      `[sms:accepted] sign-in code for +${phone} accepted by MSG91 ` +
+        `(request_id=${requestId}) — acceptance is not delivery; check the ` +
+        'MSG91 delivery log against this request_id if it never arrives'
+    );
+    return { sent: true, requestId };
   } catch (error) {
     // A network failure reaching MSG91 — same outcome for the customer as a
     // rejection, so it is reported the same way.
