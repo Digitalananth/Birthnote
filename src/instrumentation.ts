@@ -29,8 +29,11 @@ export async function register() {
   // mysql2 import with it — from the edge bundle. The imports must stay
   // *inside* the block for that to work.
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { setMigrationStatus } = await import('@/server/migration-status');
+
     if (process.env.MIGRATE_ON_BOOT === 'false') {
       console.log('[migrate] skipped: MIGRATE_ON_BOOT=false');
+      setMigrationStatus({ state: 'skipped', current: null, applied: [], warnings: [], error: null });
       return;
     }
 
@@ -47,16 +50,26 @@ export async function register() {
 
       const seeded = await seedFirstAdmin();
       if (seeded) console.log(`[migrate] ${seeded}`);
+
+      setMigrationStatus({
+        state: 'ok',
+        current: report.current,
+        applied: report.applied,
+        warnings: seeded ? [...report.warnings, seeded] : report.warnings,
+        error: null,
+      });
     } catch (error) {
       // Deliberately not rethrown. A migration that cannot reach the database
       // is a reason to look at the logs, not a reason to refuse to serve the
       // static pages, /api/health or the diagnostics that would explain it.
       // Every database-backed route fails loudly on its own anyway.
-      console.error(`[migrate] ✗ failed: ${explain(error)}`);
+      const reason = explain(error);
+      console.error(`[migrate] ✗ failed: ${reason}`);
       console.error(
         '[migrate]   Check MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USER / ' +
           'MYSQL_PASSWORD in the Web App environment panel, then restart the app.'
       );
+      setMigrationStatus({ state: 'failed', current: null, applied: [], warnings: [], error: reason });
     }
   }
 }
