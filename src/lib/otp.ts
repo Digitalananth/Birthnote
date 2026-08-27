@@ -136,7 +136,36 @@ export async function verifyOtp(
     [identifier, channel, purpose]
   );
   const row = rows[0];
-  if (!row) return { ok: false, reason: 'expired' };
+  if (!row) {
+    // 'expired' covers two different failures that reach the customer as one
+    // sentence: a code that timed out or was already spent, and a code that
+    // never existed for this identifier at all. The second means the lookup
+    // key disagrees with the one `issueOtp` wrote, which is a bug rather than
+    // a stale code — so say which happened, or the next report of this is
+    // diagnosed by guesswork again.
+    const [recent] = await query<(RowDataPacket & {
+      age: number;
+      ttl: number;
+      spent: number;
+    })[]>(
+      `SELECT TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP()) AS age,
+              TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), expires_at) AS ttl,
+              (consumed_at IS NOT NULL) AS spent
+         FROM auth_otps
+        WHERE identifier = ? AND channel = ? AND purpose = ?
+        ORDER BY id DESC LIMIT 1`,
+      [identifier, channel, purpose]
+    );
+    console.warn(
+      recent
+        ? `[otp:expired] ${channel} code for ${identifier}: issued ${recent.age}s ago, ` +
+            `ttl ${recent.ttl}s, ${recent.spent ? 'already spent' : 'not spent'}`
+        : `[otp:expired] ${channel} code for ${identifier}: no code was ever ` +
+            'issued for this identifier — the verify lookup key does not match ' +
+            'what issueOtp wrote'
+    );
+    return { ok: false, reason: 'expired' };
+  }
 
   await query('UPDATE auth_otps SET attempts = attempts + 1 WHERE id = ?', [row.id]);
   const attempts = row.attempts + 1;
