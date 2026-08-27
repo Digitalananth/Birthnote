@@ -8,7 +8,7 @@ import WhyItMattersSection from '@/app/components/WhyItMattersSection';
 import WhatYouReceiveSection from '@/app/components/WhatYouReceiveSection';
 import BanknotesDisplaySection from '@/app/components/BanknotesDisplaySection';
 import TestimonialsSection from '@/app/components/TestimonialsSection';
-import JournalSection from '@/app/components/JournalSection';
+import BlogSection from '@/app/components/BlogSection';
 import FinalCtaSection from '@/app/components/FinalCtaSection';
 
 /**
@@ -20,7 +20,7 @@ import FinalCtaSection from '@/app/components/FinalCtaSection';
  * the first visitor after the window gets the cached page instantly while
  * Next.js regenerates it in the background.
  *
- * JournalSection reads the database, so it is rendered into that same cached
+ * BlogSection reads the database, so it is rendered into that same cached
  * HTML; publishing a post revalidates `/` from the admin API rather than
  * waiting the hour out.
  */
@@ -41,7 +41,7 @@ export default function HomePage() {
         <WhatYouReceiveSection />
         <BanknotesDisplaySection />
         <TestimonialsSection />
-        <JournalSection />
+        <BlogSection />
         <FinalCtaSection />
       </main>
       <Footer />

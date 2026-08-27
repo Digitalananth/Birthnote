@@ -7,31 +7,31 @@ import { formatPublished } from '@/components/PostCard';
 /**
  * The three most recent posts, teased on the landing page.
  *
- * Renders nothing at all when the journal is empty, so the home page never
+ * Renders nothing at all when the blog is empty, so the home page never
  * shows an "articles" heading with a blank space under it. The DB read runs
  * inside the page's ISR window rather than per request; publishing a post
  * revalidates `/` from the admin API, so a new post appears immediately.
  */
-export default async function JournalSection() {
+export default async function BlogSection() {
   let posts;
   try {
     posts = (await listPublishedPosts()).slice(0, 3);
   } catch (error) {
-    // The journal is a nice-to-have here; a database hiccup must not take the
+    // The blog is a nice-to-have here; a database hiccup must not take the
     // landing page down with it.
-    console.error('[home] could not load journal posts', error);
+    console.error('[home] could not load blog posts', error);
     return null;
   }
 
   if (posts.length === 0) return null;
 
   return (
-    <section id="journal" className="bg-secondary/30 py-20 md:py-28">
+    <section id="blog" className="bg-secondary/30 py-20 md:py-28">
       <div className="max-w-7xl mx-auto px-6 md:px-12">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-12">
           <div>
             <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
-              From the journal
+              From the blog
             </span>
             <h2
               className="font-sans font-extrabold text-foreground"
@@ -44,7 +44,7 @@ export default async function JournalSection() {
             href="/blog"
             className="group inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-accent-foreground transition-colors whitespace-nowrap"
           >
-            Read the journal
+            Read the blog
             <Icon name="ArrowRightIcon" size={14} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

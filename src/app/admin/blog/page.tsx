@@ -30,7 +30,7 @@ export default async function AdminBlogPage() {
               BirthNote
             </p>
             <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
-              The Journal
+              The Blog
             </h1>
           </div>
           <div className="flex gap-2">

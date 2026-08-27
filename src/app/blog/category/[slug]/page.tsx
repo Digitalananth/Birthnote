@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!category) return { title: 'Not found — BirthNote' };
 
   return {
-    title: category.metaTitle || `${category.name} — BirthNote Journal`,
+    title: category.metaTitle || `${category.name} — BirthNote Blog`,
     description: category.metaDescription || category.description || undefined,
     alternates: { canonical: `/blog/category/${category.slug}` },
   };
@@ -55,7 +55,7 @@ export default async function BlogCategoryPage({ params }: PageProps) {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-8"
           >
             <Icon name="ArrowLeftIcon" size={12} />
-            The Journal
+            The Blog
           </Link>
 
           <h1

@@ -16,7 +16,7 @@ import { listPublishedPosts, listCategories } from '@/lib/content';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Journal — BirthNote',
+  title: 'Blog — BirthNote',
   description:
     'Notes on banknotes, the dates printed on them, and the people who keep them. From the BirthNote collection.',
   alternates: { canonical: '/blog' },
@@ -38,7 +38,7 @@ export default async function BlogIndexPage() {
               lineHeight: 1.05,
             }}
           >
-            The Journal
+            The Blog
           </h1>
           <p className="font-serif italic text-lg text-muted-foreground mb-10">
             Notes on banknotes, the dates printed on them, and the people who keep them.

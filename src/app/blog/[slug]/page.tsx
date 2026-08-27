@@ -65,7 +65,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-8"
           >
             <Icon name="ArrowLeftIcon" size={12} />
-            The Journal
+            The Blog
           </Link>
 
           <div className="flex flex-wrap items-center gap-3 mb-4">
