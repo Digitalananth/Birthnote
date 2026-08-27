@@ -3,6 +3,7 @@ import { pingDatabase } from '@/lib/orders';
 import { query } from '@/lib/db';
 import { env } from '@/lib/env';
 import { getMigrationStatus } from '@/server/migration-status';
+import { checkSchema, type SchemaDrift } from '@/server/schema-check';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,21 +27,34 @@ async function schemaVersion(): Promise<string | null> {
 /**
  * GET /api/health — deployment smoke check for Hostinger / uptime monitors.
  *
- * `migrations` is the diagnostic that the hosting cannot give us: Hostinger
- * shows build logs but not the running app's output, so a migration that
- * failed at start would otherwise be invisible until a customer hits a 500.
+ * `migrations` and `drift` are the diagnostics the hosting cannot give us:
+ * Hostinger shows build logs but not the running app's output, so a migration
+ * that failed at start, or a hand-made table missing a column, would otherwise
+ * be invisible until a customer hits a 500.
  */
 export async function GET() {
   const database = await pingDatabase();
   const migrations = getMigrationStatus();
   const schema = database ? await schemaVersion() : null;
-  const healthy = database && migrations.state !== 'failed';
+  let drift: SchemaDrift | null = null;
+  if (database) {
+    try {
+      drift = await checkSchema();
+    } catch {
+      drift = null;
+    }
+  }
+  const drifted =
+    !!drift && (drift.missingTables.length > 0 || Object.keys(drift.missingColumns).length > 0);
+  const healthy = database && migrations.state !== 'failed' && !drifted;
   return NextResponse.json(
     {
       status: healthy ? 'ok' : 'degraded',
       database,
       schema,
       migrations,
+      // Tables/columns the code needs and the database lacks. Empty when fine.
+      drift,
       stripe: env.stripe.configured(),
       mail: env.smtp.enabled(),
       whatsapp: env.whatsapp.enabled(),
