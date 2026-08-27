@@ -143,27 +143,34 @@ export async function verifyOtp(
     // key disagrees with the one `issueOtp` wrote, which is a bug rather than
     // a stale code — so say which happened, or the next report of this is
     // diagnosed by guesswork again.
-    const [recent] = await query<(RowDataPacket & {
-      age: number;
-      ttl: number;
-      spent: number;
-    })[]>(
-      `SELECT TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP()) AS age,
-              TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), expires_at) AS ttl,
-              (consumed_at IS NOT NULL) AS spent
-         FROM auth_otps
-        WHERE identifier = ? AND channel = ? AND purpose = ?
-        ORDER BY id DESC LIMIT 1`,
-      [identifier, channel, purpose]
-    );
-    console.warn(
-      recent
-        ? `[otp:expired] ${channel} code for ${identifier}: issued ${recent.age}s ago, ` +
-            `ttl ${recent.ttl}s, ${recent.spent ? 'already spent' : 'not spent'}`
-        : `[otp:expired] ${channel} code for ${identifier}: no code was ever ` +
-            'issued for this identifier — the verify lookup key does not match ' +
-            'what issueOtp wrote'
-    );
+    // Wrapped: this exists only to explain a rejection that has already been
+    // decided. Letting it throw would turn a clean 401 into a 500 and cost the
+    // customer the honest answer, which is the opposite of the point.
+    try {
+      const [recent] = await query<(RowDataPacket & {
+        age: number;
+        ttl: number;
+        spent: number;
+      })[]>(
+        `SELECT TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP()) AS age,
+                TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), expires_at) AS ttl,
+                CASE WHEN consumed_at IS NULL THEN 0 ELSE 1 END AS spent
+           FROM auth_otps
+          WHERE identifier = ? AND channel = ? AND purpose = ?
+          ORDER BY id DESC LIMIT 1`,
+        [identifier, channel, purpose]
+      );
+      console.warn(
+        recent
+          ? `[otp:expired] ${channel} code for ${identifier}: issued ${recent.age}s ago, ` +
+              `ttl ${recent.ttl}s, ${recent.spent ? 'already spent' : 'not spent'}`
+          : `[otp:expired] ${channel} code for ${identifier}: no code was ever ` +
+              'issued for this identifier — the verify lookup key does not match ' +
+              'what issueOtp wrote'
+      );
+    } catch (error) {
+      console.error('[otp:expired] could not describe the rejection', error);
+    }
     return { ok: false, reason: 'expired' };
   }
 
