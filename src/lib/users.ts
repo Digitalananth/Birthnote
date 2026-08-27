@@ -147,13 +147,19 @@ export async function markPhoneVerified(
   userId: number,
   extras: { name?: string; email?: string | null } = {}
 ): Promise<User | null> {
+  // NULLIF/COALESCE rather than `IF(name = '' AND ? <> '', ...)`: that form
+  // compared a bound parameter with a string literal, two operands with no
+  // column collation to settle between them. On a server whose init_connect
+  // resets the session collation after the driver's handshake, they differ,
+  // and MySQL refuses with "Illegal mix of collations". Here every comparison
+  // involves the column, whose collation wins.
   await query(
     `UPDATE users
         SET phone_verified = 1,
-            name = IF(name = '' AND ? <> '', ?, name),
+            name = COALESCE(NULLIF(name, ''), ?),
             email = COALESCE(email, ?)
       WHERE id = ?`,
-    [extras.name?.trim() || '', extras.name?.trim() || '', extras.email || null, userId]
+    [extras.name?.trim() || '', extras.email || null, userId]
   );
   return getUserById(userId);
 }
@@ -170,13 +176,14 @@ export async function markEmailVerified(
   extras: { name?: string; phone?: string | null } = {}
 ): Promise<User | null> {
   try {
+    // See markPhoneVerified for why this is NULLIF/COALESCE and not IF.
     await query(
       `UPDATE users
           SET email_verified = 1,
-              name = IF(name = '' AND ? <> '', ?, name),
+              name = COALESCE(NULLIF(name, ''), ?),
               phone = COALESCE(phone, ?)
         WHERE id = ?`,
-      [extras.name?.trim() || '', extras.name?.trim() || '', extras.phone || null, userId]
+      [extras.name?.trim() || '', extras.phone || null, userId]
     );
   } catch (error) {
     if ((error as { code?: string }).code === 'ER_DUP_ENTRY') throw new PhoneTakenError();

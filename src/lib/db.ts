@@ -21,6 +21,12 @@ export function getPool(): mysql.Pool {
       database: env.mysql.database(),
       user: env.mysql.user(),
       password: env.mysql.password,
+      // The collation every table is declared with. Pinning it keeps bound
+      // parameters, string literals and columns on one collation whatever the
+      // server's own default is — Hostinger's is utf8mb4_general_ci, and a
+      // mismatch surfaces as "Illegal mix of collations" on any comparison
+      // that has no column to decide it.
+      charset: 'utf8mb4_unicode_ci',
       waitForConnections: true,
       connectionLimit: env.mysql.connectionLimit,
       queueLimit: 0,

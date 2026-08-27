@@ -14,6 +14,18 @@ export const dynamic = 'force-dynamic';
  * memory so it is right even if another process did the migrating. Null when
  * the app has never migrated this database.
  */
+/** Which database engine we are actually talking to, and on what collation. */
+async function serverInfo(): Promise<{ version: string; collation: string } | null> {
+  try {
+    const [row] = await query<{ version: string; collation: string }[]>(
+      'SELECT VERSION() AS version, @@collation_connection AS collation'
+    );
+    return row ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function schemaVersion(): Promise<string | null> {
   try {
     const [row] = await query<{ current: string | null }[]>(
@@ -52,6 +64,7 @@ export async function GET() {
     {
       status: healthy ? 'ok' : 'degraded',
       database,
+      server: database ? await serverInfo() : null,
       schema,
       migrations,
       // Tables/columns the code needs and the database lacks. Empty when fine.
