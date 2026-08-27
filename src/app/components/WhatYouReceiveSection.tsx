@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 
@@ -91,7 +92,13 @@ export default function WhatYouReceiveSection() {
               <div className="h-12 w-px bg-primary-foreground/10" />
               <div>
                 <p className="text-sm text-primary-foreground/50 max-w-xs leading-relaxed mb-2">
-                  Price confirmed after availability check. No payment until you approve.
+                  Price confirmed after availability check. No payment until you approve.{' '}
+                  <Link
+                    href="/authenticity"
+                    className="text-accent hover:text-primary-foreground underline underline-offset-4 transition-colors"
+                  >
+                    How we verify every note
+                  </Link>
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {['₹1', '₹2', '₹5', '₹10', '₹20', '₹50', '₹100', '₹200', '₹500'].map((d) => (

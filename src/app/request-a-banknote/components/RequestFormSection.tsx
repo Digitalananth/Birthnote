@@ -751,14 +751,20 @@ export default function RequestFormSection({ user = null }: Props) {
             <div className="card-warm p-6">
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: 'LockClosedIcon' as const, text: 'No payment until confirmed' },
-                  { icon: 'ShieldCheckIcon' as const, text: 'Every note authenticated' },
-                  { icon: 'TruckIcon' as const, text: 'Tracked delivery across India' },
-                  { icon: 'ArrowPathIcon' as const, text: 'Full refund if unavailable' },
+                  { icon: 'LockClosedIcon' as const, text: 'No payment until confirmed', href: '/faq' },
+                  { icon: 'ShieldCheckIcon' as const, text: 'Every note authenticated', href: '/authenticity' },
+                  { icon: 'TruckIcon' as const, text: 'Tracked delivery across India', href: '/shipping' },
+                  { icon: 'ArrowPathIcon' as const, text: 'Full refund if unavailable', href: '/returns' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <Icon name={item.icon} size={16} className="text-accent shrink-0" />
-                    <p className="text-sm text-muted-foreground">{item.text}</p>
+                    {/* Each promise links to the page that backs it up. */}
+                    <Link
+                      href={item.href}
+                      className="text-sm text-muted-foreground hover:text-foreground underline decoration-border underline-offset-4 transition-colors"
+                    >
+                      {item.text}
+                    </Link>
                   </div>
                 ))}
               </div>

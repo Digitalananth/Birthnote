@@ -145,6 +145,15 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
             </div>
 
             <CheckoutButton reference={order.reference} amountLabel={amountLabel} />
+
+            {/* The last hesitation before entering a card is what happens if this goes wrong. */}
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              Damaged or lost in transit? We replace it or refund you in full — see{' '}
+              <Link href="/returns" className="underline underline-offset-4 hover:text-foreground transition-colors">
+                Returns &amp; Refunds
+              </Link>
+              .
+            </p>
           </div>
         </section>
       </main>
