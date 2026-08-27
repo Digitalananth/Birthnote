@@ -17,7 +17,7 @@ import mysql from 'mysql2/promise';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-// Same minimal .env loader as migrate.mjs; real env vars always win, so on
+// Minimal .env loader; real env vars always win, so on
 // Hostinger (where config comes from the panel) this is simply a no-op.
 try {
   for (const line of readFileSync(join(here, '..', '.env'), 'utf8').split('\n')) {
@@ -81,13 +81,13 @@ try {
 
   const [tables] = await conn.query("SHOW TABLES LIKE 'admin_users'");
   if (!tables.length) {
-    console.log("  ! table admin_users is MISSING — run 'npm run db:migrate'");
+    console.log("  ! table admin_users is MISSING — the app has never started against this database");
   } else {
     const [admins] = await conn.query(
       'SELECT id, email, role, is_active FROM admin_users ORDER BY id'
     );
     if (!admins.length) {
-      console.log("  ! admin_users is empty — run 'npm run db:migrate' to seed the first owner");
+      console.log("  ! admin_users is empty — set ADMIN_EMAIL / ADMIN_PASSWORD and restart the app to seed the first owner");
     } else {
       console.log('  %d admin account(s):', admins.length);
       for (const a of admins) {

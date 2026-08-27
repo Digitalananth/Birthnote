@@ -66,7 +66,7 @@ export const env = {
   /**
    * Bootstrap credentials for the very first admin account.
    *
-   * Read only by scripts/migrate.mjs, and only when admin_users is empty.
+   * Read only by src/server/bootstrap.ts, and only when admin_users is empty.
    * Admins are real records now — there is no shared password, and admin
    * sessions carry an opaque token, so there is nothing left to sign.
    */

@@ -33,8 +33,8 @@ who made the change.
 
 An order is a parent record; each requested banknote is a row in
 `order_items`. Every order has at least one item, including the single-note
-orders that predate the table — `npm run db:migrate` moves them across and
-then drops the old per-note columns from `orders`, so the data lives in
+orders that predate the table — migration `0004_order_items` moves them across
+and then drops the old per-note columns from `orders`, so the data lives in
 exactly one place.
 
 `/request-a-banknote` takes up to 20 dates in one submission via "Add another
@@ -127,8 +127,8 @@ A few decisions worth knowing before you change this code:
 - **Order pages are scoped by `user_id` inside the SQL**, never by a value
   posted from the browser (`getUserOrderByReference`).
 
-**Migrating an existing database.** `npm run db:migrate` normalises every
-stored phone number to canonical digits, adds `uq_users_phone`, and drops
+**Migrating an existing database.** Migration `0006_phone_sign_in` normalises
+every stored phone number to canonical digits, adds `uq_users_phone`, and drops
 `users.password_hash` and the `password_resets` table — a store of secrets
 kept for a login that no longer exists is worth stealing and worth nothing
 else. It reports any account left with no number: those people cannot sign in
@@ -155,12 +155,12 @@ by an owner at `/admin/users`, with two roles:
 Two roles, not five — more levels would be guesswork encoded in an `ENUM`.
 Adding one later is an `ALTER`.
 
-**Creating the first admin.** `npm run db:migrate` seeds an owner account from
-`ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`, but **only when `admin_users`
-is empty**. Without that step a deploy would leave nobody able to sign in and
-no signed-in admin to create anyone. Because it is skipped once an account
-exists, changing `ADMIN_PASSWORD` in `.env` later does nothing — passwords
-live in the database.
+**Creating the first admin.** Every time the server starts,
+`src/server/bootstrap.ts` seeds an owner account from `ADMIN_EMAIL` /
+`ADMIN_PASSWORD` / `ADMIN_NAME`, but **only when `admin_users` is empty**.
+Without that a deploy would leave nobody able to sign in and no signed-in admin
+to create anyone. Because it is skipped once an account exists, changing
+`ADMIN_PASSWORD` later does nothing — passwords live in the database.
 
 **Adding the rest.** An owner invites by name, email and role; the new admin
 is emailed a one-time link and chooses their own password. No password is ever
@@ -306,8 +306,7 @@ would cut every element off from the Tailwind stylesheet.
 ```bash
 npm install
 cp .env.example .env      # then fill it in — see below
-npm run db:migrate        # creates the tables
-npm run dev               # http://localhost:4028
+npm run dev               # http://localhost:4028 — creates the tables on start
 ```
 
 `GET /api/health` reports whether the database, Stripe, mail and WhatsApp are
@@ -319,8 +318,9 @@ Everything is read through `src/lib/env.ts`. See `.env.example` for the full
 list. The ones that matter:
 
 - **MySQL** — `MYSQL_HOST/PORT/DATABASE/USER/PASSWORD`. Create the database in
-  hPanel → Databases → Management, then run `npm run db:migrate`, or paste
-  `scripts/schema.sql` into phpMyAdmin.
+  hPanel → Databases → Management. The tables are created, and later schema
+  changes applied, automatically when the app starts — see "Database
+  migrations" below.
 - **Stripe** — `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Add a webhook
   endpoint at `https://your-domain/api/webhooks/stripe` for
   `checkout.session.completed`. Checkout runs in **INR** and collects delivery
@@ -335,8 +335,8 @@ list. The ones that matter:
   grows. Set `MAIL_ENABLED=false` in development to log emails instead of
   sending them.
 - **Admin bootstrap** — `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`. Used
-  *once*, by `npm run db:migrate`, to create the first owner account. See
-  "Admin accounts" below.
+  *once*, at server start, to create the first owner account. See "Admin
+  accounts" below.
 
 `.env` is gitignored. It was previously committed to this repository — if you
 have not already, **rotate every key that was in it.**
@@ -370,9 +370,10 @@ dependency. Keep it that way.
    app's environment panel *before the first build*. `NEXT_PUBLIC_*` are inlined
    at build time, so `NEXT_PUBLIC_SITE_URL` must be the real HTTPS domain and a
    change to it needs a rebuild, not just a restart.
-4. **Migrate** — from the app's terminal, `npm run db:migrate`. This applies
-   `scripts/schema.sql` and, on an empty `admin_users`, seeds the first owner
-   from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`.
+4. **Deploy** — upload the source zip and build (below). When the app starts
+   it creates the tables and, on an empty `admin_users`, seeds the first owner
+   from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`. There is no manual
+   migrate step.
 5. **Stripe webhook** — point it at `https://your-domain/api/webhooks/stripe`
    and copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Without this,
    payments are taken but orders never move to `paid`.
@@ -393,17 +394,62 @@ Then upload `birthnote-source.zip` to `public_html` (hPanel → File Manager, or
 the Web App's own deploy control) and start a build. The build takes two to
 three minutes.
 
-**Migrations do not run during the build.** Hostinger builds in a sandbox with
-no route to the account's MySQL, so a migration in the build script fails with
-`ECONNREFUSED` and takes the whole deploy down with it. When a deploy changes
-the schema, run `npm run db:migrate` from the app's terminal *after* the build.
-`scripts/schema.sql` is `CREATE TABLE IF NOT EXISTS` throughout and the owner
-seed is skipped once any admin exists, so it is safe to run after every deploy.
-
 **Verify** — `curl https://your-domain/api/health` should return
-`{"status":"ok","database":true,...}`. If it does not, `node scripts/db-check.mjs`
-from the app's terminal says exactly which of host, port, credentials or schema
-is wrong.
+`{"status":"ok","database":true,...}`. If it does not, the app's start-up log
+(hPanel → Web App → Logs) has a `[migrate]` line saying what happened: either
+which migrations ran, or `✗ failed:` with the reason — host, port or credentials.
+`node scripts/db-check.mjs` run *from your machine* with the same `MYSQL_*`
+values (after allowing your IP under hPanel → Databases → Remote MySQL) reports
+the same in more detail.
+
+### Database migrations
+
+The schema is applied **when the server starts**, by `src/instrumentation.ts`
+calling `src/server/migrate.ts`. That is the only point on Hostinger where a
+migration can run, and both alternatives failed in production before this
+existed:
+
+- *During the build* — the build sandbox has no route to the account's MySQL,
+  so it dies with `ECONNREFUSED` and takes the whole deploy down.
+- *From the app's terminal afterwards* — Hostinger prunes the deployed
+  directory to `.next`, `node_modules`, `package.json` and `public`, so nothing
+  under `scripts/` exists to run; `npm run db:migrate` failed with
+  `MODULE_NOT_FOUND`.
+
+Server start has neither problem, and everything imported from
+`instrumentation.ts` is compiled into `.next`, where nothing prunes it.
+
+How it works:
+
+- Migrations live in `src/server/migrations/`, one file each, numbered
+  `0001_baseline.ts`, `0002_orders_user_id.ts`, … and listed in order in
+  `migrations/index.ts`.
+- A `schema_migrations` table records every version that has run. Each
+  migration runs **exactly once** per database, in order. A restart with nothing
+  new logs `[migrate] <db> is at 0006; up to date` and touches nothing.
+- A named MySQL lock (`GET_LOCK`) serialises the run, so two processes starting
+  at once cannot both apply the same migration.
+- `0001_baseline` is `scripts/schema.sql`, compiled to
+  `migrations/0001_baseline.sql.ts` by `npm run schema:bundle` (run
+  automatically by `prebuild`). **`schema.sql` is frozen** — it is the schema as
+  it stood when versioning began, and it still works as a phpMyAdmin paste for a
+  brand-new database.
+- A database created by the old hand-run script is adopted cleanly: the early
+  migrations check `information_schema` before each change, so they find their
+  work already done and just record themselves.
+- The first-owner seed is *not* a migration (`src/server/bootstrap.ts`): it
+  depends on environment variables that may be set after the first start, so it
+  is checked on every start and returns as soon as any admin exists.
+
+**To change the schema:** add `src/server/migrations/NNNN_short_name.ts` with
+the next number, export a `migration` with `up(m)`, import it in `index.ts` and
+append it to the list. Do not edit `schema.sql`, and never edit or renumber a
+migration that has shipped — it has already run on the production database and
+will not run again. A migration that throws is *not* recorded and re-runs on the
+next start, so write it to tolerate a half-applied previous attempt.
+
+`MIGRATE_ON_BOOT=false` in the environment skips the whole step, for the rare
+case where the schema must be changed by hand first.
 
 `.env` is deliberately untracked and never uploaded. The server gets its
 configuration from the Web App environment panel only.
@@ -413,10 +459,10 @@ configuration from the Web App environment panel only.
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Dev server on :4028 |
-| `npm run build` | `next build` (type errors fail the build) |
+| `npm run build` | `next build` (type errors fail the build); `prebuild` regenerates the baseline SQL module |
 | `npm start` | Production server on `$PORT`, default 4028 |
-| `npm run db:migrate` | Applies `scripts/schema.sql`; run after a deploy that changes the schema |
-| `node scripts/db-check.mjs` | Diagnoses the MySQL connection and admin accounts |
+| `npm run schema:bundle` | Regenerates `src/server/migrations/0001_baseline.sql.ts` from `scripts/schema.sql` |
+| `node scripts/db-check.mjs` | Diagnoses a MySQL connection and lists admin accounts (run locally; not present on the server) |
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 

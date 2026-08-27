@@ -6,6 +6,9 @@ const nextConfig = {
   // Hostinger Web Apps builds from source and starts the app with
   // `npm start` (next start), so no standalone output is needed.
   poweredByHeader: false,
+  // mysql2 opens TCP sockets and hashes with node:crypto, so it is loaded by
+  // Node directly rather than bundled.
+  serverExternalPackages: ['mysql2'],
   compress: true,
   experimental: {
     // AppIcon does `import * as HeroIcons` so it can resolve names at

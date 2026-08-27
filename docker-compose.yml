@@ -1,7 +1,9 @@
 # Local development stack: MariaDB plus the Next.js app.
 #
 #   docker compose up          # http://localhost:4028
-#   docker compose run --rm app npm run db:migrate
+#
+# The schema is applied automatically when the app starts
+# (src/instrumentation.ts), so there is no separate migrate step.
 #
 # Only for local work. Production is Hostinger, where the database is managed
 # and the app is built from `npm run build`.
@@ -24,8 +26,8 @@ services:
       - db-data:/var/lib/mysql
     healthcheck:
       # The app waits for this: MariaDB accepts TCP connections several seconds
-      # before it will answer a query, and migrate.mjs fails hard if it starts
-      # in that window.
+      # before it will answer a query, and the boot-time migration would fail
+      # if the app started in that window.
       test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 5s
       timeout: 10s

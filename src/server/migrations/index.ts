@@ -1,0 +1,18 @@
+import type { Migration } from './types';
+import { migration as m0001 } from './0001_baseline';
+import { migration as m0002 } from './0002_orders_user_id';
+import { migration as m0003 } from './0003_widen_order_events_actor';
+import { migration as m0004 } from './0004_order_items';
+import { migration as m0005 } from './0005_whatsapp';
+import { migration as m0006 } from './0006_phone_sign_in';
+
+/**
+ * Every migration, oldest first. Listed by hand rather than read from the
+ * directory because the directory does not exist at runtime: Hostinger prunes
+ * the deploy to .next, and only what is imported is in .next.
+ *
+ * To change the schema: add `NNNN_short_name.ts` with the next number,
+ * import it here, append it. Never edit or renumber one that has shipped —
+ * it has already run on the production database and will not run again.
+ */
+export const migrations: readonly Migration[] = [m0001, m0002, m0003, m0004, m0005, m0006];

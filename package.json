@@ -40,6 +40,7 @@
   },
   "scripts": {
     "dev": "next dev -p 4028",
+    "prebuild": "node scripts/bundle-schema.mjs",
     "build": "next build",
     "start": "next start -p ${PORT:-4028}",
     "lint": "next lint",
@@ -47,7 +48,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "serve": "next start -p ${PORT:-4028}",
     "type-check": "tsc --noEmit",
-    "db:migrate": "node scripts/migrate.mjs"
+    "schema:bundle": "node scripts/bundle-schema.mjs"
   },
   "dependencies": {
     "@dhiwise/component-tagger": "^1.0.16",
