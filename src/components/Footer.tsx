@@ -25,9 +25,6 @@ const columns: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: 'FAQ', href: '/faq' },
       { label: 'Shipping & Delivery', href: '/shipping' },
       { label: 'Returns & Refunds', href: '/returns' },
-      { label: 'FAQ', href: '/faq' },
-      { label: 'Shipping & Delivery', href: '/shipping' },
-      { label: 'Returns & Refunds', href: '/returns' },
       { label: 'Track Order', href: '/track-order' },
       { label: 'My Account', href: '/account' },
       { label: 'Contact Us', href: 'mailto:support@msphilately.in' },
@@ -36,8 +33,6 @@ const columns: Array<{ heading: string; links: Array<{ label: string; href: stri
   {
     heading: 'Company',
     links: [
-      { label: 'About Us', href: '/about' },
-      { label: 'Authenticity & Sourcing', href: '/authenticity' },
       { label: 'About Us', href: '/about' },
       { label: 'Authenticity & Sourcing', href: '/authenticity' },
       { label: 'Blog', href: '/blog' },
