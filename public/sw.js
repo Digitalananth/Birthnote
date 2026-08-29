@@ -11,13 +11,47 @@
  * next — or show its owner a status that changed hours ago. The deny-list
  * below is the whole reason this file needs care.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `birthnote-shell-${VERSION}`;
 const ASSET_CACHE = `birthnote-assets-${VERSION}`;
 const OFFLINE_URL = '/offline';
 
-/** Fetched at install so there is always something to show with no network. */
-const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png'];
+/** Fetched at install so there is always something to show with no network.
+ *  The offline page itself is handled by precacheOfflinePage below, which also
+ *  picks up its stylesheets. */
+const PRECACHE = ['/icons/icon-192.png'];
+
+/**
+ * Caches the offline page along with the stylesheets it references.
+ *
+ * The page alone is not enough: its CSS lives at a content-hashed
+ * /_next/static path this file cannot know at build time, so precaching only
+ * the HTML meant an unstyled fallback for anyone who installed the app and
+ * lost the connection before browsing far enough to warm the asset cache.
+ * Reading the hrefs out of the served markup keeps that in step with the build
+ * without a generation step.
+ */
+async function precacheOfflinePage(cache) {
+  const response = await fetch(OFFLINE_URL, { cache: 'reload' });
+  if (!response.ok) throw new Error(`offline page returned ${response.status}`);
+
+  const html = await response.clone().text();
+  await cache.put(OFFLINE_URL, response);
+
+  const hrefs = [];
+  const link = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
+  let tag;
+  while ((tag = link.exec(html)) !== null) {
+    const href = /href=["']([^"']+)["']/i.exec(tag[0]);
+    // Same-origin build output only; a third-party stylesheet is not ours to
+    // store and would fail opaquely anyway.
+    if (href && href[1].startsWith('/')) hrefs.push(href[1]);
+  }
+
+  // One missing stylesheet should not fail the whole install and leave the
+  // worker unregistered, so these are settled rather than awaited as a group.
+  await Promise.allSettled(hrefs.map((href) => cache.add(href)));
+}
 
 /**
  * Paths whose responses must never be stored.
@@ -46,7 +80,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
+      .then(async (cache) => {
+        await cache.addAll(PRECACHE);
+        await precacheOfflinePage(cache);
+      })
       // Take over as soon as this version is ready rather than waiting for
       // every tab to close.
       .then(() => self.skipWaiting())

@@ -16,11 +16,43 @@ everything past the marketing copy is an order, an account or a payment.
 | Service worker | `public/sw.js` |
 | Registration | `src/components/ServiceWorkerRegistration.tsx`, mounted in the root layout |
 | Offline fallback | `src/app/offline/page.tsx` |
+| Install prompt | `src/components/InstallPrompt.tsx`, mounted in the root layout |
 | Icons | `public/icons/` — 192, 512, maskable 512, apple-touch 180 |
 
 `start_url` is `/request-a-banknote`, not `/`. Someone who installed the app
 has already read the pitch; what they came back for is to look up another
 date.
+
+### Being asked to install
+
+The manifest makes the site installable; without a prompt the only way in is
+Chrome's overflow menu, which nobody opens. `InstallPrompt.tsx` is the
+discovery half, and it installs the app and nothing else — it never asks for
+notifications or any other permission on the side.
+
+Two platforms, two mechanisms. Chromium fires `beforeinstallprompt`, which we
+suppress so the browser's mini-infobar does not pick the moment for us, then
+replay from our own button. iOS fires nothing and has no programmatic install
+at all, so there the banner shows the Share -> Add to Home Screen steps rather
+than a button that cannot work. Chrome and Firefox on iOS get nothing, because
+they cannot install and the instructions would be a lie.
+
+It stays out of the way: hidden once the app is running standalone, hidden on
+`/payment`, `/admin` and the auth pages — someone with their card or password
+out is mid-task, not shopping for an app — and a dismissal is remembered for
+30 days in `localStorage`. Blocked storage is treated as "not dismissed", so
+the banner degrades to once per session rather than never appearing.
+
+### The offline page's stylesheets
+
+Precaching `/offline` alone left it unstyled for anyone who installed the app
+and lost the connection before browsing far enough to warm the asset cache:
+its CSS lives at a content-hashed `/_next/static` path the worker cannot know
+at build time. `precacheOfflinePage` in `sw.js` fetches the page at install,
+reads the stylesheet hrefs out of the served markup and caches those too,
+which keeps it in step with the build without a generation step. Same-origin
+hrefs only, and the fetches are settled rather than awaited as a group so one
+missing file cannot fail the install and leave the worker unregistered.
 
 ### The rule that matters
 
