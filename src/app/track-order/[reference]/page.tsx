@@ -8,12 +8,8 @@ import Icon from '@/components/ui/AppIcon';
 import OrderNotes from '@/components/OrderNotes';
 import { getOrderByReference, getOrderEvents, summariseOrder } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
-import {
-  STATUS_CONFIG,
-  PROGRESS_STEPS,
-  progressIndex,
-  formatDateTime,
-} from '@/lib/order-status';
+import { maybeSweep } from '@/server/background-sweep';
+import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/lib/order-status';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -41,6 +37,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function TrackedOrderPage({ params }: PageProps) {
+  // A customer checking their order is the likeliest person to be affected by
+  // a payment we never heard about. Fire-and-forget: it does not delay this
+  // page, and at most one run happens per window.
+  maybeSweep();
+
   const { reference } = await params;
   if (!isValidReference(reference)) notFound();
 
@@ -87,7 +88,9 @@ export default async function TrackedOrderPage({ params }: PageProps) {
           {/* Current status */}
           <div className={`card-warm p-8 mb-8 border ${status.border}`}>
             <div className="flex items-start gap-4">
-              <div className={`w-12 h-12 rounded-full ${status.bg} flex items-center justify-center shrink-0`}>
+              <div
+                className={`w-12 h-12 rounded-full ${status.bg} flex items-center justify-center shrink-0`}
+              >
                 <Icon name={status.icon} size={22} className={status.color} />
               </div>
               <div>

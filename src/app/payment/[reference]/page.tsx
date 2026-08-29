@@ -10,6 +10,7 @@ import PaymentHeroSection from '@/app/payment/components/PaymentHeroSection';
 import CheckoutButton from '@/app/payment/components/CheckoutButton';
 import { getOrderByReference } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
+import { maybeSweep } from '@/server/background-sweep';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -34,6 +35,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function PaymentPage({ params, searchParams }: PageProps) {
+  // Someone returning to the payment page may be returning *because* a payment
+  // did not register. Reconciling before this renders is exactly when it is
+  // worth doing.
+  maybeSweep();
+
   const { reference } = await params;
   const { cancelled } = await searchParams;
 
@@ -99,7 +105,11 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
           <div className="max-w-2xl mx-auto px-6 md:px-12 flex flex-col gap-5">
             {cancelled && (
               <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-4">
-                <Icon name="InformationCircleIcon" size={18} className="text-accent mt-0.5 shrink-0" />
+                <Icon
+                  name="InformationCircleIcon"
+                  size={18}
+                  className="text-accent mt-0.5 shrink-0"
+                />
                 <p className="text-sm text-foreground leading-relaxed">
                   Your payment was cancelled and you have not been charged. Your note is still
                   reserved — you can complete the order below whenever you are ready.
@@ -114,9 +124,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
               </h2>
 
               <div className="pb-4 mb-4 border-b border-border">
-                <p className="text-xs text-muted-foreground mb-3">
-                  Reference {order.reference}
-                </p>
+                <p className="text-xs text-muted-foreground mb-3">Reference {order.reference}</p>
                 {/*
                   Every requested note is listed, found or not, so the customer
                   can see exactly what they are being charged for and what they
@@ -148,7 +156,10 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
             {/* The last hesitation before entering a card is what happens if this goes wrong. */}
             <p className="mt-4 text-center text-xs text-muted-foreground">
               Damaged or lost in transit? We replace it or refund you in full — see{' '}
-              <Link href="/returns" className="underline underline-offset-4 hover:text-foreground transition-colors">
+              <Link
+                href="/returns"
+                className="underline underline-offset-4 hover:text-foreground transition-colors"
+              >
                 Returns &amp; Refunds
               </Link>
               .

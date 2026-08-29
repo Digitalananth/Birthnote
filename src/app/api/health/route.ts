@@ -6,6 +6,7 @@ import { getMigrationStatus } from '@/server/migration-status';
 import { checkSchema, type SchemaDrift } from '@/server/schema-check';
 import { recentErrors } from '@/server/errors';
 import { lastSweepAt } from '@/server/sweep-state';
+import { maybeSweep } from '@/server/background-sweep';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,10 @@ async function schemaVersion(): Promise<string | null> {
  * be invisible until a customer hits a 500.
  */
 export async function GET() {
+  // Uptime monitors poll this, which makes it the steadiest heartbeat the app
+  // has — and the one request that arrives even when nobody is visiting.
+  maybeSweep();
+
   const database = await pingDatabase();
   const migrations = getMigrationStatus();
   const schema = database ? await schemaVersion() : null;
