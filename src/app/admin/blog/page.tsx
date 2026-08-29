@@ -22,7 +22,7 @@ export default async function AdminBlogPage() {
   return (
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
       <div className="max-w-4xl mx-auto">
-        <AdminNav admin={admin} />
+        <AdminNav admin={admin} current="blog" />
 
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
           <div>

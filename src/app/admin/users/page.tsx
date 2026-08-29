@@ -26,7 +26,7 @@ export default async function AdminUsersPage() {
   return (
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
       <div className="max-w-4xl mx-auto">
-        <AdminNav admin={owner} />
+        <AdminNav admin={owner} current="users" />
 
         <div className="mb-8">
           <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">BirthNote</p>

@@ -393,7 +393,7 @@ export function newRequestAdminEmail(order: Order): MailPayload | null {
         p(`${escapeHtml(order.customerName)} &lt;${escapeHtml(order.customerEmail)}&gt;`) +
         (order.message ? p(`Message: ${escapeHtml(order.message)}`) : '') +
         refBlock(order.reference),
-      { label: 'Open admin', url: `${env.siteUrl}/admin` }
+      { label: 'Open admin', url: `${env.siteUrl}/admin/orders/${order.reference}` }
     ),
     text: `New request ${order.reference}
 ${itemLines(order.items)
@@ -402,7 +402,7 @@ ${itemLines(order.items)
 From: ${order.customerName} <${order.customerEmail}>
 ${order.message ? `Message: ${order.message}` : ''}
 
-Admin: ${env.siteUrl}/admin`,
+Admin: ${env.siteUrl}/admin/orders/${order.reference}`,
   };
 }
 

@@ -41,7 +41,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
         <Link
-          href="/admin"
+          href="/admin/orders"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <Icon name="ArrowLeftIcon" size={12} />

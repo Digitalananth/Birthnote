@@ -6,6 +6,7 @@ import { migration as m0004 } from './0004_order_items';
 import { migration as m0005 } from './0005_whatsapp';
 import { migration as m0006 } from './0006_phone_sign_in';
 import { migration as m0007 } from './0007_app_errors';
+import { migration as m0008 } from './0008_dashboard_indexes';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -16,4 +17,13 @@ import { migration as m0007 } from './0007_app_errors';
  * import it here, append it. Never edit or renumber one that has shipped —
  * it has already run on the production database and will not run again.
  */
-export const migrations: readonly Migration[] = [m0001, m0002, m0003, m0004, m0005, m0006, m0007];
+export const migrations: readonly Migration[] = [
+  m0001,
+  m0002,
+  m0003,
+  m0004,
+  m0005,
+  m0006,
+  m0007,
+  m0008,
+];

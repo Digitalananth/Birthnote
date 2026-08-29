@@ -31,7 +31,7 @@ export default async function AdminPageEditor({ params }: { params: Promise<{ id
   return (
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
       <div className="max-w-3xl mx-auto">
-        <AdminNav admin={admin} />
+        <AdminNav admin={admin} current="pages" />
 
         <Link
           href="/admin/pages"
