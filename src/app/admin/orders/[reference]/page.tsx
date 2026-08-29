@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import StatusActions from '@/app/admin/components/StatusActions';
+import HoldActions from '@/app/admin/components/HoldActions';
 import ItemActions from '@/app/admin/components/ItemActions';
 import { requireAdmin } from '@/lib/auth';
 import { getOrderByReference, getOrderEvents } from '@/lib/orders';
@@ -128,6 +129,20 @@ export default async function AdminOrderPage({ params }: PageProps) {
           </h2>
           <StatusActions order={order} />
         </div>
+
+        {/*
+          The hold, shown only while there is one. A hold belongs to a
+          confirmed, unpaid order — on anything else this panel would offer
+          buttons that email a customer about a note they already own.
+        */}
+        {order.status === 'confirmed' && order.heldUntil && (
+          <div className="card-warm p-8">
+            <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">
+              The hold
+            </h2>
+            <HoldActions order={order} />
+          </div>
+        )}
 
         {/* Timeline */}
         <div className="card-warm p-8">

@@ -1,20 +1,24 @@
 import 'server-only';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { query, transaction } from '@/lib/db';
+import { query } from '@/lib/db';
 import { getOrderByReference, type Order } from '@/lib/orders';
-import { HOLD_DAYS, HOLD_REMINDER_DAYS_LEFT } from '@/lib/order-types';
+import { HOLD_DAYS, HOLD_SOON_DAYS } from '@/lib/order-types';
 
 /**
- * The lifecycle of the promise "held for you for HOLD_DAYS days".
+ * The hold on a confirmed note.
  *
- * Confirming an order starts the clock; the sweep chases it and then stops
- * pretending. Nothing here cancels an order — a lapsed hold is flagged for a
- * human, because releasing a real customer's note is a decision the system
- * should not make on its own.
+ * The system *tracks* the hold — when it started, when it runs out, what has
+ * been sent — but never acts on it. Chasing a customer is a judgement call:
+ * whether this person wants a nudge, whether the note is worth holding
+ * longer, whether the relationship is better served by silence. An admin makes
+ * that call and presses the button; nothing here runs on a timer.
  *
- * Every write is conditional on the state it expects to find, so two sweeps
- * running at once (or one running twice) cannot send the same reminder twice.
- * That is the same guarantee `markOrderPaid` gives against Stripe's retries.
+ * What the recorded state buys is a queue that cannot be forgotten: the admin
+ * sees which holds are running out and which have expired, instead of trying
+ * to remember which emails they sent last week.
+ *
+ * Every write is still conditional on the state it expects, so a double-click
+ * on "Send reminder" sends one email rather than two.
  */
 
 /** Starts the hold. Called when an order becomes `confirmed`. */
@@ -34,118 +38,87 @@ export async function clearHold(orderId: number): Promise<void> {
   await query('UPDATE orders SET held_until = NULL, hold_lapsed_at = NULL WHERE id = ?', [orderId]);
 }
 
-export interface DueReminder {
-  reference: string;
-  /** Whole days left on the hold, floored — what the customer is told. */
-  daysLeft: number;
-}
-
 /**
- * Confirmed orders whose next reminder is due.
+ * Records that a reminder has been sent, returning the order only if this call
+ * was the one that recorded it.
  *
- * `hold_reminder_count` doubles as the index into HOLD_REMINDER_DAYS_LEFT, so
- * an order that has had none is due the first threshold, one that has had one
- * is due the second, and one that has had them all is due nothing. Ordering by
- * held_until means the most urgent is handled first if a run is cut short.
+ * The count is passed in by the caller, which read it from the order it is
+ * showing. Two admins looking at the same order therefore cannot both send:
+ * the second one's expected count no longer matches and it changes no row.
  */
-export async function findDueReminders(): Promise<DueReminder[]> {
-  const thresholds = HOLD_REMINDER_DAYS_LEFT;
-  const cases = thresholds
-    .map((days, index) => `WHEN hold_reminder_count = ${index} THEN ${days}`)
-    .join(' ');
-
-  const rows = await query<(RowDataPacket & { reference: string; days_left: string })[]>(
-    `SELECT reference,
-            TIMESTAMPDIFF(HOUR, UTC_TIMESTAMP(), held_until) / 24 AS days_left
-       FROM orders
-      WHERE status = 'confirmed'
-        AND held_until IS NOT NULL
-        AND hold_lapsed_at IS NULL
-        AND hold_reminder_count < ${thresholds.length}
-        AND held_until > UTC_TIMESTAMP()
-        AND TIMESTAMPDIFF(HOUR, UTC_TIMESTAMP(), held_until) / 24
-            <= CASE ${cases} END
-      ORDER BY held_until ASC
-      LIMIT 100`
+export async function recordReminder(
+  reference: string,
+  expectedCount: number
+): Promise<Order | null> {
+  const result = await query<ResultSetHeader>(
+    `UPDATE orders SET hold_reminder_count = hold_reminder_count + 1
+      WHERE reference = ? AND status = 'confirmed' AND hold_reminder_count = ?`,
+    [reference, expectedCount]
   );
-
-  return rows.map((row) => ({
-    reference: row.reference,
-    daysLeft: Math.max(Math.floor(Number(row.days_left)), 0),
-  }));
+  if (!result.affectedRows) return null;
+  return getOrderByReference(reference);
 }
 
 /**
- * Claims the next reminder for an order, returning it only if this caller won.
+ * Marks the hold ended.
  *
- * The UPDATE names the count it expects, so of two workers looking at the same
- * order exactly one changes a row and exactly one sends an email.
+ * Allowed before the deadline as well as after — an admin who has sold the
+ * note, or simply wants to stop holding it, should not have to wait for a
+ * clock. The order stays `confirmed` and payable; ending a hold is a statement
+ * about the promise, not a cancellation of the order.
  */
-export async function claimReminder(
-  reference: string
-): Promise<{ order: Order; sequence: number } | null> {
-  return transaction(async (conn) => {
-    const [rows] = await conn.execute<
-      (RowDataPacket & { id: number; hold_reminder_count: number })[]
-    >(
-      `SELECT id, hold_reminder_count FROM orders
-        WHERE reference = ? AND status = 'confirmed' LIMIT 1 FOR UPDATE`,
-      [reference]
-    );
-    if (!rows.length) return null;
-    const { id, hold_reminder_count: count } = rows[0];
-    if (count >= HOLD_REMINDER_DAYS_LEFT.length) return null;
-
-    const [result] = await conn.execute<ResultSetHeader>(
-      `UPDATE orders SET hold_reminder_count = hold_reminder_count + 1
-        WHERE id = ? AND hold_reminder_count = ?`,
-      [id, count]
-    );
-    if (!result.affectedRows) return null;
-
-    const order = await getOrderByReference(reference);
-    return order ? { order, sequence: count + 1 } : null;
-  });
-}
-
-/**
- * Confirmed orders whose hold has run out and not yet been marked lapsed.
- */
-export async function findLapsedHolds(): Promise<string[]> {
-  const rows = await query<(RowDataPacket & { reference: string })[]>(
-    `SELECT reference FROM orders
-      WHERE status = 'confirmed'
-        AND held_until IS NOT NULL
-        AND hold_lapsed_at IS NULL
-        AND held_until <= UTC_TIMESTAMP()
-      ORDER BY held_until ASC
-      LIMIT 100`
-  );
-  return rows.map((row) => row.reference);
-}
-
-/**
- * Marks a hold lapsed, returning the order only if this caller was the one
- * that marked it — so the "your hold has run out" email goes exactly once.
- *
- * The status is deliberately left at `confirmed`: the note is still findable,
- * still payable, and whether to sell it to somebody else is a human's call.
- */
-export async function lapseHold(reference: string): Promise<Order | null> {
+export async function markLapsed(reference: string): Promise<Order | null> {
   const result = await query<ResultSetHeader>(
     `UPDATE orders SET hold_lapsed_at = UTC_TIMESTAMP()
-      WHERE reference = ? AND status = 'confirmed' AND hold_lapsed_at IS NULL
-        AND held_until IS NOT NULL AND held_until <= UTC_TIMESTAMP()`,
+      WHERE reference = ? AND status = 'confirmed' AND hold_lapsed_at IS NULL`,
     [reference]
   );
   if (!result.affectedRows) return null;
   return getOrderByReference(reference);
 }
 
-/** Confirmed orders whose hold has lapsed, for the admin dashboard. */
-export async function countLapsedHolds(): Promise<number> {
-  const rows = await query<(RowDataPacket & { n: number })[]>(
-    `SELECT COUNT(*) AS n FROM orders WHERE status = 'confirmed' AND hold_lapsed_at IS NOT NULL`
+/**
+ * Gives the customer more time, from now.
+ *
+ * Clears `hold_lapsed_at`, so an expired hold can be revived — the common case
+ * being a customer who gets in touch a day late and is told yes.
+ */
+export async function extendHold(reference: string, days = HOLD_DAYS): Promise<Order | null> {
+  const result = await query<ResultSetHeader>(
+    `UPDATE orders
+        SET held_until = UTC_TIMESTAMP() + INTERVAL ? DAY, hold_lapsed_at = NULL
+      WHERE reference = ? AND status = 'confirmed'`,
+    [days, reference]
   );
-  return Number(rows[0]?.n ?? 0);
+  if (!result.affectedRows) return null;
+  return getOrderByReference(reference);
+}
+
+export interface HoldCounts {
+  /** Confirmed, hold still running, deadline within HOLD_SOON_DAYS. */
+  expiringSoon: number;
+  /** Confirmed, deadline passed or ended by hand, still unpaid. */
+  lapsed: number;
+}
+
+export async function getHoldCounts(): Promise<HoldCounts> {
+  const rows = await query<(RowDataPacket & { expiring_soon: number; lapsed: number })[]>(
+    `SELECT
+       SUM(hold_lapsed_at IS NULL AND held_until > UTC_TIMESTAMP()
+           AND held_until <= UTC_TIMESTAMP() + INTERVAL ? DAY) AS expiring_soon,
+       SUM(hold_lapsed_at IS NOT NULL OR held_until <= UTC_TIMESTAMP()) AS lapsed
+     FROM orders
+     WHERE status = 'confirmed' AND held_until IS NOT NULL`,
+    [HOLD_SOON_DAYS]
+  );
+  return {
+    expiringSoon: Number(rows[0]?.expiring_soon ?? 0),
+    lapsed: Number(rows[0]?.lapsed ?? 0),
+  };
+}
+
+/** Whole days left on a hold, or null when there is none. Negative when past. */
+export function daysLeft(heldUntil: string | null): number | null {
+  if (!heldUntil) return null;
+  return Math.floor((Date.parse(heldUntil) - Date.now()) / 86_400_000);
 }

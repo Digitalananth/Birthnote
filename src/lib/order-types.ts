@@ -36,8 +36,8 @@ export const ORDER_STATUSES: OrderStatus[] = [
  */
 export const HOLD_DAYS = 7;
 
-/** When the reminders go out, as days remaining. Descending. */
-export const HOLD_REMINDER_DAYS_LEFT = [4, 1] as const;
+/** How close to the deadline counts as "running out", for the admin queue. */
+export const HOLD_SOON_DAYS = 2;
 
 /** Where one requested note stands. Availability is per note, not per order. */
 export type ItemAvailability = 'pending' | 'available' | 'unavailable';

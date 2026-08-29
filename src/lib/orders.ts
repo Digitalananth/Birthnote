@@ -12,6 +12,7 @@ import {
   type OrderStatus,
   type ItemAvailability,
   type NewOrderInput,
+  HOLD_SOON_DAYS,
 } from '@/lib/order-types';
 
 export { ORDER_STATUSES, availableItems, summariseOrder };
@@ -312,21 +313,41 @@ export async function getOrderEvents(orderId: number): Promise<OrderEvent[]> {
   }));
 }
 
+/** Which holds to show. Both are confirmed, unpaid orders. */
+export type HoldFilter = 'soon' | 'lapsed';
+
 export interface OrderListFilters {
   status?: OrderStatus;
   search?: string;
+  /** Narrows to orders whose hold needs an admin's attention. */
+  hold?: HoldFilter;
   limit?: number;
   offset?: number;
 }
 
 export async function listOrders(filters: OrderListFilters = {}) {
-  const { status, search, limit = 50, offset = 0 } = filters;
+  const { status, search, hold, limit = 50, offset = 0 } = filters;
   const where: string[] = [];
   const params: unknown[] = [];
 
   if (status) {
     where.push('o.status = ?');
     params.push(status);
+  }
+  if (hold === 'soon') {
+    // Running out, but not yet over — the ones still worth a nudge.
+    where.push(
+      `o.status = 'confirmed' AND o.held_until IS NOT NULL AND o.hold_lapsed_at IS NULL
+       AND o.held_until > UTC_TIMESTAMP()
+       AND o.held_until <= UTC_TIMESTAMP() + INTERVAL ? DAY`
+    );
+    params.push(HOLD_SOON_DAYS);
+  } else if (hold === 'lapsed') {
+    // Over, either because the deadline passed or an admin ended it.
+    where.push(
+      `o.status = 'confirmed' AND o.held_until IS NOT NULL
+       AND (o.hold_lapsed_at IS NOT NULL OR o.held_until <= UTC_TIMESTAMP())`
+    );
   }
   if (search) {
     // Searching a date has to reach into the items now that dates live there.

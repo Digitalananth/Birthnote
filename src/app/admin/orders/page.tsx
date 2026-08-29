@@ -33,13 +33,14 @@ const PAGE_SIZE = 25;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; hold?: string }>;
 }) {
   // The middleware only checks the cookie exists; this resolves the session
   // and gives us the admin whose name goes on anything they change.
   const admin = await requireAdmin('/admin/orders');
 
-  const { status, q, page } = await searchParams;
+  const { status, q, page, hold } = await searchParams;
+  const activeHold = hold === 'soon' || hold === 'lapsed' ? hold : undefined;
   const activeStatus = ORDER_STATUSES.includes(status as OrderStatus)
     ? (status as OrderStatus)
     : undefined;
@@ -48,6 +49,7 @@ export default async function AdminOrdersPage({
   const [{ orders, total }, counts] = await Promise.all([
     listOrders({
       status: activeStatus,
+      hold: activeHold,
       search: q?.trim() || undefined,
       limit: PAGE_SIZE,
       offset: (pageNumber - 1) * PAGE_SIZE,
@@ -58,7 +60,7 @@ export default async function AdminOrdersPage({
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
   const buildHref = (params: Record<string, string | undefined>) => {
     const search = new URLSearchParams();
-    const merged = { status: activeStatus, q, ...params };
+    const merged = { status: activeStatus, q, hold: activeHold, ...params };
     for (const [key, value] of Object.entries(merged)) {
       if (value) search.set(key, value);
     }
@@ -72,9 +74,7 @@ export default async function AdminOrdersPage({
         <AdminNav admin={admin} current="orders" />
 
         <div className="mb-8">
-          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
-            BirthNote
-          </p>
+          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">BirthNote</p>
           <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
             Order queue
           </h1>
@@ -107,9 +107,43 @@ export default async function AdminOrdersPage({
           ))}
         </div>
 
+        {/*
+          The hold views. Separate from the status filters because a hold is
+          not a status — both of these are confirmed orders, split by whether
+          they still have time left.
+        */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground mr-1">
+            Holds
+          </span>
+          {(
+            [
+              ['soon', 'Running out'],
+              ['lapsed', 'Ended'],
+            ] as const
+          ).map(([value, label]) => (
+            <Link
+              key={value}
+              href={buildHref({
+                hold: activeHold === value ? undefined : value,
+                status: undefined,
+                page: undefined,
+              })}
+              className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-colors ${
+                activeHold === value
+                  ? 'bg-accent text-accent-foreground border-accent'
+                  : 'bg-background text-muted-foreground border-border hover:text-foreground'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+
         {/* Search — a plain GET form, so it works without any client JS */}
         <form action="/admin/orders" method="get" className="flex gap-2 mb-8">
           {activeStatus && <input type="hidden" name="status" value={activeStatus} />}
+          {activeHold && <input type="hidden" name="hold" value={activeHold} />}
           <input
             name="q"
             defaultValue={q ?? ''}
@@ -140,7 +174,9 @@ export default async function AdminOrdersPage({
                   href={`/admin/orders/${order.reference}`}
                   className="card-warm p-5 flex flex-wrap items-center gap-4 hover:border-primary/40 transition-colors"
                 >
-                  <div className={`w-10 h-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}>
+                  <div
+                    className={`w-10 h-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}
+                  >
                     <Icon name={config.icon} size={18} className={config.color} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -150,7 +186,9 @@ export default async function AdminOrdersPage({
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-mono font-bold text-sm text-primary">{summariseOrder(order)}</p>
+                    <p className="font-mono font-bold text-sm text-primary">
+                      {summariseOrder(order)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(order.createdAt)}
                     </p>
@@ -171,7 +209,10 @@ export default async function AdminOrdersPage({
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-4 mt-8 text-sm">
             {pageNumber > 1 && (
-              <Link href={buildHref({ page: String(pageNumber - 1) })} className="text-primary font-semibold">
+              <Link
+                href={buildHref({ page: String(pageNumber - 1) })}
+                className="text-primary font-semibold"
+              >
                 ← Previous
               </Link>
             )}
@@ -179,7 +220,10 @@ export default async function AdminOrdersPage({
               Page {pageNumber} of {totalPages}
             </span>
             {pageNumber < totalPages && (
-              <Link href={buildHref({ page: String(pageNumber + 1) })} className="text-primary font-semibold">
+              <Link
+                href={buildHref({ page: String(pageNumber + 1) })}
+                className="text-primary font-semibold"
+              >
                 Next →
               </Link>
             )}

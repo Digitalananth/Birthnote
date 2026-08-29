@@ -190,12 +190,12 @@ export default async function AdminDashboardPage({
             tone={stats.pendingItems > 0 ? 'warn' : 'neutral'}
           />
           <StatCard
-            label="Holds lapsed"
-            value={String(stats.lapsedHolds)}
-            hint="Confirmed, hold expired, still unpaid"
+            label="Holds to chase"
+            value={String(stats.holdsRunningOut + stats.lapsedHolds)}
+            hint={`${stats.holdsRunningOut} running out · ${stats.lapsedHolds} ended`}
             icon="ClockIcon"
-            href="/admin/orders?status=confirmed"
-            tone={stats.lapsedHolds > 0 ? 'warn' : 'neutral'}
+            href={stats.lapsedHolds > 0 ? '/admin/orders?hold=lapsed' : '/admin/orders?hold=soon'}
+            tone={stats.holdsRunningOut + stats.lapsedHolds > 0 ? 'warn' : 'neutral'}
           />
           <StatCard
             label="To dispatch"

@@ -2,7 +2,7 @@ import 'server-only';
 import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '@/lib/db';
 import { recentErrors, type RecordedError } from '@/server/errors';
-import type { OrderStatus } from '@/lib/order-types';
+import { HOLD_SOON_DAYS, type OrderStatus } from '@/lib/order-types';
 
 /**
  * The numbers behind /admin.
@@ -44,6 +44,8 @@ export interface DashboardStats {
   awaitingDispatch: number;
   /** Confirmed orders whose hold ran out unpaid — waiting on your decision. */
   lapsedHolds: number;
+  /** Confirmed orders whose hold runs out within HOLD_SOON_DAYS. */
+  holdsRunningOut: number;
   newCustomers30: number;
   content: { draftPages: number; draftPosts: number };
   needsAvailability: AttentionOrder[];
@@ -177,9 +179,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       `SELECT COUNT(*) AS n FROM orders
         WHERE status = 'paid' AND tracking_number IS NULL`
     ),
-    query<CountRow[]>(
-      `SELECT COUNT(*) AS n FROM orders
-        WHERE status = 'confirmed' AND hold_lapsed_at IS NOT NULL`
+    query<(RowDataPacket & { lapsed: number; soon: number })[]>(
+      `SELECT
+         SUM(hold_lapsed_at IS NOT NULL OR held_until <= UTC_TIMESTAMP()) AS lapsed,
+         SUM(hold_lapsed_at IS NULL AND held_until > UTC_TIMESTAMP()
+             AND held_until <= UTC_TIMESTAMP() + INTERVAL ? DAY) AS soon
+       FROM orders
+       WHERE status = 'confirmed' AND held_until IS NOT NULL`,
+      [HOLD_SOON_DAYS]
     ),
     query<CountRow[]>(
       `SELECT COUNT(*) AS n FROM users WHERE created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY`,
@@ -236,7 +243,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     daily: buildSeries(toMap(createdRows), toMap(paidRows)),
     pendingItems: Number(pendingItemRows[0]?.n ?? 0),
     awaitingDispatch: Number(dispatchRows[0]?.n ?? 0),
-    lapsedHolds: Number(lapsedHoldRows[0]?.n ?? 0),
+    lapsedHolds: Number(lapsedHoldRows[0]?.lapsed ?? 0),
+    holdsRunningOut: Number(lapsedHoldRows[0]?.soon ?? 0),
     newCustomers30: Number(customerRows[0]?.n ?? 0),
     content: {
       draftPages: Number(contentRows[0]?.draft_pages ?? 0),

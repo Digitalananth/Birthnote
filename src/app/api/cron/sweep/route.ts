@@ -6,25 +6,27 @@ import { recordError } from '@/server/errors';
 import { recordSweep } from '@/server/sweep-state';
 import { markOrderPaid } from '@/lib/orders';
 import { getStripe } from '@/lib/stripe';
-import { findDueReminders, claimReminder, findLapsedHolds, lapseHold } from '@/lib/holds';
-import { sendMail, holdReminderEmail, holdLapsedEmail, paymentReceivedEmail } from '@/lib/mail';
+import { sendMail, paymentReceivedEmail } from '@/lib/mail';
 import { sendWhatsApp, orderPaidWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * The periodic work, called by the hosting's cron over HTTP.
+ * Reconciliation, called by the hosting's cron over HTTP.
+ *
+ * This deliberately sends nothing to a customer on its own initiative. Chasing
+ * an unpaid hold is a judgement call an admin makes from the order queue — see
+ * src/lib/holds.ts. All that runs unattended is the one thing a human cannot
+ * do by watching: noticing a payment Stripe completed and never told us about.
  *
  * It runs over HTTP rather than as a script because Hostinger prunes the
  * deployment to .next, node_modules, package.json and public — there is no
  * scripts/ directory on the server, and the running app is the only thing
  * holding the database and Stripe credentials.
  *
- * Everything here is idempotent. Each action is claimed with a conditional
- * UPDATE naming the state it expects, so running twice, or two workers running
- * at once, cannot send the same email twice. That means the cron can be as
- * frequent as you like and a retry is always safe.
+ * `markOrderPaid` is idempotent, so running twice, or two workers running at
+ * once, cannot pay an order twice or email the customer twice.
  */
 
 /**
@@ -44,7 +46,7 @@ function authorised(request: Request): boolean {
   const a = Buffer.from(presented);
   const b = Buffer.from(expected);
   // timingSafeEqual throws on a length mismatch, which would itself leak the
-  // length; compare padded copies and require the lengths to match separately.
+  // length; compare a known-equal pair and fail separately.
   if (a.length !== b.length) {
     timingSafeEqual(b, b);
     return false;
@@ -58,10 +60,10 @@ function authorised(request: Request): boolean {
  * The webhook is the only thing that marks an order paid, so a delivery that
  * never arrives — a deploy mid-flight, an outage, a misconfigured endpoint —
  * leaves a customer who has paid looking unpaid for ever. This asks Stripe
- * directly about anything still unpaid an hour after checkout started.
+ * directly about anything still unpaid an hour after it was last touched.
  *
- * An hour of delay is deliberate: it keeps the sweep off sessions a customer
- * is still in the middle of, where the webhook is about to arrive anyway.
+ * The hour of delay keeps the sweep off sessions a customer is still in the
+ * middle of, where the webhook is about to arrive anyway.
  */
 async function reconcilePayments(): Promise<{ recovered: string[]; checked: number }> {
   const rows = await query<{ reference: string; stripe_session_id: string }[]>(
@@ -103,39 +105,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authorised.' }, { status: 401 });
   }
 
-  const reminded: string[] = [];
-  const lapsed: string[] = [];
-  const failures: string[] = [];
-
-  // 1. Nudge holds that are running out.
-  for (const due of await findDueReminders()) {
-    try {
-      const claim = await claimReminder(due.reference);
-      // Null when another worker claimed this reminder first.
-      if (!claim) continue;
-      await sendMail(holdReminderEmail(claim.order, due.daysLeft));
-      reminded.push(due.reference);
-    } catch (error) {
-      recordError('cron-reminder', error, due.reference);
-      failures.push(due.reference);
-    }
-  }
-
-  // 2. Stop promising a hold that has run out. The order is left `confirmed`
-  //    and payable — whether to re-sell the note is a human's decision.
-  for (const reference of await findLapsedHolds()) {
-    try {
-      const order = await lapseHold(reference);
-      if (!order) continue;
-      await sendMail(holdLapsedEmail(order));
-      lapsed.push(reference);
-    } catch (error) {
-      recordError('cron-lapse', error, reference);
-      failures.push(reference);
-    }
-  }
-
-  // 3. Catch payments the webhook never delivered.
   let reconciled: { recovered: string[]; checked: number } = { recovered: [], checked: 0 };
   if (env.stripe.configured()) {
     try {
@@ -150,11 +119,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     at,
-    reminded,
-    lapsed,
     recovered: reconciled.recovered,
     sessionsChecked: reconciled.checked,
-    failures,
   });
 }
 
