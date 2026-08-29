@@ -15,7 +15,8 @@ export interface StatusPresentation {
     | 'CheckCircleIcon'
     | 'XCircleIcon'
     | 'CreditCardIcon'
-    | 'TruckIcon';
+    | 'TruckIcon'
+    | 'ArrowPathIcon';
   color: string;
   bg: string;
   border: string;
@@ -62,6 +63,14 @@ export const STATUS_CONFIG: Record<OrderStatus, StatusPresentation> = {
     bg: 'bg-green-50',
     border: 'border-green-200',
   },
+  refunded: {
+    label: 'Refunded',
+    description: 'This order was refunded. The money is on its way back to you.',
+    icon: 'ArrowPathIcon',
+    color: 'text-muted-foreground',
+    bg: 'bg-secondary/40',
+    border: 'border-border',
+  },
   shipped: {
     label: 'Dispatched',
     description: 'Your note is on its way with tracked delivery.',
@@ -83,6 +92,9 @@ export const PROGRESS_STEPS = [
 /** How far along the progress bar a status sits. -1 when the order stopped. */
 export function progressIndex(status: OrderStatus): number {
   if (status === 'unavailable') return 1;
+  // A refund ends the journey rather than advancing it; the bar stops where
+  // the money did.
+  if (status === 'refunded') return -1;
   return PROGRESS_STEPS.findIndex((step) => step.key === status);
 }
 

@@ -154,6 +154,20 @@ export const env = {
     otpResendSeconds: int('AUTH_OTP_RESEND_SECONDS', 45),
   },
 
+  /**
+   * The shared secret the scheduled sweep authenticates with.
+   *
+   * The sweep runs over HTTP because Hostinger prunes the deployment to .next
+   * and node_modules — there is no scripts/ directory on the server to run a
+   * job from, and the app is the only thing holding the database credentials.
+   * `enabled` is false when unset, and the route then refuses every request
+   * rather than running unauthenticated.
+   */
+  cron: {
+    secret: () => required('CRON_SECRET'),
+    enabled: () => Boolean(optional('CRON_SECRET')),
+  },
+
   /** Order total in paise. ₹2,499 by default — set the real price in .env. */
   pricePaise: int('BANKNOTE_PRICE_PAISE', 249900),
 };

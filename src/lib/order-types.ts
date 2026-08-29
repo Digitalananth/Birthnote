@@ -6,7 +6,14 @@
  * fulfilment controls and the request form are client components and need
  * these types, but must never pull the database code into the browser bundle.
  */
-export type OrderStatus = 'pending' | 'checking' | 'confirmed' | 'unavailable' | 'paid' | 'shipped';
+export type OrderStatus =
+  | 'pending'
+  | 'checking'
+  | 'confirmed'
+  | 'unavailable'
+  | 'paid'
+  | 'shipped'
+  | 'refunded';
 
 export const ORDER_STATUSES: OrderStatus[] = [
   'pending',
@@ -15,7 +22,22 @@ export const ORDER_STATUSES: OrderStatus[] = [
   'unavailable',
   'paid',
   'shipped',
+  'refunded',
 ];
+
+/**
+ * How long a confirmed note is held for the customer.
+ *
+ * This is the single source of the promise. The confirmation email, the
+ * reminders, the account banner and the sweep that enforces it all read this
+ * constant, so the number a customer is told and the number the system acts on
+ * cannot drift apart — which is exactly what had happened when "held for 7
+ * days" was hardcoded into the copy and implemented nowhere.
+ */
+export const HOLD_DAYS = 7;
+
+/** When the reminders go out, as days remaining. Descending. */
+export const HOLD_REMINDER_DAYS_LEFT = [4, 1] as const;
 
 /** Where one requested note stands. Availability is per note, not per order. */
 export type ItemAvailability = 'pending' | 'available' | 'unavailable';
@@ -56,6 +78,12 @@ export interface Order {
   adminNotes: string | null;
   stripeSessionId: string | null;
   paidAt: string | null;
+  /** When the 7-day hold on a confirmed order runs out. Null unless confirmed. */
+  heldUntil: string | null;
+  /** How many hold reminders have been sent, so the sweep never repeats one. */
+  holdReminderCount: number;
+  /** Set when a hold ran out unpaid. The order is flagged, never auto-cancelled. */
+  holdLapsedAt: string | null;
   trackingNumber: string | null;
   createdAt: string;
   updatedAt: string;

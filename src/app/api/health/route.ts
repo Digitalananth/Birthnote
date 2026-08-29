@@ -5,6 +5,7 @@ import { env } from '@/lib/env';
 import { getMigrationStatus } from '@/server/migration-status';
 import { checkSchema, type SchemaDrift } from '@/server/schema-check';
 import { recentErrors } from '@/server/errors';
+import { lastSweepAt } from '@/server/sweep-state';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +68,10 @@ export async function GET() {
       server: database ? await serverInfo() : null,
       schema,
       migrations,
+      // When the scheduled sweep last completed in THIS process. Null is not
+      // proof it never ran — each worker keeps its own — but a null that never
+      // becomes a timestamp means the cron is not reaching us at all.
+      lastSweepAt: lastSweepAt(),
       // Tables/columns the code needs and the database lacks. Empty when fine.
       drift,
       // Last few server-side failures, from the app_errors table: scope,

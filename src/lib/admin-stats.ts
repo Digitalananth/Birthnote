@@ -42,6 +42,8 @@ export interface DashboardStats {
   daily: DailyPoint[];
   pendingItems: number;
   awaitingDispatch: number;
+  /** Confirmed orders whose hold ran out unpaid — waiting on your decision. */
+  lapsedHolds: number;
   newCustomers30: number;
   content: { draftPages: number; draftPosts: number };
   needsAvailability: AttentionOrder[];
@@ -120,6 +122,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     paidRows,
     pendingItemRows,
     dispatchRows,
+    lapsedHoldRows,
     customerRows,
     contentRows,
     availabilityQueue,
@@ -173,6 +176,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     query<CountRow[]>(
       `SELECT COUNT(*) AS n FROM orders
         WHERE status = 'paid' AND tracking_number IS NULL`
+    ),
+    query<CountRow[]>(
+      `SELECT COUNT(*) AS n FROM orders
+        WHERE status = 'confirmed' AND hold_lapsed_at IS NOT NULL`
     ),
     query<CountRow[]>(
       `SELECT COUNT(*) AS n FROM users WHERE created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY`,
@@ -229,6 +236,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     daily: buildSeries(toMap(createdRows), toMap(paidRows)),
     pendingItems: Number(pendingItemRows[0]?.n ?? 0),
     awaitingDispatch: Number(dispatchRows[0]?.n ?? 0),
+    lapsedHolds: Number(lapsedHoldRows[0]?.n ?? 0),
     newCustomers30: Number(customerRows[0]?.n ?? 0),
     content: {
       draftPages: Number(contentRows[0]?.draft_pages ?? 0),

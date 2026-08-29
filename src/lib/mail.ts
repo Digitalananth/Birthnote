@@ -3,6 +3,7 @@ import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '@/lib/env';
 import { availableItems, summariseOrder, type Order, type OrderItem } from '@/lib/orders';
 import { formatPrice } from '@/lib/validation';
+import { HOLD_DAYS } from '@/lib/order-types';
 
 /**
  * Transactional email over plain SMTP (Gmail by default).
@@ -142,6 +143,20 @@ function itemListHtml(items: OrderItem[]): string {
     .join('')}</ul>`;
 }
 
+/**
+ * The hold deadline as a date a customer can act on.
+ *
+ * In Asia/Kolkata, because "until 3 September" must mean the same day to the
+ * reader as it does to the sweep that enforces it.
+ */
+function holdDeadline(iso: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Asia/Kolkata',
+  }).format(new Date(iso));
+}
+
 const p = (text: string) =>
   `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#4A3F33;">${text}</p>`;
 
@@ -231,7 +246,11 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
         `Total: <strong>${formatPrice(order.pricePaise, order.currency)}</strong>, including tracked delivery anywhere in India and gift packaging.`
       ) +
       refBlock(order.reference) +
-      p(`${many ? 'These notes are' : 'This note is'} held for you for 7 days.`),
+      p(
+        `${many ? 'These notes are' : 'This note is'} held for you for ${HOLD_DAYS} days${
+          order.heldUntil ? `, until ${holdDeadline(order.heldUntil)}` : ''
+        }.`
+      ),
     { label: 'Complete your order', url: payUrl }
   );
   return {
@@ -254,7 +273,225 @@ Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delive
 Complete your order: ${payUrl}
 Reference: ${order.reference}
 
-Held for you for 7 days.
+Held for you for ${HOLD_DAYS} days${order.heldUntil ? `, until ${holdDeadline(order.heldUntil)}` : ''}.
+
+— BirthNote`,
+  };
+}
+
+/**
+ * A nudge while the hold is still running.
+ *
+ * Deliberately short and free of pressure tactics: it states what is held,
+ * what it costs, when the hold runs out, and gives one button. Someone who
+ * has already been told the good news does not need to be sold to again.
+ */
+export function holdReminderEmail(order: Order, daysLeft: number): MailPayload {
+  const payUrl = `${env.siteUrl}/payment/${order.reference}`;
+  const found = availableItems(order);
+  const many = found.length > 1;
+  const when = daysLeft <= 1 ? 'tomorrow' : `in ${daysLeft} days`;
+  const deadline = order.heldUntil ? holdDeadline(order.heldUntil) : null;
+
+  return {
+    to: order.customerEmail,
+    subject:
+      daysLeft <= 1
+        ? `Last day — your ${many ? 'notes are' : 'note is'} held until tomorrow (${order.reference})`
+        : `Still held for you — ${order.reference}`,
+    html: layout(
+      many ? `Your notes are still waiting` : 'Your note is still waiting',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          `Just so it does not slip by: ${
+            many ? 'these notes are' : 'this note is'
+          } still reserved for you, and the hold ends ${when}${
+            deadline ? ` (${escapeHtml(deadline)})` : ''
+          }.`
+        ) +
+        itemListHtml(found) +
+        p(
+          `Total: <strong>${formatPrice(order.pricePaise, order.currency)}</strong>, including tracked delivery and gift packaging.`
+        ) +
+        refBlock(order.reference) +
+        p('If you have changed your mind, you can simply ignore this — nothing will be charged.'),
+      { label: 'Complete your order', url: payUrl }
+    ),
+    text: `Hi ${order.customerName},
+
+Just so it does not slip by: ${many ? 'these notes are' : 'this note is'} still reserved for you, and the hold ends ${when}${deadline ? ` (${deadline})` : ''}.
+
+${itemLines(found)
+  .map((line) => `  - ${line}`)
+  .join('\n')}
+
+Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delivery.
+
+Complete your order: ${payUrl}
+Reference: ${order.reference}
+
+If you have changed your mind, ignore this — nothing will be charged.
+
+— BirthNote`,
+  };
+}
+
+/**
+ * Sent once the hold has run out.
+ *
+ * The note is not gone — the order is still payable and a human decides
+ * whether to re-sell it — so this says the hold has ended, not that the
+ * chance has. Promising a hold and then quietly keeping it would be the same
+ * dishonesty in the other direction.
+ */
+export function holdLapsedEmail(order: Order): MailPayload {
+  const payUrl = `${env.siteUrl}/payment/${order.reference}`;
+  const found = availableItems(order);
+  const many = found.length > 1;
+
+  return {
+    to: order.customerEmail,
+    subject: `Your ${HOLD_DAYS}-day hold has ended — ${order.reference}`,
+    html: layout(
+      'Your hold has ended',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          `The ${HOLD_DAYS}-day hold on ${
+            many ? 'your notes' : 'your note'
+          } has now ended, so we can no longer promise ${many ? 'they are' : 'it is'} set aside.`
+        ) +
+        p(
+          `${
+            many ? 'They are' : 'It is'
+          } still here as we write this, though — if you would still like ${
+            many ? 'them' : 'it'
+          }, complete the order and we will send ${many ? 'them' : 'it'} straight out.`
+        ) +
+        itemListHtml(found) +
+        refBlock(order.reference) +
+        p('If you would rather not, there is nothing to do and nothing to pay.'),
+      { label: 'Complete your order', url: payUrl }
+    ),
+    text: `Hi ${order.customerName},
+
+The ${HOLD_DAYS}-day hold on ${many ? 'your notes' : 'your note'} has now ended, so we can no longer promise ${many ? 'they are' : 'it is'} set aside.
+
+${many ? 'They are' : 'It is'} still here as we write this — if you would still like ${many ? 'them' : 'it'}, complete the order and we will send ${many ? 'them' : 'it'} straight out.
+
+Complete your order: ${payUrl}
+Reference: ${order.reference}
+
+If you would rather not, there is nothing to do and nothing to pay.
+
+— BirthNote`,
+  };
+}
+
+/**
+ * Sent when a payment attempt failed.
+ *
+ * The single most important sentence is that no money was taken: someone whose
+ * card was declined does not know whether they have been charged, and silence
+ * is where that turns into a support email or an abandoned order.
+ */
+export function paymentFailedEmail(order: Order): MailPayload {
+  const payUrl = `${env.siteUrl}/payment/${order.reference}`;
+  return {
+    to: order.customerEmail,
+    subject: `Your payment did not go through — ${order.reference}`,
+    html: layout(
+      'That payment did not go through',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          '<strong>You have not been charged.</strong> Your bank declined the payment, which usually means a card limit, an expired card, or a verification step that timed out.'
+        ) +
+        p(
+          `${
+            order.heldUntil
+              ? `Your order is still reserved until ${escapeHtml(holdDeadline(order.heldUntil))}. `
+              : 'Your order is still reserved. '
+          }You can try again whenever suits — the link below opens a fresh, secure checkout.`
+        ) +
+        refBlock(order.reference),
+      { label: 'Try the payment again', url: payUrl }
+    ),
+    text: `Hi ${order.customerName},
+
+You have not been charged. Your bank declined the payment — usually a card limit, an expired card, or a verification step that timed out.
+
+${order.heldUntil ? `Your order is still reserved until ${holdDeadline(order.heldUntil)}. ` : 'Your order is still reserved. '}You can try again whenever suits:
+
+${payUrl}
+Reference: ${order.reference}
+
+— BirthNote`,
+  };
+}
+
+/**
+ * Sent when a Stripe checkout session expired unused.
+ *
+ * Distinct from a failed payment: nothing was attempted, the customer simply
+ * left the tab. So this reassures rather than explains, and does not imply
+ * their card was refused.
+ */
+export function checkoutExpiredEmail(order: Order): MailPayload {
+  const payUrl = `${env.siteUrl}/payment/${order.reference}`;
+  return {
+    to: order.customerEmail,
+    subject: `Your checkout expired — ${order.reference}`,
+    html: layout(
+      'Your checkout page expired',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          'The secure checkout you opened has expired, as they do after a day. Nothing was charged and nothing is lost.'
+        ) +
+        p(
+          `${
+            order.heldUntil
+              ? `Your order is still reserved until ${escapeHtml(holdDeadline(order.heldUntil))}. `
+              : 'Your order is still reserved. '
+          }The link below opens a new one whenever you are ready.`
+        ) +
+        refBlock(order.reference),
+      { label: 'Open a new checkout', url: payUrl }
+    ),
+    text: `Hi ${order.customerName},
+
+The secure checkout you opened has expired, as they do after a day. Nothing was charged and nothing is lost.
+
+${order.heldUntil ? `Your order is still reserved until ${holdDeadline(order.heldUntil)}. ` : 'Your order is still reserved. '}Open a new one whenever you are ready:
+
+${payUrl}
+Reference: ${order.reference}
+
+— BirthNote`,
+  };
+}
+
+/** Sent when a payment has been refunded. */
+export function refundedEmail(order: Order): MailPayload {
+  return {
+    to: order.customerEmail,
+    subject: `Your refund is on its way — ${order.reference}`,
+    html: layout(
+      'Your refund is on its way',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          `We have refunded <strong>${formatPrice(order.pricePaise, order.currency)}</strong> to the card you paid with.`
+        ) +
+        p(
+          'Banks usually take five to ten working days to show it, and it returns to the original card — there is nothing you need to do.'
+        ) +
+        refBlock(order.reference)
+    ),
+    text: `Hi ${order.customerName},
+
+We have refunded ${formatPrice(order.pricePaise, order.currency)} to the card you paid with.
+
+Banks usually take five to ten working days to show it, and it returns to the original card. There is nothing you need to do.
+
+Reference: ${order.reference}
 
 — BirthNote`,
   };

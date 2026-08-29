@@ -7,6 +7,7 @@ import {
   ORDER_STATUSES,
   type OrderStatus,
 } from '@/lib/orders';
+import { startHold, clearHold } from '@/lib/holds';
 import { isValidReference } from '@/lib/validation';
 import { sendMail, availabilityConfirmedEmail, unavailableEmail, shippedEmail } from '@/lib/mail';
 import {
@@ -115,7 +116,7 @@ export async function PATCH(request: Request, { params }: Context) {
   // /items/:id — this route only moves the order as a whole.
   const str = (key: string) => (body[key] == null ? null : String(body[key]).trim() || null);
 
-  const order = await updateOrderStatus(reference, {
+  const updated = await updateOrderStatus(reference, {
     status,
     // The timeline names whoever made the change, now that there is more than
     // one person who could have.
@@ -124,9 +125,19 @@ export async function PATCH(request: Request, { params }: Context) {
     trackingNumber: str('trackingNumber'),
   });
 
-  if (!order) {
+  if (!updated) {
     return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
   }
+
+  // The hold is written before the email is built, because the confirmation
+  // now names the deadline it creates. Leaving `confirmed` clears it, so an
+  // order that becomes unavailable or paid stops being chased by the sweep.
+  if (status === 'confirmed') {
+    await startHold(updated.id);
+  } else {
+    await clearHold(updated.id);
+  }
+  const order = (await getOrderByReference(reference)) ?? updated;
 
   let emailed = false;
   let messaged = false;

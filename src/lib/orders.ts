@@ -40,6 +40,9 @@ interface OrderRow extends RowDataPacket {
   admin_notes: string | null;
   stripe_session_id: string | null;
   paid_at: Date | null;
+  held_until: Date | null;
+  hold_reminder_count: number;
+  hold_lapsed_at: Date | null;
   tracking_number: string | null;
   created_at: Date;
   updated_at: Date;
@@ -96,6 +99,9 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
     adminNotes: row.admin_notes,
     stripeSessionId: row.stripe_session_id,
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
+    heldUntil: row.held_until ? row.held_until.toISOString() : null,
+    holdReminderCount: Number(row.hold_reminder_count ?? 0),
+    holdLapsedAt: row.hold_lapsed_at ? row.hold_lapsed_at.toISOString() : null,
     trackingNumber: row.tracking_number,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -541,6 +547,35 @@ export async function markOrderPaid(
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
        VALUES (?, 'paid', 'Payment received via Stripe.', 'stripe')`,
+      [order.id]
+    );
+
+    return readOrder(conn, order.id);
+  });
+}
+
+/**
+ * Records a refund against the order that payment intent belongs to.
+ *
+ * Returns the order only on the delivery that actually changed it, so a
+ * repeated `charge.refunded` cannot email the customer twice. A partial
+ * refund is still a refund as far as the customer's status is concerned;
+ * the amount returned is Stripe's record, not ours to restate.
+ */
+export async function markOrderRefunded(paymentIntentId: string): Promise<Order | null> {
+  return transaction(async (conn) => {
+    const [rows] = await conn.execute<OrderRow[]>(
+      `${SELECT_ORDER} WHERE stripe_payment_id = ? LIMIT 1 FOR UPDATE`,
+      [paymentIntentId]
+    );
+    if (!rows.length) return null;
+    const order = rows[0];
+    if (order.status === 'refunded') return null;
+
+    await conn.execute(`UPDATE orders SET status = 'refunded' WHERE id = ?`, [order.id]);
+    await conn.execute(
+      `INSERT INTO order_events (order_id, status, note, actor)
+       VALUES (?, 'refunded', 'Refund issued via Stripe.', 'stripe')`,
       [order.id]
     );
 

@@ -190,6 +190,14 @@ export default async function AdminDashboardPage({
             tone={stats.pendingItems > 0 ? 'warn' : 'neutral'}
           />
           <StatCard
+            label="Holds lapsed"
+            value={String(stats.lapsedHolds)}
+            hint="Confirmed, hold expired, still unpaid"
+            icon="ClockIcon"
+            href="/admin/orders?status=confirmed"
+            tone={stats.lapsedHolds > 0 ? 'warn' : 'neutral'}
+          />
+          <StatCard
             label="To dispatch"
             value={String(stats.awaitingDispatch)}
             hint="Paid, no tracking number yet"

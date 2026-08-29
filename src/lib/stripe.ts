@@ -69,6 +69,12 @@ export async function createCheckoutSession(order: Order) {
     // Domestic delivery only — we ship within India.
     shipping_address_collection: { allowed_countries: ['IN'] },
     metadata: { reference: order.reference, notes: String(payable.length) },
+    // The same reference on the PaymentIntent. A failed payment arrives as a
+    // payment_intent.* event, which carries no session and so no other way
+    // back to the order.
+    payment_intent_data: {
+      metadata: { reference: order.reference },
+    },
     // Stripe replaces the placeholder; keep it literal.
     success_url: `${env.siteUrl}/payment/${order.reference}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${env.siteUrl}/payment/${order.reference}?cancelled=1`,
