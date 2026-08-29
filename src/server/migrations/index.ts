@@ -7,6 +7,7 @@ import { migration as m0005 } from './0005_whatsapp';
 import { migration as m0006 } from './0006_phone_sign_in';
 import { migration as m0007 } from './0007_app_errors';
 import { migration as m0008 } from './0008_dashboard_indexes';
+import { migration as m0009 } from './0009_report_indexes';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -26,4 +27,5 @@ export const migrations: readonly Migration[] = [
   m0006,
   m0007,
   m0008,
+  m0009,
 ];
