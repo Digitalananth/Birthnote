@@ -33,10 +33,14 @@ const AppLogo = memo(function AppLogo({
       {src ? (
         <AppImage
           src={src}
-          alt="Logo" 
+          alt="Logo"
           width={size}
           height={size}
-          className="flex-shrink-0"
+          // The artwork is a wide banknote, not a square. `size` is the height
+          // it should occupy; letting the width follow the aspect ratio keeps
+          // it from being squeezed into a box it was never drawn for.
+          className="flex-shrink-0 w-auto"
+          style={{ height: size }}
           priority={true}
           unoptimized={src.endsWith('.svg')}
         />
