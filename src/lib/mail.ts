@@ -14,11 +14,11 @@ import { HOLD_DAYS } from '@/lib/order-types';
  * SMTP_USER blank) to log emails to the console instead of sending them,
  * which is what local development should do.
  */
-const globalForMail = globalThis as unknown as { birthnoteMailer?: Transporter };
+const globalForMail = globalThis as unknown as { myLuckyDatesMailer?: Transporter };
 
 function getTransport(): Transporter {
-  if (!globalForMail.birthnoteMailer) {
-    globalForMail.birthnoteMailer = nodemailer.createTransport({
+  if (!globalForMail.myLuckyDatesMailer) {
+    globalForMail.myLuckyDatesMailer = nodemailer.createTransport({
       host: env.smtp.host,
       port: env.smtp.port,
       secure: env.smtp.secure, // false for 587 (STARTTLS), true for 465
@@ -29,7 +29,7 @@ function getTransport(): Transporter {
       rateLimit: 3,
     });
   }
-  return globalForMail.birthnoteMailer;
+  return globalForMail.myLuckyDatesMailer;
 }
 
 interface MailPayload {
@@ -96,7 +96,7 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFDF9;border:1px solid #E8DFD2;border-radius:16px;overflow:hidden;">
         <tr><td style="height:4px;background:${BRAND};"></td></tr>
         <tr><td style="padding:36px 36px 28px;">
-          <p style="margin:0 0 20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${BRAND};font-weight:700;">BirthNote</p>
+          <p style="margin:0 0 20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${BRAND};font-weight:700;">My Lucky Dates</p>
           <h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;font-weight:800;">${escapeHtml(heading)}</h1>
           ${bodyHtml}
           ${
@@ -106,7 +106,7 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
           }
         </td></tr>
         <tr><td style="padding:20px 36px 30px;border-top:1px solid #F0E9DE;color:#8A7B69;font-size:12px;line-height:1.6;">
-          Questions? Just reply to this email.<br/>© ${new Date().getFullYear()} BirthNote
+          Questions? Just reply to this email.<br/>© ${new Date().getFullYear()} My Lucky Dates
         </td></tr>
       </table>
     </td></tr>
@@ -207,7 +207,7 @@ Track it here: ${trackUrl}
 
 We usually confirm within a few hours. You pay nothing for any note we cannot find.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -275,7 +275,7 @@ Reference: ${order.reference}
 
 Held for you for ${HOLD_DAYS} days${order.heldUntil ? `, until ${holdDeadline(order.heldUntil)}` : ''}.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -332,7 +332,7 @@ Reference: ${order.reference}
 
 If you have changed your mind, ignore this — nothing will be charged.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -383,7 +383,7 @@ Reference: ${order.reference}
 
 If you would rather not, there is nothing to do and nothing to pay.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -424,7 +424,7 @@ ${order.heldUntil ? `Your order is still reserved until ${holdDeadline(order.hel
 ${payUrl}
 Reference: ${order.reference}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -465,7 +465,7 @@ ${order.heldUntil ? `Your order is still reserved until ${holdDeadline(order.hel
 ${payUrl}
 Reference: ${order.reference}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -493,7 +493,7 @@ Banks usually take five to ten working days to show it, and it returns to the or
 
 Reference: ${order.reference}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -532,7 +532,7 @@ We add to the collection every week — reply to this email and we'll keep your 
 
 Reference: ${order.reference}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -573,7 +573,7 @@ Track it: ${trackUrl}
 
 Everything ships together, packaged within 1-2 working days and delivered in 3-5 days with tracking.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -613,7 +613,7 @@ ${
 ${order.trackingNumber ? `Tracking number: ${order.trackingNumber}` : ''}
 Reference: ${order.reference}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -659,22 +659,22 @@ export function signInCodeEmail(
 ): MailPayload {
   const html = layout(
     'Your sign-in code',
-    `<p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Enter this code to sign in to BirthNote:</p>
+    `<p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Enter this code to sign in to My Lucky Dates:</p>
      <p style="margin:0 0 18px;font-size:34px;letter-spacing:8px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(code)}</p>
      <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#6B5C4A;">It works for ${expiresInMinutes} minutes and once only.</p>
-     <p style="margin:0;font-size:14px;line-height:1.6;color:#6B5C4A;">If you did not ask to sign in, ignore this email. Nobody from BirthNote will ever ask you for this code.</p>`
+     <p style="margin:0;font-size:14px;line-height:1.6;color:#6B5C4A;">If you did not ask to sign in, ignore this email. Nobody from My Lucky Dates will ever ask you for this code.</p>`
   );
   return {
     to: email,
-    subject: `${code} is your BirthNote sign-in code`,
+    subject: `${code} is your My Lucky Dates sign-in code`,
     html,
-    text: `Your BirthNote sign-in code is ${code}
+    text: `Your My Lucky Dates sign-in code is ${code}
 
 It works for ${expiresInMinutes} minutes and once only.
 
-If you did not ask to sign in, ignore this email. Nobody from BirthNote will ever ask you for this code.
+If you did not ask to sign in, ignore this email. Nobody from My Lucky Dates will ever ask you for this code.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -683,7 +683,7 @@ export function welcomeEmail(user: { name: string; email: string | null }): Mail
   if (!user.email) return null;
   const accountUrl = `${env.siteUrl}/account`;
   const html = layout(
-    'Your BirthNote account is ready.',
+    'Your My Lucky Dates account is ready.',
     p(`Hi ${escapeHtml(user.name.split(' ')[0])},`) +
       p(
         'Your account is set up. Every request you make from now on appears in one place, with its status and tracking as it moves along.'
@@ -693,17 +693,17 @@ export function welcomeEmail(user: { name: string; email: string | null }): Mail
   );
   return {
     to: user.email,
-    subject: 'Welcome to BirthNote',
+    subject: 'Welcome to My Lucky Dates',
     html,
     text: `Hi ${user.name},
 
-Your BirthNote account is ready. Every request you make now appears in one place, with its status and tracking.
+Your My Lucky Dates account is ready. Every request you make now appears in one place, with its status and tracking.
 
 Any orders you placed earlier with this email address are already there.
 
 ${accountUrl}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -720,21 +720,21 @@ export function passwordChangedEmail(user: {
     'Your password was changed.',
     p(`Hi ${escapeHtml(user.name.split(' ')[0])},`) +
       p(
-        'The password on your BirthNote account has just been changed, and every other signed-in device has been signed out.'
+        'The password on your My Lucky Dates account has just been changed, and every other signed-in device has been signed out.'
       ) +
       p('If this was not you, reply to this email straight away.')
   );
   return {
     to: user.email,
-    subject: 'Your BirthNote password was changed',
+    subject: 'Your My Lucky Dates password was changed',
     html,
     text: `Hi ${user.name},
 
-The password on your BirthNote account has just been changed, and every other signed-in device has been signed out.
+The password on your My Lucky Dates account has just been changed, and every other signed-in device has been signed out.
 
 If this was not you, reply to this email straight away.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -754,14 +754,14 @@ export function adminPasswordResetEmail(
     'Reset your admin password.',
     p(`Hi ${escapeHtml(admin.name.split(' ')[0])},`) +
       p(
-        'Use the button below to choose a new password for the BirthNote admin panel. The link works once and expires in one hour.'
+        'Use the button below to choose a new password for the My Lucky Dates admin panel. The link works once and expires in one hour.'
       ) +
       p('If you did not ask for this, tell the shop owner — someone tried to reset your access.'),
     { label: 'Choose a new password', url: resetUrl }
   );
   return {
     to: admin.email,
-    subject: 'Reset your BirthNote admin password',
+    subject: 'Reset your My Lucky Dates admin password',
     html,
     text: `Hi ${admin.name},
 
@@ -771,7 +771,7 @@ ${resetUrl}
 
 If you did not ask for this, tell the shop owner — someone tried to reset your access.
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }
 
@@ -785,22 +785,22 @@ export function adminInviteEmail(
     'You have been given admin access.',
     p(`Hi ${escapeHtml(admin.name.split(' ')[0])},`) +
       p(
-        `An account has been created for you on the BirthNote admin panel as <strong>${escapeHtml(admin.role)}</strong>.`
+        `An account has been created for you on the My Lucky Dates admin panel as <strong>${escapeHtml(admin.role)}</strong>.`
       ) +
       p('Choose your password using the link below. It works once and expires in one hour.'),
     { label: 'Set my password', url: setupUrl }
   );
   return {
     to: admin.email,
-    subject: 'Your BirthNote admin account',
+    subject: 'Your My Lucky Dates admin account',
     html,
     text: `Hi ${admin.name},
 
-An account has been created for you on the BirthNote admin panel as ${admin.role}.
+An account has been created for you on the My Lucky Dates admin panel as ${admin.role}.
 
 Set your password here — the link works once and expires in one hour:
 ${setupUrl}
 
-— BirthNote`,
+— My Lucky Dates`,
   };
 }

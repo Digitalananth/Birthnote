@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Edit post — BirthNote admin',
+  title: 'Edit post — My Lucky Dates admin',
   robots: { index: false, follow: false },
 };
 

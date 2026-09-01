@@ -58,7 +58,7 @@ export interface IssuedOtp {
 /**
  * How long until this identifier may ask for another code, or 0 if it may now.
  *
- * Without a cooldown the request endpoint is a way to make BirthNote send paid
+ * Without a cooldown the request endpoint is a way to make My Lucky Dates send paid
  * SMS to a stranger's phone — or mail to a stranger's inbox — repeatedly. The
  * rate limiter caps the total but this is what stops a rapid burst to one
  * person.
@@ -147,11 +147,13 @@ export async function verifyOtp(
     // decided. Letting it throw would turn a clean 401 into a 500 and cost the
     // customer the honest answer, which is the opposite of the point.
     try {
-      const [recent] = await query<(RowDataPacket & {
-        age: number;
-        ttl: number;
-        spent: number;
-      })[]>(
+      const [recent] = await query<
+        (RowDataPacket & {
+          age: number;
+          ttl: number;
+          spent: number;
+        })[]
+      >(
         `SELECT TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP()) AS age,
                 TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), expires_at) AS ttl,
                 CASE WHEN consumed_at IS NULL THEN 0 ELSE 1 END AS spent

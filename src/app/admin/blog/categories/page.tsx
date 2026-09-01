@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Blog categories — BirthNote admin',
+  title: 'Blog categories — My Lucky Dates admin',
   robots: { index: false, follow: false },
 };
 

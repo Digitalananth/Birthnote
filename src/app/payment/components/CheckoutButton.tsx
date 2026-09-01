@@ -57,7 +57,11 @@ export default function CheckoutButton({
           <>
             <Icon name="LockClosedIcon" size={18} />
             Pay {amountLabel} securely
-            <Icon name="ArrowRightIcon" size={18} className="group-hover:translate-x-1 transition-transform" />
+            <Icon
+              name="ArrowRightIcon"
+              size={18}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </>
         )}
       </button>
@@ -69,8 +73,8 @@ export default function CheckoutButton({
       )}
 
       <p className="text-xs text-muted-foreground text-center leading-relaxed">
-        Payment is handled by Stripe. Your card details are entered on Stripe&apos;s
-        secure page and are never sent to or stored by BirthNote.
+        Payment is handled by Stripe. Your card details are entered on Stripe&apos;s secure page and
+        are never sent to or stored by My Lucky Dates.
       </p>
     </div>
   );

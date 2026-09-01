@@ -14,7 +14,7 @@ export default function AdminAuthShell({
     <main className="min-h-screen bg-secondary/30 flex items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <p className="text-xs uppercase tracking-widest text-primary font-bold mb-2 text-center">
-          BirthNote
+          My Lucky Dates
         </p>
         <h1 className="font-sans font-extrabold text-2xl text-foreground mb-2 text-center">
           {title}

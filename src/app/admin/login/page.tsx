@@ -8,7 +8,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Admin — BirthNote',
+  title: 'Admin — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 
@@ -28,7 +28,7 @@ export default async function AdminLoginPage({
     <main className="min-h-screen bg-secondary/30 flex items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <p className="text-xs uppercase tracking-widest text-primary font-bold mb-2 text-center">
-          BirthNote
+          My Lucky Dates
         </p>
         <h1 className="font-sans font-extrabold text-2xl text-foreground mb-8 text-center">
           Order admin

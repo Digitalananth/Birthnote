@@ -280,7 +280,7 @@ export default function RequestFormSection({ user = null }: Props) {
                 className="inline-flex items-center gap-2 text-primary font-semibold text-sm border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
               >
                 <Icon name="ArrowLeftIcon" size={14} />
-                Back to BirthNote
+                Back to My Lucky Dates
               </Link>
             </div>
           </div>
@@ -751,10 +751,26 @@ export default function RequestFormSection({ user = null }: Props) {
             <div className="card-warm p-6">
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: 'LockClosedIcon' as const, text: 'No payment until confirmed', href: '/faq' },
-                  { icon: 'ShieldCheckIcon' as const, text: 'Every note authenticated', href: '/authenticity' },
-                  { icon: 'TruckIcon' as const, text: 'Tracked delivery across India', href: '/shipping' },
-                  { icon: 'ArrowPathIcon' as const, text: 'Full refund if unavailable', href: '/returns' },
+                  {
+                    icon: 'LockClosedIcon' as const,
+                    text: 'No payment until confirmed',
+                    href: '/faq',
+                  },
+                  {
+                    icon: 'ShieldCheckIcon' as const,
+                    text: 'Every note authenticated',
+                    href: '/authenticity',
+                  },
+                  {
+                    icon: 'TruckIcon' as const,
+                    text: 'Tracked delivery across India',
+                    href: '/shipping',
+                  },
+                  {
+                    icon: 'ArrowPathIcon' as const,
+                    text: 'Full refund if unavailable',
+                    href: '/returns',
+                  },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <Icon name={item.icon} size={16} className="text-accent shrink-0" />

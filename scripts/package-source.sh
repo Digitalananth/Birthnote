@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ZIP=birthnote-source.zip
+ZIP=my-lucky-dates-source.zip
 rm -f "$ZIP"
 
 git ls-files -z | xargs -0 zip -qr "$ZIP"

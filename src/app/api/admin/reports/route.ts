@@ -141,7 +141,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const filename = `birthnote-${report}-${range.from}-to-${range.to}.csv`;
+  const filename = `my-lucky-dates-${report}-${range.from}-to-${range.to}.csv`;
   return new Response(`\uFEFF${body}`, {
     headers: {
       // The BOM is what makes Excel read UTF-8 rather than mangling ₹ and any

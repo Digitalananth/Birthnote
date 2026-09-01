@@ -7,7 +7,7 @@ import { listOrdersForUser } from '@/lib/orders';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'My orders — BirthNote',
+  title: 'My orders — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

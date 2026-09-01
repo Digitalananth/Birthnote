@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'My profile — BirthNote',
+  title: 'My profile — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

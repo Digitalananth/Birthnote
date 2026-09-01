@@ -27,7 +27,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { reference } = await params;
   return {
-    title: `Thank you — ${reference.toUpperCase()} — BirthNote`,
+    title: `Thank you — ${reference.toUpperCase()} — My Lucky Dates`,
     robots: { index: false, follow: false },
   };
 }
@@ -133,7 +133,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
                 className="inline-flex items-center gap-2 text-primary font-semibold text-sm border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
               >
                 <Icon name="ArrowLeftIcon" size={14} />
-                Back to BirthNote
+                Back to My Lucky Dates
               </Link>
             </div>
           </div>

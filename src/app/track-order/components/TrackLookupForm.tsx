@@ -27,7 +27,7 @@ export default function TrackLookupForm({ initialError }: { initialError?: strin
       return;
     }
     if (!isValidReference(trimmed)) {
-      setError('That does not look like a BirthNote reference (e.g. BN-140387-K9TQXM).');
+      setError('That does not look like a My Lucky Dates reference (e.g. BN-140387-K9TQXM).');
       return;
     }
     setError('');

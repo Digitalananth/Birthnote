@@ -16,9 +16,9 @@ import { listPublishedPosts, listCategories } from '@/lib/content';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Blog — BirthNote',
+  title: 'Blog — My Lucky Dates',
   description:
-    'Notes on banknotes, the dates printed on them, and the people who keep them. From the BirthNote collection.',
+    'Notes on banknotes, the dates printed on them, and the people who keep them. From the My Lucky Dates collection.',
   alternates: { canonical: '/blog' },
 };
 

@@ -9,8 +9,8 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'BirthNote — a banknote from your date',
-    short_name: 'BirthNote',
+    name: 'My Lucky Dates — a banknote from your date',
+    short_name: 'My Lucky Dates',
     description:
       'Find a genuine banknote printed on the date that matters, and follow your order from request to doorstep.',
     start_url: '/request-a-banknote',

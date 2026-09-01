@@ -18,7 +18,7 @@ import { getAdminById } from '@/lib/admin-users';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Set admin password — BirthNote',
+  title: 'Set admin password — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

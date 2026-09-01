@@ -10,7 +10,12 @@ import { NextResponse, type NextRequest } from 'next/server';
  * the security boundary.
  */
 export function middleware(request: NextRequest) {
-  const hasSession = Boolean(request.cookies.get('birthnote_admin_session')?.value);
+  // Both names are accepted while sessions issued before the rename to
+  // My Lucky Dates are still alive; see LEGACY_COOKIE_NAME in src/lib/auth.ts.
+  const hasSession = Boolean(
+    request.cookies.get('my_lucky_dates_admin_session')?.value ??
+    request.cookies.get('birthnote_admin_session')?.value
+  );
 
   if (!hasSession) {
     const loginUrl = new URL('/admin/login', request.url);

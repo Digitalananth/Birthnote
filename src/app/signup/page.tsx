@@ -18,7 +18,7 @@ import { getCurrentUser } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Create an account — BirthNote',
+  title: 'Create an account — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

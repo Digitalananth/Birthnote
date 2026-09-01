@@ -29,7 +29,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { reference } = await params;
   return {
-    title: `Order ${reference.toUpperCase()} — BirthNote`,
+    title: `Order ${reference.toUpperCase()} — My Lucky Dates`,
     // Order pages are reachable by anyone holding the reference, so keep them
     // out of search indexes.
     robots: { index: false, follow: false },

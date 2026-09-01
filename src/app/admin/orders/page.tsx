@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Orders — BirthNote admin',
+  title: 'Orders — My Lucky Dates admin',
   robots: { index: false, follow: false },
 };
 
@@ -74,7 +74,9 @@ export default async function AdminOrdersPage({
         <AdminNav admin={admin} current="orders" />
 
         <div className="mb-8">
-          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">BirthNote</p>
+          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
+            My Lucky Dates
+          </p>
           <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
             Order queue
           </h1>

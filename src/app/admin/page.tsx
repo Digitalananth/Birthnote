@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Dashboard — BirthNote admin',
+  title: 'Dashboard — My Lucky Dates admin',
   robots: { index: false, follow: false },
 };
 
@@ -154,7 +154,9 @@ export default async function AdminDashboardPage({
         <AdminNav admin={admin} current="dashboard" />
 
         <div className="mb-8">
-          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">BirthNote</p>
+          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
+            My Lucky Dates
+          </p>
           <h1 className="font-sans font-extrabold text-2xl md:text-3xl text-foreground">
             Good to see you, {admin.name.split(' ')[0]}
           </h1>

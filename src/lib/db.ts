@@ -11,11 +11,11 @@ import { recordError } from '@/server/errors';
  * Hostinger the per-user connection limit is low, so keep
  * MYSQL_CONNECTION_LIMIT small (5 is plenty for this traffic).
  */
-const globalForDb = globalThis as unknown as { birthnotePool?: mysql.Pool };
+const globalForDb = globalThis as unknown as { myLuckyDatesPool?: mysql.Pool };
 
 export function getPool(): mysql.Pool {
-  if (!globalForDb.birthnotePool) {
-    globalForDb.birthnotePool = mysql.createPool({
+  if (!globalForDb.myLuckyDatesPool) {
+    globalForDb.myLuckyDatesPool = mysql.createPool({
       host: env.mysql.host,
       port: env.mysql.port,
       database: env.mysql.database(),
@@ -35,7 +35,7 @@ export function getPool(): mysql.Pool {
       dateStrings: ['DATE'],
     });
   }
-  return globalForDb.birthnotePool;
+  return globalForDb.myLuckyDatesPool;
 }
 
 /** Run a parameterised query. Never interpolate values into SQL strings. */
@@ -55,9 +55,7 @@ export async function query<T = mysql.RowDataPacket[]>(
 }
 
 /** Run several statements inside one transaction. */
-export async function transaction<T>(
-  fn: (conn: mysql.PoolConnection) => Promise<T>
-): Promise<T> {
+export async function transaction<T>(fn: (conn: mysql.PoolConnection) => Promise<T>): Promise<T> {
   const conn = await getPool().getConnection();
   try {
     await conn.beginTransaction();

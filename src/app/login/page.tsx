@@ -14,7 +14,7 @@ import { getCurrentUser } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Sign in — BirthNote',
+  title: 'Sign in — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

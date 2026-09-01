@@ -3,18 +3,18 @@ import Stripe from 'stripe';
 import { env } from '@/lib/env';
 import { availableItems, type Order } from '@/lib/orders';
 
-const globalForStripe = globalThis as unknown as { birthnoteStripe?: Stripe };
+const globalForStripe = globalThis as unknown as { myLuckyDatesStripe?: Stripe };
 
 export function getStripe(): Stripe {
-  if (!globalForStripe.birthnoteStripe) {
-    globalForStripe.birthnoteStripe = new Stripe(env.stripe.secretKey(), {
+  if (!globalForStripe.myLuckyDatesStripe) {
+    globalForStripe.myLuckyDatesStripe = new Stripe(env.stripe.secretKey(), {
       // No apiVersion override: pin to whatever this SDK release was built
       // and tested against, so upgrading the package upgrades both together.
       typescript: true,
       maxNetworkRetries: 2,
     });
   }
-  return globalForStripe.birthnoteStripe;
+  return globalForStripe.myLuckyDatesStripe;
 }
 
 /** Thrown when an order is not in a state that can be paid for. */

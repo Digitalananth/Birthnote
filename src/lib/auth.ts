@@ -18,7 +18,14 @@ import { getAdminById, type AdminUser } from '@/lib/admin-users';
  * Same shape as the customer sessions in `src/lib/session.ts` — a random
  * token in the cookie, only its SHA-256 in the table.
  */
-const COOKIE_NAME = 'birthnote_admin_session';
+const COOKIE_NAME = 'my_lucky_dates_admin_session';
+
+/**
+ * The cookie name used before the rename to My Lucky Dates. Read as a fallback
+ * and cleared on sign-out so the rename does not sign every admin out; safe to
+ * delete 12 hours (one session lifetime) after the rename shipped.
+ */
+const LEGACY_COOKIE_NAME = 'birthnote_admin_session';
 
 /**
  * Twelve hours, matching the old cookie: an admin session lives on a machine
@@ -28,6 +35,7 @@ const MAX_AGE_SECONDS = 60 * 60 * 12;
 
 export const adminCookie = {
   name: COOKIE_NAME,
+  legacyName: LEGACY_COOKIE_NAME,
   options: {
     httpOnly: true,
     sameSite: 'lax' as const,
@@ -39,6 +47,12 @@ export const adminCookie = {
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+/** The session token, under the current cookie name or the pre-rename one. */
+async function readToken(): Promise<string | undefined> {
+  const jar = await cookies();
+  return jar.get(COOKIE_NAME)?.value ?? jar.get(LEGACY_COOKIE_NAME)?.value;
 }
 
 export async function createAdminSession(
@@ -63,7 +77,7 @@ export async function createAdminSession(
 export const getCurrentAdmin = cache(async (): Promise<AdminUser | null> => {
   let token: string | undefined;
   try {
-    token = (await cookies()).get(COOKIE_NAME)?.value;
+    token = await readToken();
   } catch {
     return null;
   }
@@ -104,7 +118,7 @@ export async function requireOwner(next = '/admin/users'): Promise<AdminUser> {
 }
 
 export async function destroyAdminSession(): Promise<void> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  const token = await readToken();
   if (token) {
     await query('DELETE FROM admin_sessions WHERE token_hash = ?', [hashToken(token)]);
   }

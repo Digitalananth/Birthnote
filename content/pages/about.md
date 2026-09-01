@@ -8,7 +8,7 @@ That is what we look for. Not a replica, not a certificate, not a commemorative 
 
 ## Who we are
 
-BirthNote is the gift side of a philately and paper-currency business. The day-to-day work is what it has always been: sorting, grading and keeping notes and stamps that most people walk past. What changed is who we send them to — not collectors, but someone who wants to hand a particular year to a particular person.
+My Lucky Dates is the gift side of a philately and paper-currency business. The day-to-day work is what it has always been: sorting, grading and keeping notes and stamps that most people walk past. What changed is who we send them to — not collectors, but someone who wants to hand a particular year to a particular person.
 
 The collection is the same one we have built and traded from for years. It was never assembled with birthdays in mind, which is exactly why it holds the ordinary, unremarkable notes that happen to carry the dates people care about.
 

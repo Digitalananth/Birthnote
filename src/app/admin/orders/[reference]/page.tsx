@@ -22,7 +22,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { reference } = await params;
   return {
-    title: `${reference.toUpperCase()} — BirthNote admin`,
+    title: `${reference.toUpperCase()} — My Lucky Dates admin`,
     robots: { index: false, follow: false },
   };
 }

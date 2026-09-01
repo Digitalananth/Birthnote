@@ -15,10 +15,10 @@ services:
       # Local-only credentials. They are deliberately in the file rather than
       # .env so that a fresh clone comes up without editing anything, and they
       # must never be reused anywhere the database is reachable from outside.
-      MARIADB_ROOT_PASSWORD: birthnote_root
-      MARIADB_DATABASE: birthnote
-      MARIADB_USER: birthnote
-      MARIADB_PASSWORD: birthnote
+      MARIADB_ROOT_PASSWORD: my_lucky_dates_root
+      MARIADB_DATABASE: my_lucky_dates
+      MARIADB_USER: my_lucky_dates
+      MARIADB_PASSWORD: my_lucky_dates
     ports:
       # Exposed so tools on the host (TablePlus, mysql CLI) can reach it too.
       - '3307:3306'
@@ -45,9 +45,9 @@ services:
       # host. Everything else — MSG91 keys included — comes from .env.
       MYSQL_HOST: db
       MYSQL_PORT: '3306'
-      MYSQL_DATABASE: birthnote
-      MYSQL_USER: birthnote
-      MYSQL_PASSWORD: birthnote
+      MYSQL_DATABASE: my_lucky_dates
+      MYSQL_USER: my_lucky_dates
+      MYSQL_PASSWORD: my_lucky_dates
       # next dev only accepts connections from outside the container if it
       # binds every interface.
       HOSTNAME: '0.0.0.0'

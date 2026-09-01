@@ -7,7 +7,7 @@ import AdminForgotPasswordForm from '@/app/admin/components/AdminForgotPasswordF
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'Reset admin password — BirthNote',
+  title: 'Reset admin password — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 

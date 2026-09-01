@@ -25,14 +25,14 @@ import { reconcilePayments } from '@/server/reconcile';
 /** At most one run per window, per process. */
 const INTERVAL_MS = 15 * 60 * 1000;
 
-const globalForBackground = globalThis as unknown as { birthnoteSweepClaimedAt?: number };
+const globalForBackground = globalThis as unknown as { myLuckyDatesSweepClaimedAt?: number };
 
 export function maybeSweep(): void {
   // Nothing to reconcile against without Stripe configured.
   if (!env.stripe.configured()) return;
 
   const now = Date.now();
-  const claimedAt = globalForBackground.birthnoteSweepClaimedAt ?? 0;
+  const claimedAt = globalForBackground.myLuckyDatesSweepClaimedAt ?? 0;
   if (now - claimedAt < INTERVAL_MS) return;
 
   /*
@@ -45,7 +45,7 @@ export function maybeSweep(): void {
    * clock and so may each run once per window — harmless, because
    * `markOrderPaid` is idempotent and only the winner emails.
    */
-  globalForBackground.birthnoteSweepClaimedAt = now;
+  globalForBackground.myLuckyDatesSweepClaimedAt = now;
 
   void (async () => {
     try {

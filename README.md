@@ -1,4 +1,4 @@
-# BirthNote
+# My Lucky Dates
 
 A genuine banknote printed on your most memorable date. Next.js 15 (App
 Router, React 19), MySQL, Stripe Checkout, and SMTP email — built to run on a
@@ -58,7 +58,7 @@ Order BN-140387-WTXF3V  (3 notes)
   Stripe line items are built from those same rows — so the total, the
   breakdown and the amount charged cannot disagree.
 - **Two order statuses are checked against the items, server-side.**
-  `confirmed` needs at least one note found *and* priced, or the customer gets
+  `confirmed` needs at least one note found _and_ priced, or the customer gets
   a payment link for ₹0; `unavailable` needs every note to be missing. The
   admin buttons are disabled too, but a disabled button is presentation.
 - **A paid order's notes are frozen** (`PaidOrderError`). The customer was
@@ -90,7 +90,7 @@ same component and differ only in wording, because with a code as the only
 credential there is no separate act of registering.
 
 Which one you typed is decided by the `@` and nothing else, so there is one
-field rather than two tabs. A code is only ever valid for the identifier *and*
+field rather than two tabs. A code is only ever valid for the identifier _and_
 the channel it was sent on.
 
 The second detail is **optional**: a new account made by SMS is offered an
@@ -112,7 +112,7 @@ A few decisions worth knowing before you change this code:
   which is how the flow is exercised locally.
 - **`users.phone` is the unique key, and is not editable from the profile
   page.** Changing it is changing who can sign in, so it would need a code
-  sent to the *new* number to prove it. Until that exists the number is fixed
+  sent to the _new_ number to prove it. Until that exists the number is fixed
   at the value the account was created with.
 - **Requesting a code is defended three ways**: a 45-second per-number
   cooldown, five per number per hour, twenty per IP per hour. Each SMS costs
@@ -147,9 +147,9 @@ scope. Do not add card fields to this codebase.
 The shared `ADMIN_PASSWORD` is gone. Admins are rows in `admin_users`, managed
 by an owner at `/admin/users`, with two roles:
 
-| Role | Can do |
-| --- | --- |
-| `owner` | Everything, including adding, editing and removing other admins |
+| Role    | Can do                                                                  |
+| ------- | ----------------------------------------------------------------------- |
+| `owner` | Everything, including adding, editing and removing other admins         |
 | `staff` | The order queue, pages and the blog — everything except managing admins |
 
 Two roles, not five — more levels would be guesswork encoded in an `ENUM`.
@@ -262,23 +262,23 @@ the emails:
 
 Each route picks the cheapest mode that is still correct:
 
-| Route | Mode | Why |
-| --- | --- | --- |
-| `/` | **ISR** (`revalidate = 3600`) | Static marketing HTML, regenerated hourly so copy edits go live without a rebuild |
-| `/request-a-banknote` | **SSR** (`force-dynamic`) | Reads the session so a signed-in customer's name and email are prefilled |
-| `/track-order`, `/terms`, `/privacy` | **SSG** | Pure static content |
-| `/login`, `/signup` | **SSR** | Bounce anyone already signed in, and read the `next` parameter |
-| `/account/*` | **SSR** | Per-customer, and guarded by `requireUser()` in the layout |
-| `/track-order/[reference]` | **SSR** (`force-dynamic`) | Order status must never be stale |
-| `/payment/[reference]`, `/payment/[reference]/success` | **SSR** | Payment eligibility is read fresh so nobody can pay twice from a cached page |
-| `/admin`, `/admin/orders/[reference]` | **SSR** | Live operational queue |
-| `/admin/users` | **SSR** | Owner-only admin management |
-| `/admin/pages`, `/admin/blog` | **SSR** | Content lists and editors |
-| `/<slug>`, `/blog/[slug]`, `/blog/category/[slug]` | **ISR** (`revalidate = 3600`) | CMS content: cached, but never prerendered at build |
-| `/blog`, `/sitemap.xml` | **SSR** | Read the whole collection, so always rendered fresh |
-| `/offline` | **SSG** | Must render from the cache with no network |
-| `/admin/login`, `/admin/reset-password/[token]` | **SSR** | Session state and token validity are read fresh |
-| `/api/*` | Dynamic route handlers | — |
+| Route                                                  | Mode                          | Why                                                                               |
+| ------------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------- |
+| `/`                                                    | **ISR** (`revalidate = 3600`) | Static marketing HTML, regenerated hourly so copy edits go live without a rebuild |
+| `/request-a-banknote`                                  | **SSR** (`force-dynamic`)     | Reads the session so a signed-in customer's name and email are prefilled          |
+| `/track-order`, `/terms`, `/privacy`                   | **SSG**                       | Pure static content                                                               |
+| `/login`, `/signup`                                    | **SSR**                       | Bounce anyone already signed in, and read the `next` parameter                    |
+| `/account/*`                                           | **SSR**                       | Per-customer, and guarded by `requireUser()` in the layout                        |
+| `/track-order/[reference]`                             | **SSR** (`force-dynamic`)     | Order status must never be stale                                                  |
+| `/payment/[reference]`, `/payment/[reference]/success` | **SSR**                       | Payment eligibility is read fresh so nobody can pay twice from a cached page      |
+| `/admin`, `/admin/orders/[reference]`                  | **SSR**                       | Live operational queue                                                            |
+| `/admin/users`                                         | **SSR**                       | Owner-only admin management                                                       |
+| `/admin/pages`, `/admin/blog`                          | **SSR**                       | Content lists and editors                                                         |
+| `/<slug>`, `/blog/[slug]`, `/blog/category/[slug]`     | **ISR** (`revalidate = 3600`) | CMS content: cached, but never prerendered at build                               |
+| `/blog`, `/sitemap.xml`                                | **SSR**                       | Read the whole collection, so always rendered fresh                               |
+| `/offline`                                             | **SSG**                       | Must render from the cache with no network                                        |
+| `/admin/login`, `/admin/reset-password/[token]`        | **SSR**                       | Session state and token validity are read fresh                                   |
+| `/api/*`                                               | Dynamic route handlers        | —                                                                                 |
 
 ### React / virtual-DOM notes
 
@@ -335,7 +335,7 @@ list. The ones that matter:
   grows. Set `MAIL_ENABLED=false` in development to log emails instead of
   sending them.
 - **Admin bootstrap** — `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`. Used
-  *once*, at server start, to create the first owner account. See "Admin
+  _once_, at server start, to create the first owner account. See "Admin
   accounts" below.
 
 `.env` is gitignored. It was previously committed to this repository — if you
@@ -367,7 +367,7 @@ dependency. Keep it that way.
    - Root directory: `/`, Output directory: `.next`
    - Build script: `build`
 3. **Environment variables** — add every variable from `.env.example` in the
-   app's environment panel *before the first build*. `NEXT_PUBLIC_*` are inlined
+   app's environment panel _before the first build_. `NEXT_PUBLIC_*` are inlined
    at build time, so `NEXT_PUBLIC_SITE_URL` must be the real HTTPS domain and a
    change to it needs a rebuild, not just a restart.
 4. **Deploy** — upload the source zip and build (below). When the app starts
@@ -383,7 +383,7 @@ dependency. Keep it that way.
 ```bash
 git add -A && git commit                            # the zip is built from git, so commit first
 git push                                            # history first
-bash scripts/package-source.sh                      # → birthnote-source.zip
+bash scripts/package-source.sh                      # → my-lucky-dates-source.zip
 ```
 
 `package-source.sh` zips exactly `git ls-files`, which is what keeps `.env`
@@ -394,7 +394,7 @@ gitignored for the same reason.
 
 Then get the zip to Hostinger, either way:
 
-- **hPanel** — upload `birthnote-source.zip` to `public_html` (File Manager, or
+- **hPanel** — upload `my-lucky-dates-source.zip` to `public_html` (File Manager, or
   the Web App's own deploy control) and start a build.
 - **Hostinger MCP from Claude Code** — `hosting_deployJsApplication` with the
   zip's path and the domain. It uploads, resolves the build settings and starts
@@ -412,15 +412,23 @@ only; nothing the running app prints is reachable from outside, which is why
 
 ```json
 {
-  "status": "ok",                         // "degraded" (HTTP 503) if anything below is wrong
+  "status": "ok", // "degraded" (HTTP 503) if anything below is wrong
   "database": true,
   "server": { "version": "11.8.8-MariaDB-log", "collation": "utf8mb4_unicode_ci" },
-  "schema": "0007",                       // MAX(version) in schema_migrations, read live
-  "migrations": { "state": "ok", "current": "0007", "applied": ["0007_app_errors"],
-                  "warnings": [], "error": null, "at": "…" },   // what THIS boot did
-  "drift": { "missingTables": [], "missingColumns": {} },       // code vs information_schema
-  "recentErrors": [],                     // last 5 rows of app_errors: scope, code, redacted message
-  "stripe": true, "mail": true, "whatsapp": false
+  "schema": "0007", // MAX(version) in schema_migrations, read live
+  "migrations": {
+    "state": "ok",
+    "current": "0007",
+    "applied": ["0007_app_errors"],
+    "warnings": [],
+    "error": null,
+    "at": "…"
+  }, // what THIS boot did
+  "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
+  "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
+  "stripe": true,
+  "mail": true,
+  "whatsapp": false
 }
 ```
 
@@ -435,7 +443,7 @@ only; nothing the running app prints is reachable from outside, which is why
   statement or the throwing frame. This is the runtime log Hostinger does not
   give you.
 
-`node scripts/db-check.mjs` run *from your machine* with the same `MYSQL_*`
+`node scripts/db-check.mjs` run _from your machine_ with the same `MYSQL_*`
 values (after allowing your IP under hPanel → Databases → Remote MySQL) checks
 the connection in more detail.
 
@@ -446,9 +454,9 @@ calling `src/server/migrate.ts`. That is the only point on Hostinger where a
 migration can run, and both alternatives failed in production before this
 existed:
 
-- *During the build* — the build sandbox has no route to the account's MySQL,
+- _During the build_ — the build sandbox has no route to the account's MySQL,
   so it dies with `ECONNREFUSED` and takes the whole deploy down.
-- *From the app's terminal afterwards* — Hostinger prunes the deployed
+- _From the app's terminal afterwards_ — Hostinger prunes the deployed
   directory to `.next`, `node_modules`, `package.json` and `public`, so nothing
   under `scripts/` exists to run; `npm run db:migrate` failed with
   `MODULE_NOT_FOUND`.
@@ -474,15 +482,43 @@ How it works:
 - A database created by the old hand-run script is adopted cleanly: the early
   migrations check `information_schema` before each change, so they find their
   work already done and just record themselves.
-- The first-owner seed is *not* a migration (`src/server/bootstrap.ts`): it
+- The first-owner seed is _not_ a migration (`src/server/bootstrap.ts`): it
   depends on environment variables that may be set after the first start, so it
   is checked on every start and returns as soon as any admin exists.
+
+### Renaming the production database
+
+MySQL cannot rename a database in place — `RENAME DATABASE` was removed years
+ago, and hPanel offers no such button. The rename is a copy, and the app must
+be pointed at the copy in the same window, or orders taken between the export
+and the switch land in the database being abandoned:
+
+1. **Stop writes.** hPanel → Web App → stop the app. A few minutes of downtime
+   is what keeps the two databases from diverging.
+2. **Create the new database and user** — hPanel → Databases → MySQL, named
+   `uXXXXXXXXX_myluckydates`. Note the password.
+3. **Export and import** — phpMyAdmin on the old database → Export (SQL,
+   structure and data), then Import into the new one. `schema_migrations` comes
+   across with everything else, so the app sees a database already at the
+   current version and applies nothing.
+4. **Update the environment** — `MYSQL_DATABASE`, `MYSQL_USER` and
+   `MYSQL_PASSWORD` in the Web App's variables (Hostinger MCP:
+   `hosting_replaceNode_jsEnvironmentVariablesV1`).
+5. **Start the app and check** — `curl https://<domain>/api/health` must report
+   `"database": true` and the migration status `up to date`, and the admin order
+   queue must show the same orders as before.
+6. **Keep the old database** for a week before deleting it. It is the only
+   rollback: point the variables back and restart.
+
+The advisory lock name in `src/server/migrate.ts` deliberately did _not_ change
+with the rename — during a rolling restart an old and a new process must
+contend for the same lock, or both would migrate at once.
 
 **To change the schema:** add `src/server/migrations/NNNN_short_name.ts` with
 the next number, export a `migration` with `up(m)`, import it in `index.ts` and
 append it to the list. Do not edit `schema.sql`, and never edit or renumber a
 migration that has shipped — it has already run on the production database and
-will not run again. A migration that throws is *not* recorded and re-runs on the
+will not run again. A migration that throws is _not_ recorded and re-runs on the
 next start, so write it to tolerate a half-applied previous attempt.
 
 `MIGRATE_ON_BOOT=false` in the environment skips the whole step, for the rare
@@ -494,13 +530,13 @@ command away, and the boot-time run needs nothing else:
 ```bash
 docker compose up -d db                              # local MariaDB on :3307
 npm run build
-MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_DATABASE=birthnote MYSQL_USER=birthnote \
-MYSQL_PASSWORD=birthnote npm start                   # watch for the [migrate] line
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_DATABASE=my_lucky_dates MYSQL_USER=my_lucky_dates \
+MYSQL_PASSWORD=my_lucky_dates npm start                   # watch for the [migrate] line
 curl localhost:4028/api/health                       # schema, drift, recentErrors
 ```
 
 Run it twice: the second start must say `up to date`. Then test against a
-database in the *previous* shape — create it from the last release's
+database in the _previous_ shape — create it from the last release's
 migrations, or paste an older `schema.sql` from git — because production is
 never a fresh database.
 
@@ -509,7 +545,7 @@ literal in SQL.** `IF(name = '' AND ? <> '', …)` failed on Hostinger with
 `Illegal mix of collations (utf8mb4_general_ci,COERCIBLE) and
 (utf8mb4_unicode_ci,COERCIBLE)`: the parameter and the literal arrived with
 different collations and neither had a column to decide between them. It
-passed every local test because it only ran for *returning* customers.
+passed every local test because it only ran for _returning_ customers.
 Comparisons must involve the column (`COALESCE(NULLIF(name, ''), ?)`), and
 `src/lib/db.ts` pins the pool to `utf8mb4_unicode_ci`, the collation every
 table is declared with.
@@ -519,15 +555,15 @@ configuration from the Web App environment panel only.
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Dev server on :4028 |
-| `npm run build` | `next build` (type errors fail the build); `prebuild` regenerates the baseline SQL module |
-| `npm start` | Production server on `$PORT`, default 4028 |
-| `npm run schema:bundle` | Regenerates `src/server/migrations/0001_baseline.sql.ts` from `scripts/schema.sql` |
+| Script                      | What it does                                                                                   |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `npm run dev`               | Dev server on :4028                                                                            |
+| `npm run build`             | `next build` (type errors fail the build); `prebuild` regenerates the baseline SQL module      |
+| `npm start`                 | Production server on `$PORT`, default 4028                                                     |
+| `npm run schema:bundle`     | Regenerates `src/server/migrations/0001_baseline.sql.ts` from `scripts/schema.sql`             |
 | `node scripts/db-check.mjs` | Diagnoses a MySQL connection and lists admin accounts (run locally; not present on the server) |
-| `npm run type-check` | `tsc --noEmit` |
-| `npm run lint` | ESLint |
+| `npm run type-check`        | `tsc --noEmit`                                                                                 |
+| `npm run lint`              | ESLint                                                                                         |
 
 ## Project structure
 

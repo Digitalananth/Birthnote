@@ -50,7 +50,9 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
               <AppLogo size={28} />
-              <span className="font-serif text-base font-medium text-foreground">BirthNote</span>
+              <span className="font-serif text-base font-medium text-foreground">
+                My Lucky Dates
+              </span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">
               Original banknotes printed on the dates that matter — found, verified and gift-boxed.
@@ -81,7 +83,7 @@ export default function Footer() {
         {/* Legal — demoted, not a column of its own. */}
         <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} BirthNote. All rights reserved.
+            © {new Date().getFullYear()} My Lucky Dates. All rights reserved.
           </p>
           <nav aria-label="Legal" className="flex items-center gap-6">
             <Link

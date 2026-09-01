@@ -1,5 +1,5 @@
 /*
- * BirthNote service worker.
+ * My Lucky Dates service worker.
  *
  * Deliberately small. It exists so an installed app opens instantly and says
  * something sensible with no connection — not to make the site work offline,
@@ -11,9 +11,9 @@
  * next — or show its owner a status that changed hours ago. The deny-list
  * below is the whole reason this file needs care.
  */
-const VERSION = 'v2';
-const SHELL_CACHE = `birthnote-shell-${VERSION}`;
-const ASSET_CACHE = `birthnote-assets-${VERSION}`;
+const VERSION = 'v3';
+const SHELL_CACHE = `my-lucky-dates-shell-${VERSION}`;
+const ASSET_CACHE = `my-lucky-dates-assets-${VERSION}`;
 const OFFLINE_URL = '/offline';
 
 /** Fetched at install so there is always something to show with no network.

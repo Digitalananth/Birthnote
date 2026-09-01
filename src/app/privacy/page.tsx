@@ -8,8 +8,8 @@ import LegalPage from '@/components/LegalPage';
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'Privacy policy — BirthNote',
-  description: 'What data BirthNote collects, why, and how long we keep it.',
+  title: 'Privacy policy — My Lucky Dates',
+  description: 'What data My Lucky Dates collects, why, and how long we keep it.',
   alternates: { canonical: '/privacy' },
 };
 

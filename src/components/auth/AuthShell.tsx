@@ -39,7 +39,7 @@ export default function AuthShell({
           {footer && <div className="text-center text-sm text-muted-foreground mt-6">{footer}</div>}
           <p className="text-center text-sm text-muted-foreground mt-4">
             <Link href="/" className="text-primary underline">
-              Back to BirthNote
+              Back to My Lucky Dates
             </Link>
           </p>
         </div>

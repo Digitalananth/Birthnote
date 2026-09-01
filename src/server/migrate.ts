@@ -23,6 +23,9 @@ import type { Migration, Migrator } from '@/server/migrations/types';
  * on the next start, which is why each one is written to tolerate that.
  */
 
+// Deliberately keeps its pre-rename name: during a rolling restart an old and
+// a new process must contend for the SAME advisory lock, or both would migrate
+// at once. Rename it only when no pre-rename process can still be running.
 const LOCK_NAME = 'birthnote_schema_migrations';
 const LOCK_TIMEOUT_SECONDS = 60;
 
@@ -139,10 +142,10 @@ export async function runMigrations(): Promise<MigrationReport> {
   const applied: string[] = [];
 
   try {
-    const [[lock]] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT GET_LOCK(?, ?) AS ok',
-      [LOCK_NAME, LOCK_TIMEOUT_SECONDS]
-    );
+    const [[lock]] = await connection.query<mysql.RowDataPacket[]>('SELECT GET_LOCK(?, ?) AS ok', [
+      LOCK_NAME,
+      LOCK_TIMEOUT_SECONDS,
+    ]);
     if (Number(lock.ok) !== 1) {
       throw new Error(
         `another process has held the migration lock for over ${LOCK_TIMEOUT_SECONDS}s`
@@ -168,17 +171,22 @@ export async function runMigrations(): Promise<MigrationReport> {
       for (const migration of migrations) {
         if (done.has(migration.version)) continue;
         await migration.up(m);
-        await connection.query(
-          'INSERT INTO schema_migrations (version, name) VALUES (?, ?)',
-          [migration.version, migration.name]
-        );
+        await connection.query('INSERT INTO schema_migrations (version, name) VALUES (?, ?)', [
+          migration.version,
+          migration.name,
+        ]);
         applied.push(`${migration.version}_${migration.name}`);
       }
 
       const [[latest]] = await connection.query<mysql.RowDataPacket[]>(
         'SELECT MAX(version) AS current FROM schema_migrations'
       );
-      return { database, applied, current: latest.current ? String(latest.current) : null, warnings };
+      return {
+        database,
+        applied,
+        current: latest.current ? String(latest.current) : null,
+        warnings,
+      };
     } finally {
       await connection.query('SELECT RELEASE_LOCK(?)', [LOCK_NAME]);
     }

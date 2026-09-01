@@ -8,8 +8,8 @@ import LegalPage from '@/components/LegalPage';
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'Terms & refunds — BirthNote',
-  description: 'The terms of sale for BirthNote orders, including cancellation and refunds.',
+  title: 'Terms & refunds — My Lucky Dates',
+  description: 'The terms of sale for My Lucky Dates orders, including cancellation and refunds.',
   alternates: { canonical: '/terms' },
 };
 
@@ -54,7 +54,7 @@ export default function TermsPage() {
           {
             heading: 'Payment',
             body: [
-              'Payments are processed by Stripe. We never see or store your card, UPI or netbanking details. Your statement will show a charge from BirthNote.',
+              'Payments are processed by Stripe. We never see or store your card, UPI or netbanking details. Your statement will show a charge from My Lucky Dates.',
             ],
           },
           {

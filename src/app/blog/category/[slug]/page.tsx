@@ -29,10 +29,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  if (!category) return { title: 'Not found — BirthNote' };
+  if (!category) return { title: 'Not found — My Lucky Dates' };
 
   return {
-    title: category.metaTitle || `${category.name} — BirthNote Blog`,
+    title: category.metaTitle || `${category.name} — My Lucky Dates Blog`,
     description: category.metaDescription || category.description || undefined,
     alternates: { canonical: `/blog/category/${category.slug}` },
   };

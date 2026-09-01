@@ -16,11 +16,11 @@ export interface MigrationStatus {
   at: string;
 }
 
-const g = globalThis as unknown as { birthnoteMigrationStatus?: MigrationStatus };
+const g = globalThis as unknown as { myLuckyDatesMigrationStatus?: MigrationStatus };
 
 export function getMigrationStatus(): MigrationStatus {
   return (
-    g.birthnoteMigrationStatus ?? {
+    g.myLuckyDatesMigrationStatus ?? {
       state: 'pending',
       current: null,
       applied: [],
@@ -32,5 +32,5 @@ export function getMigrationStatus(): MigrationStatus {
 }
 
 export function setMigrationStatus(status: Omit<MigrationStatus, 'at'>): void {
-  g.birthnoteMigrationStatus = { ...status, at: new Date().toISOString() };
+  g.myLuckyDatesMigrationStatus = { ...status, at: new Date().toISOString() };
 }

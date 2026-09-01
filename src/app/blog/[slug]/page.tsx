@@ -30,13 +30,13 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPublishedPost(slug);
-  if (!post) return { title: 'Not found — BirthNote' };
+  if (!post) return { title: 'Not found — My Lucky Dates' };
 
   const description =
     post.metaDescription || post.excerpt || excerptFromMarkdown(post.bodyMarkdown);
 
   return {
-    title: post.metaTitle || `${post.title} — BirthNote`,
+    title: post.metaTitle || `${post.title} — My Lucky Dates`,
     description,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {

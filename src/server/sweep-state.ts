@@ -10,14 +10,14 @@ import 'server-only';
  * the sweep never ran. A null that never becomes a timestamp is, and that is
  * the signal worth having — it means the cron is not reaching the app at all.
  */
-const globalForSweep = globalThis as unknown as { birthnoteLastSweepAt?: string };
+const globalForSweep = globalThis as unknown as { myLuckyDatesLastSweepAt?: string };
 
 export function recordSweep(): string {
   const at = new Date().toISOString();
-  globalForSweep.birthnoteLastSweepAt = at;
+  globalForSweep.myLuckyDatesLastSweepAt = at;
   return at;
 }
 
 export function lastSweepAt(): string | null {
-  return globalForSweep.birthnoteLastSweepAt ?? null;
+  return globalForSweep.myLuckyDatesLastSweepAt ?? null;
 }

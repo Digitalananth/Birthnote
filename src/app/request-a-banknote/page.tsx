@@ -17,7 +17,7 @@ import { getCurrentUser } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Request a banknote — BirthNote',
+  title: 'Request a banknote — My Lucky Dates',
   description:
     'Tell us your date and we will search our collection for a genuine banknote printed on it. No payment until we confirm availability.',
   alternates: { canonical: '/request-a-banknote' },

@@ -18,11 +18,23 @@ import { getUserById, type User } from '@/lib/users';
  * The cookie carries a random token; the table stores only its SHA-256. A
  * database leak therefore yields no usable sessions.
  */
-const COOKIE_NAME = 'birthnote_session';
+const COOKIE_NAME = 'my_lucky_dates_session';
+
+/**
+ * The cookie name used before the rename to My Lucky Dates.
+ *
+ * A session lives in the database, not in the cookie, so the old cookie still
+ * names a perfectly good session — only the label on it changed. It is read as
+ * a fallback and cleared on sign-out, so nobody is thrown out by the rename.
+ * Safe to delete once 30 days (one full session lifetime) have passed since
+ * the rename shipped, at which point every legacy cookie has expired.
+ */
+const LEGACY_COOKIE_NAME = 'birthnote_session';
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export const sessionCookie = {
   name: COOKIE_NAME,
+  legacyName: LEGACY_COOKIE_NAME,
   options: {
     httpOnly: true,
     sameSite: 'lax' as const,
@@ -34,6 +46,12 @@ export const sessionCookie = {
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+/** The session token, under the current cookie name or the pre-rename one. */
+async function readToken(): Promise<string | undefined> {
+  const jar = await cookies();
+  return jar.get(COOKIE_NAME)?.value ?? jar.get(LEGACY_COOKIE_NAME)?.value;
 }
 
 /** Creates the session row and returns the plaintext token for the cookie. */
@@ -56,7 +74,7 @@ export async function createSession(userId: number, userAgent?: string | null): 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   let token: string | undefined;
   try {
-    token = (await cookies()).get(COOKIE_NAME)?.value;
+    token = await readToken();
   } catch {
     return null;
   }
@@ -87,7 +105,7 @@ export async function requireUser(next?: string): Promise<User> {
 
 /** Deletes the current session row. Safe to call when not signed in. */
 export async function destroySession(): Promise<void> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  const token = await readToken();
   if (token) {
     await query('DELETE FROM user_sessions WHERE token_hash = ?', [hashToken(token)]);
   }

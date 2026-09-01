@@ -20,7 +20,7 @@ export const RANGE_PRESETS = [
 
 export type RangePresetKey = (typeof RANGE_PRESETS)[number]['key'];
 
-/** Anything older than this is "all time" — BirthNote did not exist before it. */
+/** Anything older than this is "all time" — My Lucky Dates did not exist before it. */
 const EPOCH = '2024-01-01';
 
 export type Granularity = 'day' | 'week' | 'month';

@@ -12,7 +12,7 @@ import Icon from '@/components/ui/AppIcon';
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'You are offline — BirthNote',
+  title: 'You are offline — My Lucky Dates',
   robots: { index: false, follow: false },
 };
 
@@ -31,8 +31,8 @@ export default function OfflinePage() {
           No connection.
         </h1>
         <p className="text-sm text-muted-foreground leading-relaxed mb-8">
-          BirthNote needs a connection to look up dates and order status. Nothing you had entered
-          has been lost — reconnect and try again.
+          My Lucky Dates needs a connection to look up dates and order status. Nothing you had
+          entered has been lost — reconnect and try again.
         </p>
 
         <Link

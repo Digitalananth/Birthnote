@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 /**
  * Outbound SMS, via MSG91.
  *
- * The only message BirthNote sends by SMS is a sign-in code, and the code is
+ * The only message My Lucky Dates sends by SMS is a sign-in code, and the code is
  * ours: it is generated, hashed and checked in `src/lib/otp.ts`, and MSG91 is
  * handed the finished digits to deliver. Their `/api/v5/otp` endpoint accepts
  * an `otp` parameter for exactly this, which is why it is used in preference

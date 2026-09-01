@@ -57,7 +57,7 @@ export const env = {
     secure: bool('SMTP_SECURE', false),
     user: optional('SMTP_USER'),
     password: optional('SMTP_PASSWORD'),
-    from: optional('MAIL_FROM', 'BirthNote <no-reply@birthnote.com>'),
+    from: optional('MAIL_FROM', 'My Lucky Dates <no-reply@birthnote.com>'),
     replyTo: optional('MAIL_REPLY_TO'),
     /** When false (or credentials missing) emails are logged, not sent. */
     enabled: () => bool('MAIL_ENABLED', true) && Boolean(optional('SMTP_USER')),

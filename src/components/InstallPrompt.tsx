@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 
 /**
- * The "Install BirthNote" banner.
+ * The "Install My Lucky Dates" banner.
  *
  * The manifest and service worker already make the site installable; without
  * this, the only way in is Chrome's overflow menu, which nobody opens. This is
@@ -25,6 +25,8 @@ import Icon from '@/components/ui/AppIcon';
 /** How long a dismissal is honoured. Long enough not to nag, short enough that
  *  someone who comes back months later is asked once more. */
 const DISMISS_DAYS = 30;
+// Deliberately keeps its pre-rename name: it is invisible to the visitor, and
+// renaming it would re-show the banner to everyone who had dismissed it.
 const STORAGE_KEY = 'birthnote:install-prompt-dismissed';
 
 /**
@@ -160,7 +162,7 @@ export default function InstallPrompt() {
   return (
     <div
       role="dialog"
-      aria-label="Install BirthNote"
+      aria-label="Install My Lucky Dates"
       className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-none"
     >
       <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-lg p-4 flex items-start gap-3">
@@ -174,7 +176,7 @@ export default function InstallPrompt() {
 
         <div className="min-w-0 flex-1">
           <p className="font-sans font-semibold text-sm text-foreground">
-            Keep BirthNote on your phone
+            Keep My Lucky Dates on your phone
           </p>
 
           {showIosHint ? (

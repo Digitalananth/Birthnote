@@ -16,9 +16,9 @@ import TrackLookupForm from '@/app/track-order/components/TrackLookupForm';
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'Track your order — BirthNote',
+  title: 'Track your order — My Lucky Dates',
   description:
-    'Enter your BirthNote reference number to see the status of your banknote request.',
+    'Enter your My Lucky Dates reference number to see the status of your banknote request.',
   alternates: { canonical: '/track-order' },
 };
 
@@ -35,7 +35,11 @@ export default function TrackOrderPage() {
             </div>
             <h1
               className="font-sans font-extrabold text-foreground mb-4"
-              style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', letterSpacing: '-0.03em', lineHeight: 1 }}
+              style={{
+                fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+              }}
             >
               Track your request
             </h1>
