@@ -4,6 +4,7 @@ import { env } from '@/lib/env';
 import { availableItems, summariseOrder, type Order, type OrderItem } from '@/lib/orders';
 import { formatPrice } from '@/lib/validation';
 import { HOLD_DAYS } from '@/lib/order-types';
+import { recordError } from '@/server/errors';
 
 /**
  * Transactional email over plain SMTP (Gmail by default).
@@ -73,7 +74,10 @@ export async function sendMail(payload: MailPayload | null): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    console.error(`[mail:failed] ${payload.subject} → ${payload.to}`, error);
+    // As in `sendOtpSms`: stdout is unreachable in production, so the SMTP
+    // rejection is recorded where /api/health can read it back. The subject
+    // says which mail it was; the recipient is left out of a public endpoint.
+    recordError('mail/send', error, payload.subject);
     return false;
   }
 }

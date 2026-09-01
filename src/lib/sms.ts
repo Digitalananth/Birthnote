@@ -1,5 +1,6 @@
 import 'server-only';
 import { env } from '@/lib/env';
+import { recordError } from '@/server/errors';
 
 /**
  * Outbound SMS, via MSG91.
@@ -64,7 +65,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
   // otherwise invisible until someone reads the delivery log. Warn rather
   // than throw: the format is a strong convention, not a documented
   // guarantee, and a wrong guess here must not be what stops sign-in.
-  if (!/^[0-9a-f]{24}$/i.test(templateId)) {
+  if (env.msg91.templateIdFormat() !== 'ok') {
     console.warn(
       `[sms:suspect-template] MSG91_TEMPLATE_ID=${templateId} is not a ` +
         '24-character hex MSG91 template id. If this is the numeric DLT id, ' +
@@ -122,7 +123,12 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
 
     if (!response.ok || payload?.type === 'error') {
       const reason = payload?.message || `HTTP ${response.status}`;
-      console.error(`[sms:failed] +${phone}: ${reason}`);
+      // console.error alone is unreadable in production — Hostinger exposes
+      // build logs and nothing else — so the reason MSG91 gave goes to
+      // app_errors, where /api/health hands it back. The number is not passed:
+      // recordError redacts quoted values, not arguments, and this is a
+      // customer's phone on a public endpoint.
+      recordError('sms/otp', new Error(reason), 'MSG91 rejected the send');
       return { sent: false, reason };
     }
 
@@ -142,7 +148,7 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
     // A network failure reaching MSG91 — same outcome for the customer as a
     // rejection, so it is reported the same way.
     const reason = error instanceof Error ? error.message : 'unknown error';
-    console.error(`[sms:failed] +${phone}: ${reason}`);
+    recordError('sms/otp', error, 'could not reach MSG91');
     return { sent: false, reason };
   }
 }

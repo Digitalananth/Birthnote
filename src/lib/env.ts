@@ -131,6 +131,22 @@ export const env = {
     senderId: optional('MSG91_SENDER_ID'),
     /** Sent as `otp_expiry` so MSG91's own text matches what we enforce. */
     otpExpiryMinutes: int('MSG91_OTP_EXPIRY_MINUTES', 10),
+    /**
+     * Whether MSG91_TEMPLATE_ID has the shape MSG91 wants: their own 24-hex
+     * template id, not the long numeric DLT id issued by the regulator.
+     *
+     * This is the commonest way sign-in by SMS breaks silently — MSG91 accepts
+     * every send with a wrong id and drops it at submission — and the warning
+     * `sendOtpSms` prints goes to stdout, which Hostinger does not expose. So
+     * the same judgement is published on /api/health, where it can actually be
+     * read. 'unset' rather than false when there is no id at all, because the
+     * two have different fixes.
+     */
+    templateIdFormat: (): 'ok' | 'suspect' | 'unset' => {
+      const id = optional('MSG91_TEMPLATE_ID');
+      if (!id) return 'unset';
+      return /^[0-9a-f]{24}$/i.test(id) ? 'ok' : 'suspect';
+    },
     enabled: () =>
       bool('MSG91_ENABLED', true) &&
       Boolean(optional('MSG91_AUTH_KEY')) &&

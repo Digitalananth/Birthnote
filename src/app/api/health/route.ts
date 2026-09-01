@@ -84,6 +84,12 @@ export async function GET() {
       recentErrors: database ? await recentErrors() : [],
       stripe: env.stripe.configured(),
       mail: env.smtp.enabled(),
+      // Sign-in by SMS, and the one thing about it that is otherwise
+      // invisible: whether MSG91_TEMPLATE_ID is MSG91's own 24-hex id or the
+      // numeric DLT id. With the wrong one MSG91 accepts every send, answers
+      // success, and delivers nothing — which reaches us as "the code never
+      // arrived" with no failure anywhere to point at.
+      sms: { enabled: env.msg91.enabled(), templateId: env.msg91.templateIdFormat() },
       whatsapp: env.whatsapp.enabled(),
       time: new Date().toISOString(),
     },
