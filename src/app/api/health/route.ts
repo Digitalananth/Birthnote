@@ -84,6 +84,10 @@ export async function GET() {
       recentErrors: database ? await recentErrors() : [],
       stripe: env.stripe.configured(),
       mail: env.smtp.enabled(),
+      // False means MAIL_FROM is on a different domain from SMTP_USER, so
+      // Gmail's DKIM signature does not align with the From header and DMARC
+      // treats the mail as unauthenticated. Null when either is unreadable.
+      mailFromAligned: env.smtp.fromAligned(),
       // Sign-in by SMS, and the one thing about it that is otherwise
       // invisible: whether MSG91_TEMPLATE_ID is MSG91's own 24-hex id or the
       // numeric DLT id. With the wrong one MSG91 accepts every send, answers

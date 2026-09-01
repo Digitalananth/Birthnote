@@ -61,6 +61,27 @@ export const env = {
     replyTo: optional('MAIL_REPLY_TO'),
     /** When false (or credentials missing) emails are logged, not sent. */
     enabled: () => bool('MAIL_ENABLED', true) && Boolean(optional('SMTP_USER')),
+    /**
+     * Whether the domain we send *as* is the domain we authenticate *as*.
+     *
+     * Gmail signs outgoing mail with DKIM for the authenticated account's
+     * domain. Put a MAIL_FROM on a different domain and the signature no
+     * longer aligns with the From header, which is exactly the condition
+     * DMARC exists to catch and the commonest reason otherwise-ordinary mail
+     * is filed as spam. Nothing in the app can detect that at send time —
+     * SMTP accepts the message either way — so the comparison is published on
+     * /api/health, where it can be checked against a message that landed in
+     * a spam folder.
+     */
+    fromAligned: (): boolean | null => {
+      const domainOf = (value: string) => value.match(/[^\s<@]+@([^\s>]+)/)?.[1]?.toLowerCase();
+      const user = optional('SMTP_USER');
+      const from = optional('MAIL_FROM', 'My Lucky Dates <no-reply@birthnote.com>');
+      const userDomain = user ? domainOf(user) : undefined;
+      const fromDomain = domainOf(from);
+      if (!userDomain || !fromDomain) return null;
+      return userDomain === fromDomain;
+    },
   },
 
   /**
