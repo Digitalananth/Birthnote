@@ -108,47 +108,85 @@ export default async function AdminOrderPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* One control per requested note */}
-        <div className="card-warm p-8">
-          <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-2">
-            {order.items.length > 1 ? `The ${order.items.length} notes` : 'The note'}
-          </h2>
-          <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
-            Mark each one found or not found and give the found ones a price. The order total is the
-            sum of what you price here.
-            {groups.length > 1 && ` Grouped by date — this order asked for ${groups.length} dates.`}
-          </p>
-          {/*
-            Grouped by the date block the customer filled in, not listed flat.
-            One block is one request — a date, a recipient, and every
-            denomination wanted for it — so seven notes read as the two things
-            that were actually asked for. A flat list made the admin work out
-            for themselves which of seven lines belonged together.
-          */}
-          <div className="flex flex-col gap-8">
-            {groups.map((group) => (
-              <div key={group.key} className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-2">
-                  <p className="font-mono font-bold text-foreground tracking-wide">
-                    {group.displayDate}
-                  </p>
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    {group.items.length === 1 ? '1 note' : `${group.items.length} notes`}
-                  </p>
-                  {(group.giftRelationship || group.giftFor) && (
-                    <p className="text-xs text-muted-foreground">
-                      {group.giftRelationship && `For ${group.giftRelationship.toLowerCase()}`}
-                      {group.giftFor && ` — ${group.giftFor}`}
-                    </p>
-                  )}
-                </div>
+        {/*
+          One card per request block, not one long list of notes.
 
-                {group.items.map((item) => (
-                  <ItemActions key={item.id} order={order} item={item} />
-                ))}
-              </div>
-            ))}
+          The form asks for a date, a recipient, and every denomination wanted
+          for that date; the order then stores one row per note. Flattened, an
+          order for two dates read as seven unrelated lines and the admin had to
+          work out for themselves which belonged together. Each block gets its
+          own card, numbered and headed by what was asked for, with its own
+          tally — so "three of these four are found, and they come to ₹1,200" is
+          readable without adding anything up.
+        */}
+        <div className="flex flex-col gap-6">
+          <div>
+            <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide">
+              {groups.length > 1 ? `${groups.length} requests` : 'The request'} ·{' '}
+              {order.items.length === 1 ? '1 note' : `${order.items.length} notes`}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Mark each note found or not found and give the found ones a price. The order total is
+              the sum of what you price here.
+            </p>
           </div>
+
+          {groups.map((group, index) => {
+            const found = group.items.filter((item) => item.availability === 'available');
+            const missing = group.items.filter((item) => item.availability === 'unavailable');
+            const waiting = group.items.length - found.length - missing.length;
+            // Only what has actually been priced — a found note with no price
+            // yet contributes nothing, which is the truth rather than a zero.
+            const subtotal = found.reduce((sum, item) => sum + (item.pricePaise ?? 0), 0);
+
+            return (
+              <section key={group.key} className="card-warm overflow-hidden">
+                <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-6 py-4 bg-secondary/30 border-b border-border">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">
+                      Request {index + 1}
+                      {groups.length > 1 ? ` of ${groups.length}` : ''} ·{' '}
+                      {group.items.length === 1 ? '1 note' : `${group.items.length} notes`}
+                    </p>
+                    <p className="font-mono font-bold text-foreground tracking-wide">
+                      {group.displayDate}
+                    </p>
+                    {(group.giftRelationship || group.giftFor) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {group.giftRelationship && `For ${group.giftRelationship.toLowerCase()}`}
+                        {group.giftFor && ` — ${group.giftFor}`}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="flex flex-wrap justify-end gap-x-2 text-xs font-semibold">
+                      {found.length > 0 && (
+                        <span className="text-green-700">{found.length} found</span>
+                      )}
+                      {missing.length > 0 && (
+                        <span className="text-red-600">{missing.length} not found</span>
+                      )}
+                      {waiting > 0 && (
+                        <span className="text-muted-foreground">{waiting} to check</span>
+                      )}
+                    </p>
+                    {subtotal > 0 && (
+                      <p className="text-sm font-bold text-foreground mt-1">
+                        {formatPrice(subtotal, order.currency)}
+                      </p>
+                    )}
+                  </div>
+                </header>
+
+                <div className="flex flex-col gap-4 p-6">
+                  {group.items.map((item) => (
+                    <ItemActions key={item.id} order={order} item={item} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Fulfilment actions */}
