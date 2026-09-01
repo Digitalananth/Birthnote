@@ -13,7 +13,19 @@ import { formatPrice } from '@/lib/validation';
  * the customer only the one that is missing. The order total is recomputed
  * server-side from these rows — nobody types a total anywhere.
  */
-export default function ItemActions({ order, item }: { order: Order; item: OrderItem }) {
+export default function ItemActions({
+  order,
+  item,
+  conditions,
+}: {
+  order: Order;
+  item: OrderItem;
+  /**
+   * The grades on offer, from master data. Empty is survivable — the field
+   * falls back to free text rather than becoming impossible to fill in.
+   */
+  conditions: string[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -60,6 +72,9 @@ export default function ItemActions({ order, item }: { order: Order; item: Order
     }
   };
 
+  const inputClass =
+    'px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60';
+
   const field = (name: keyof typeof fields, label: string, placeholder = '') => (
     <label className="flex flex-col gap-1 text-xs">
       <span className="font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
@@ -68,10 +83,51 @@ export default function ItemActions({ order, item }: { order: Order; item: Order
         placeholder={placeholder}
         disabled={locked}
         onChange={(event) => setFields((prev) => ({ ...prev, [name]: event.target.value }))}
-        className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+        className={inputClass}
       />
     </label>
   );
+
+  /**
+   * Condition, chosen from the master list rather than typed.
+   *
+   * A note already recorded with a grade that has since been removed from the
+   * list keeps it, as an extra option: the alternative is a dropdown that
+   * silently rewrites what a sold note was described as the moment it opens.
+   */
+  const conditionField = () => {
+    const current = fields.noteCondition.trim();
+    const options =
+      conditions.includes(current) || !current ? conditions : [current, ...conditions];
+
+    return (
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+          Condition
+        </span>
+        <select
+          value={current}
+          disabled={locked}
+          onChange={(event) =>
+            setFields((prev) => ({ ...prev, noteCondition: event.target.value }))
+          }
+          className={inputClass}
+        >
+          <option value="">Not graded yet</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        {conditions.length === 0 && (
+          <span className="text-[11px] text-muted-foreground">
+            No conditions in master data yet — add them under Master data.
+          </span>
+        )}
+      </label>
+    );
+  };
 
   const state = {
     pending: { label: 'Not checked yet', color: 'text-muted-foreground' },
@@ -110,7 +166,7 @@ export default function ItemActions({ order, item }: { order: Order; item: Order
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field('noteDenomination', 'Denomination found', '₹10 Reserve Bank of India Note')}
             {field('noteCountry', 'Country')}
-            {field('noteCondition', 'Condition', 'Fine (F)')}
+            {conditionField()}
             {field('noteSerial', 'Serial prefix', '9AB')}
             {field('rupees', 'Price for this note (₹)', '2499')}
           </div>

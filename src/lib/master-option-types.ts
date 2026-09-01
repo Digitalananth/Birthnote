@@ -11,6 +11,7 @@ export const MASTER_LIST_KEYS = [
   'denomination_combo',
   'gift_relationship',
   'occasion',
+  'note_condition',
 ] as const;
 
 export type MasterListKey = (typeof MASTER_LIST_KEYS)[number];
@@ -66,6 +67,14 @@ export const MASTER_LISTS: readonly MasterListMeta[] = [
       'Suggestions only. That field stays free text, so a customer can still type a name or an occasion that is not on this list.',
     placeholder: 'Naming day',
   },
+  {
+    key: 'note_condition',
+    label: 'Note conditions',
+    field: 'Condition (admin, when a note is found)',
+    description:
+      'The grades you can pick from when you record a note you have found. Customers never choose one — this list exists so the same grade is always written the same way.',
+    placeholder: 'Choice Uncirculated',
+  },
 ];
 
 /**
@@ -111,6 +120,7 @@ export interface MasterOptionSets {
   denomination_combo: DenominationCombo[];
   gift_relationship: string[];
   occasion: string[];
+  note_condition: string[];
 }
 
 /**

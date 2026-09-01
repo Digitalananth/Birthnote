@@ -14,6 +14,7 @@ import { groupOrderItems } from '@/lib/order-types';
 import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
+import { listOptions } from '@/lib/master-options';
 import { stateName } from '@/lib/india-gst';
 
 /** Rendering strategy: SSR — always the live record. */
@@ -42,6 +43,10 @@ export default async function AdminOrderPage({ params }: PageProps) {
 
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
+  // The grades this shop uses, so every note is described the same way.
+  const conditions = (await listOptions('note_condition'))
+    .filter((option) => option.isActive)
+    .map((option) => option.value);
   const groups = groupOrderItems(order.items);
   const config = STATUS_CONFIG[order.status];
 
@@ -226,7 +231,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
 
                 <div className="flex flex-col gap-4 p-6">
                   {group.items.map((item) => (
-                    <ItemActions key={item.id} order={order} item={item} />
+                    <ItemActions key={item.id} order={order} item={item} conditions={conditions} />
                   ))}
                 </div>
               </section>

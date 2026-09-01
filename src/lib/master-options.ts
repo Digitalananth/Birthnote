@@ -98,6 +98,7 @@ export async function getMasterOptionSets(): Promise<MasterOptionSets> {
     denomination_combo: active('denomination_combo').map(toCombo),
     gift_relationship: active('gift_relationship').map((option) => option.value),
     occasion: active('occasion').map((option) => option.value),
+    note_condition: active('note_condition').map((option) => option.value),
   };
 }
 
