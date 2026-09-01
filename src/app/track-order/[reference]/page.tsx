@@ -10,6 +10,7 @@ import { getOrderByReference, getOrderEvents, summariseOrder } from '@/lib/order
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { maybeSweep } from '@/server/background-sweep';
 import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/lib/order-status';
+import { groupOrderItems } from '@/lib/order-types';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -52,6 +53,7 @@ export default async function TrackedOrderPage({ params }: PageProps) {
   const status = STATUS_CONFIG[order.status];
   const currentStep = progressIndex(order.status);
   const stopped = order.status === 'unavailable';
+  const requestCount = groupOrderItems(order.items).length;
 
   return (
     <>
@@ -166,6 +168,12 @@ export default async function TrackedOrderPage({ params }: PageProps) {
           <div className="card-warm p-6 mb-8">
             <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
               {order.items.length > 1 ? `Your ${order.items.length} notes` : 'Your note'}
+              {requestCount > 1 && (
+                <span className="font-normal normal-case tracking-normal text-muted-foreground">
+                  {' '}
+                  · {requestCount} dates
+                </span>
+              )}
             </h2>
             <OrderNotes
               order={order}
