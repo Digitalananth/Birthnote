@@ -4,6 +4,7 @@ import { createOrder, summariseOrder } from '@/lib/orders';
 import { sendMail, requestReceivedEmail, newRequestAdminEmail } from '@/lib/mail';
 import { checkRateLimit, clientIp } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
+import { getMasterOptionSets } from '@/lib/master-options';
 import { updateProfile, changeEmail, type User } from '@/lib/users';
 import { sendWhatsApp, orderReceivedWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 
@@ -39,7 +40,14 @@ export async function POST(request: Request) {
   // A signed-in customer owns the order; guests still get one with no owner.
   const user = await getCurrentUser();
 
-  const result = validateRequest(payload);
+  // Checked against the master lists as they stand right now, not against the
+  // ones the page was built with: a form left open while an admin withdrew a
+  // denomination must not be able to order it.
+  const optionSets = await getMasterOptionSets();
+  const result = validateRequest(payload, new Date(), {
+    denominations: optionSets.denomination.map(Number),
+    giftRelationships: optionSets.gift_relationship,
+  });
   if (!result.valid || !result.normalised) {
     return NextResponse.json({ errors: result.errors }, { status: 422 });
   }

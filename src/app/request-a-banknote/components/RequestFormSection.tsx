@@ -5,12 +5,12 @@ import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import {
   validateRequest,
-  DENOMINATIONS,
-  GIFT_RELATIONSHIPS,
   MAX_ITEMS_PER_ORDER,
+  type AllowedOptions,
   type RequestFormErrors,
   type RequestItemValues,
 } from '@/lib/validation';
+import type { MasterOptionSets } from '@/lib/master-option-types';
 
 type FormState = 'idle' | 'submitting' | 'submitted';
 
@@ -66,9 +66,29 @@ interface Props {
    */
   /** `email` is null for an account that signed up with a mobile number only. */
   user?: { name: string; email: string | null; whatsapp?: string | null } | null;
+  /**
+   * The dropdown contents, as the admin has them today.
+   *
+   * Passed in rather than imported so that adding a denomination is an edit in
+   * /admin/master-data, not a deploy. The server checks a submission against
+   * the same lists, so a stale page open in a browser cannot slip a withdrawn
+   * option through.
+   */
+  options: MasterOptionSets;
 }
 
-export default function RequestFormSection({ user = null }: Props) {
+export default function RequestFormSection({ user = null, options }: Props) {
+  const denominations = options.denomination;
+  const relationships = options.gift_relationship;
+  const occasions = options.occasion;
+
+  // The same lists the server will check against, in the shape the validator
+  // wants. Rebuilt per render, which is free beside a fetch.
+  const allowed: AllowedOptions = {
+    denominations: denominations.map(Number),
+    giftRelationships: relationships,
+  };
+
   const [formData, setFormData] = useState<FormData>({
     name: user?.name ?? '',
     email: user?.email ?? '',
@@ -92,7 +112,7 @@ export default function RequestFormSection({ user = null }: Props) {
     setSubmitError('');
 
     // Same rules the server runs — this copy only makes the feedback instant.
-    const { errors: found, valid } = validateRequest(payload());
+    const { errors: found, valid } = validateRequest(payload(), new Date(), allowed);
     setErrors(found);
     if (!valid) return;
 
@@ -397,7 +417,7 @@ export default function RequestFormSection({ user = null }: Props) {
                           Denominations <span className="text-accent">*</span>
                         </legend>
                         <div className="flex flex-wrap gap-2">
-                          {DENOMINATIONS.map((value) => {
+                          {denominations.map((value) => {
                             const picked = row.denominations.includes(String(value));
                             // Only the untick stays available at the cap.
                             const blocked = !picked && total >= MAX_ITEMS_PER_ORDER;
@@ -456,7 +476,7 @@ export default function RequestFormSection({ user = null }: Props) {
                               className="void-input-warm w-full py-3 text-base font-medium text-foreground bg-transparent"
                             >
                               <option value="">Select…</option>
-                              {GIFT_RELATIONSHIPS.map((value) => (
+                              {relationships.map((value) => (
                                 <option key={value} value={value}>
                                   {value}
                                 </option>
@@ -476,14 +496,29 @@ export default function RequestFormSection({ user = null }: Props) {
                             </span>
                           </label>
                           <div className={underline(rowErrors.giftFor)}>
+                            {/*
+                              A datalist, not a <select>: the admin's occasions
+                              are offered, and anything else can still be typed.
+                              This field carries "Dad's 60th" and bare names as
+                              often as it carries "Birthday", and a dropdown
+                              would have thrown those away.
+                            */}
                             <input
                               id={`giftFor-${row.key}`}
                               type="text"
+                              list={occasions.length ? `occasions-${row.key}` : undefined}
                               placeholder="Dad's 60th"
                               value={row.giftFor}
                               onChange={(e) => setRow(index, { giftFor: e.target.value })}
                               className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
                             />
+                            {occasions.length > 0 && (
+                              <datalist id={`occasions-${row.key}`}>
+                                {occasions.map((value) => (
+                                  <option key={value} value={value} />
+                                ))}
+                              </datalist>
+                            )}
                           </div>
                           {rowErrors.giftFor && (
                             <p className="text-xs text-red-500 mt-1">{rowErrors.giftFor}</p>
@@ -791,7 +826,7 @@ export default function RequestFormSection({ user = null }: Props) {
                 Available Denominations
               </h3>
               <div className="flex flex-wrap gap-2">
-                {DENOMINATIONS.map((d) => (
+                {denominations.map((d) => (
                   <span
                     key={d}
                     className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/25 text-sm font-mono font-bold text-foreground/80"

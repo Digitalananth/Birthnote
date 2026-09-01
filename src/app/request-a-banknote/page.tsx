@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import RequestHeroSection from '@/app/request-a-banknote/components/RequestHeroSection';
 import RequestFormSection from '@/app/request-a-banknote/components/RequestFormSection';
 import { getCurrentUser } from '@/lib/session';
+import { getMasterOptionSets } from '@/lib/master-options';
 
 /**
  * Rendering strategy: SSR.
@@ -24,7 +25,9 @@ export const metadata: Metadata = {
 };
 
 export default async function RequestABanknotePage() {
-  const user = await getCurrentUser();
+  // The dropdowns are data now: denominations, relationships and occasion
+  // suggestions all come from /admin/master-data.
+  const [user, options] = await Promise.all([getCurrentUser(), getMasterOptionSets()]);
 
   return (
     <>
@@ -33,6 +36,7 @@ export default async function RequestABanknotePage() {
         <RequestHeroSection />
         <RequestFormSection
           user={user && { name: user.name, email: user.email, whatsapp: user.whatsapp }}
+          options={options}
         />
       </main>
       <Footer />

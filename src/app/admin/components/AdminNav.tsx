@@ -14,7 +14,7 @@ import type { AdminUser } from '@/lib/admin-roles';
  * the page and its API routes check the role themselves. Pages and Blog are
  * open to both roles; see `requireContentAdmin`.
  */
-type NavKey = 'dashboard' | 'orders' | 'reports' | 'pages' | 'blog' | 'users';
+type NavKey = 'dashboard' | 'orders' | 'reports' | 'pages' | 'blog' | 'master-data' | 'users';
 
 const ITEMS: { key: NavKey; href: string; label: string; icon: string; ownerOnly?: boolean }[] = [
   { key: 'dashboard', href: '/admin', label: 'Dashboard', icon: 'HomeIcon' },
@@ -28,6 +28,13 @@ const ITEMS: { key: NavKey; href: string; label: string; icon: string; ownerOnly
   },
   { key: 'pages', href: '/admin/pages', label: 'Pages', icon: 'DocumentTextIcon' },
   { key: 'blog', href: '/admin/blog', label: 'Blog', icon: 'EnvelopeOpenIcon' },
+  {
+    key: 'master-data',
+    href: '/admin/master-data',
+    label: 'Master data',
+    icon: 'AdjustmentsHorizontalIcon',
+    ownerOnly: true,
+  },
   { key: 'users', href: '/admin/users', label: 'Admins', icon: 'UserCircleIcon', ownerOnly: true },
 ];
 

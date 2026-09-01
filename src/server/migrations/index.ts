@@ -9,6 +9,7 @@ import { migration as m0007 } from './0007_app_errors';
 import { migration as m0008 } from './0008_dashboard_indexes';
 import { migration as m0009 } from './0009_report_indexes';
 import { migration as m0010 } from './0010_holds_and_refunds';
+import { migration as m0011 } from './0011_master_options';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -30,4 +31,5 @@ export const migrations: readonly Migration[] = [
   m0008,
   m0009,
   m0010,
+  m0011,
 ];

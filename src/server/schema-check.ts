@@ -47,6 +47,7 @@ const expected: Record<string, string[]> = {
     'id', 'slug', 'title', 'excerpt', 'body_markdown', 'category_id', 'cover_image_url',
     'meta_title', 'meta_description', 'status', 'published_at', 'author_name',
   ],
+  master_options: ['id', 'list_key', 'value', 'position', 'is_active'],
   schema_migrations: ['version', 'name', 'applied_at'],
 };
 

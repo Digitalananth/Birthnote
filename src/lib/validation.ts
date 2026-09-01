@@ -52,24 +52,19 @@ export const MAX_ITEMS_PER_ORDER = 20;
  * Single source of truth for the <select> options and the server-side
  * membership check, so the two can never drift apart.
  */
-export const DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100, 200, 500] as const;
-
-export const GIFT_RELATIONSHIPS = [
-  'Father',
-  'Mother',
-  'Wife',
-  'Husband',
-  'Son',
-  'Daughter',
-  'Brother',
-  'Sister',
-  'Uncle',
-  'Aunt',
-  'Friend',
-  'Someone else',
-] as const;
-
-export type GiftRelationship = (typeof GIFT_RELATIONSHIPS)[number];
+/**
+ * The option lists a submission is checked against.
+ *
+ * They come from the master_options table (see `src/lib/master-options.ts`),
+ * not from a constant here, because an admin edits them. Optional: when it is
+ * absent — a caller that has not loaded them — the shape of a value is still
+ * checked, but not its membership of a list. The API route always passes them,
+ * so the server's answer never depends on a caller remembering to.
+ */
+export interface AllowedOptions {
+  denominations: readonly number[];
+  giftRelationships: readonly string[];
+}
 
 export type RequestItemErrors = Partial<Record<keyof RequestItemValues, string>>;
 
@@ -143,7 +138,8 @@ export interface ValidatedRequest {
  */
 export function validateRequestItem(
   values: Partial<RequestItemValues>,
-  now = new Date()
+  now = new Date(),
+  allowed?: AllowedOptions
 ): { errors: RequestItemErrors; normalised?: NormalisedItem[] } {
   const errors: RequestItemErrors = {};
 
@@ -190,13 +186,19 @@ export function validateRequestItem(
 
   if (!denominations.length) {
     errors.denominations = 'Choose at least one denomination';
-  } else if (
-    denominations.some((value) => !DENOMINATIONS.includes(value as (typeof DENOMINATIONS)[number]))
-  ) {
+  } else if (denominations.some((value) => value < 1)) {
+    errors.denominations = 'Choose from the listed denominations';
+  } else if (allowed && denominations.some((value) => !allowed.denominations.includes(value))) {
     errors.denominations = 'Choose from the listed denominations';
   }
 
-  if (giftRelationship && !GIFT_RELATIONSHIPS.includes(giftRelationship as GiftRelationship)) {
+  if (giftRelationship.length > 40) {
+    errors.giftRelationship = 'Choose one of the listed options';
+  } else if (
+    giftRelationship &&
+    allowed &&
+    !allowed.giftRelationships.includes(giftRelationship)
+  ) {
     errors.giftRelationship = 'Choose one of the listed options';
   }
   if (giftFor.length > 160) {
@@ -222,7 +224,8 @@ export function validateRequestItem(
 
 export function validateRequest(
   values: Partial<RequestFormValues>,
-  now = new Date()
+  now = new Date(),
+  allowed?: AllowedOptions
 ): ValidatedRequest {
   const errors: RequestFormErrors = {};
 
@@ -266,7 +269,7 @@ export function validateRequest(
   // expanded. Slicing the rows first would have hidden a typo in block 21 of
   // an order that was under the cap anyway.
   rows.forEach((row, index) => {
-    const result = validateRequestItem(row, now);
+    const result = validateRequestItem(row, now, allowed);
     if (result.normalised) items.push(...result.normalised);
     else itemErrors[index] = result.errors;
   });
