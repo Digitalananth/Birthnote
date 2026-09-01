@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
-      <Header />
+      <Header overlay />
       <main>
         <HeroSection />
         <HowItWorksSection />
