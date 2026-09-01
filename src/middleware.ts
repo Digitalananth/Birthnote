@@ -37,5 +37,7 @@ export const config = {
     '/admin/pages/:path*',
     '/admin/blog/:path*',
     '/admin/master-data/:path*',
+    '/admin/settings/:path*',
+    '/admin/invoices/:path*',
   ],
 };

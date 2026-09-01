@@ -259,7 +259,7 @@ export default async function AdminDashboardPage({
             orders={stats.needsDispatch}
             total={stats.awaitingDispatch}
             moreHref="/admin/orders?status=paid"
-            render={(order) => formatPrice(order.pricePaise, order.currency)}
+            render={(order) => formatPrice(order.totalPaise, order.currency)}
           />
         </div>
 

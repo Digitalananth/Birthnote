@@ -8,6 +8,8 @@ import Icon from '@/components/ui/AppIcon';
 import OrderNotes from '@/components/OrderNotes';
 import PaymentHeroSection from '@/app/payment/components/PaymentHeroSection';
 import CheckoutButton from '@/app/payment/components/CheckoutButton';
+import DeliveryAddressForm from '@/app/payment/components/DeliveryAddressForm';
+import OrderTotals from '@/components/OrderTotals';
 import { getOrderByReference } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { maybeSweep } from '@/server/background-sweep';
@@ -47,7 +49,7 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
   const order = await getOrderByReference(reference);
   if (!order) notFound();
 
-  const amountLabel = formatPrice(order.pricePaise, order.currency);
+  const amountLabel = formatPrice(order.totalPaise, order.currency);
   const alreadyPaid = order.status === 'paid' || order.status === 'shipped';
 
   // Only a confirmed order can be paid. Anything else gets an explanation
@@ -133,9 +135,8 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
                 <OrderNotes order={order} showPrices showDetails />
               </div>
 
-              <div className="flex items-baseline justify-between mb-5">
-                <p className="font-sans font-bold text-foreground">Total</p>
-                <p className="font-sans font-bold text-foreground">{amountLabel}</p>
+              <div className="mb-5">
+                <OrderTotals order={order} />
               </div>
 
               <div className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -151,7 +152,24 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
               </div>
             </div>
 
-            <CheckoutButton reference={order.reference} amountLabel={amountLabel} />
+            {/*
+              The address comes before the card. It is the courier's
+              instruction and it decides the tax split, so paying without one
+              would mean invoicing a supply with no place of supply.
+            */}
+            <DeliveryAddressForm
+              reference={order.reference}
+              address={order.shipping}
+              customerName={order.customerName}
+            />
+
+            {order.shipping ? (
+              <CheckoutButton reference={order.reference} amountLabel={amountLabel} />
+            ) : (
+              <p className="text-center text-sm text-muted-foreground">
+                Enter your delivery address above to continue to payment.
+              </p>
+            )}
 
             {/* The last hesitation before entering a card is what happens if this goes wrong. */}
             <p className="mt-4 text-center text-xs text-muted-foreground">

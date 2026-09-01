@@ -2,6 +2,7 @@ import 'server-only';
 import Stripe from 'stripe';
 import { env } from '@/lib/env';
 import { availableItems, type Order } from '@/lib/orders';
+import { stateName } from '@/lib/india-gst';
 
 const globalForStripe = globalThis as unknown as { myLuckyDatesStripe?: Stripe };
 
@@ -33,13 +34,22 @@ export class NotPayableError extends Error {
  *
  * Each available note is its own line item, so a customer paying for three
  * dates sees the three of them priced separately on Stripe's page rather than
- * one unexplained total. The line items are built from the same rows the order
- * total is summed from, so the two cannot disagree.
+ * one unexplained total. Delivery and GST are two further lines, so what
+ * Stripe collects adds up to the same breakup the invoice will show — and the
+ * customer sees the tax before they pay it rather than discovering it on the
+ * invoice afterwards.
+ *
+ * The address is already ours by this point: it is taken on the payment page,
+ * because the delivery state decides whether the tax is CGST + SGST or IGST
+ * and that must be settled before the charge, not after.
  */
 export async function createCheckoutSession(order: Order) {
   const payable = availableItems(order).filter((item) => (item.pricePaise ?? 0) > 0);
   if (!payable.length) {
     throw new NotPayableError('This order has no priced notes to pay for.');
+  }
+  if (!order.shipping) {
+    throw new NotPayableError('This order has no delivery address yet.');
   }
 
   const stripe = getStripe();
@@ -66,8 +76,44 @@ export async function createCheckoutSession(order: Order) {
         },
       },
     })),
-    // Domestic delivery only — we ship within India.
-    shipping_address_collection: { allowed_countries: ['IN'] },
+    // Delivery and tax as their own lines. Zero-amount lines are omitted
+    // rather than shown as ₹0 — free delivery is worth saying in words on
+    // our own page, not as a line item that looks like an error.
+    ...(order.shippingPaise > 0
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: order.currency.toLowerCase(),
+              unit_amount: order.shippingPaise,
+              product_data: {
+                name: 'Tracked delivery',
+                description: `To ${order.shipping.city}, ${stateName(order.shipping.stateCode)}`,
+              },
+            },
+          },
+        ]
+      : []),
+    ...(order.taxPaise > 0
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: order.currency.toLowerCase(),
+              unit_amount: order.taxPaise,
+              product_data: {
+                name: 'GST',
+                description: order.igstPaise
+                  ? `IGST on notes and delivery`
+                  : `CGST + SGST on notes and delivery`,
+              },
+            },
+          },
+        ]
+      : []),
+    // The address is collected on our own page, so Stripe must not ask for it
+    // again — a second address would be a second answer to the question the
+    // tax split already depends on.
     metadata: { reference: order.reference, notes: String(payable.length) },
     // The same reference on the PaymentIntent. A failed payment arrives as a
     // payment_intent.* event, which carries no session and so no other way

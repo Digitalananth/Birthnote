@@ -84,7 +84,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                   order.status === 'paid' ||
                   order.status === 'shipped') && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatPrice(order.pricePaise, order.currency)}
+                    {formatPrice(order.totalPaise, order.currency)}
                   </p>
                 )}
               </div>

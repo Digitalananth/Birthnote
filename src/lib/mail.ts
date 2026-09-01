@@ -243,7 +243,7 @@ export function availabilityConfirmedEmail(order: Order): MailPayload {
           )
         : '') +
       p(
-        `Total: <strong>${formatPrice(order.pricePaise, order.currency)}</strong>, including tracked delivery anywhere in India and gift packaging.`
+        `Total: <strong>${formatPrice(order.totalPaise, order.currency)}</strong>, including GST, tracked delivery anywhere in India and gift packaging.`
       ) +
       refBlock(order.reference) +
       p(
@@ -268,7 +268,7 @@ ${
     ? `\nWe could not find: ${itemLines(missing).join(', ')}. You have not been charged for these.\n`
     : ''
 }
-Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delivery anywhere in India.
+Total: ${formatPrice(order.totalPaise, order.currency)} including GST and tracked delivery anywhere in India.
 
 Complete your order: ${payUrl}
 Reference: ${order.reference}
@@ -311,7 +311,7 @@ export function holdReminderEmail(order: Order, daysLeft: number): MailPayload {
         ) +
         itemListHtml(found) +
         p(
-          `Total: <strong>${formatPrice(order.pricePaise, order.currency)}</strong>, including tracked delivery and gift packaging.`
+          `Total: <strong>${formatPrice(order.totalPaise, order.currency)}</strong>, including GST, tracked delivery and gift packaging.`
         ) +
         refBlock(order.reference) +
         p('If you have changed your mind, you can simply ignore this — nothing will be charged.'),
@@ -325,7 +325,7 @@ ${itemLines(found)
   .map((line) => `  - ${line}`)
   .join('\n')}
 
-Total: ${formatPrice(order.pricePaise, order.currency)} including tracked delivery.
+Total: ${formatPrice(order.totalPaise, order.currency)} including GST and tracked delivery.
 
 Complete your order: ${payUrl}
 Reference: ${order.reference}
@@ -478,7 +478,7 @@ export function refundedEmail(order: Order): MailPayload {
       'Your refund is on its way',
       p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
         p(
-          `We have refunded <strong>${formatPrice(order.pricePaise, order.currency)}</strong> to the card you paid with.`
+          `We have refunded <strong>${formatPrice(order.totalPaise, order.currency)}</strong> to the card you paid with.`
         ) +
         p(
           'Banks usually take five to ten working days to show it, and it returns to the original card — there is nothing you need to do.'
@@ -487,7 +487,7 @@ export function refundedEmail(order: Order): MailPayload {
     ),
     text: `Hi ${order.customerName},
 
-We have refunded ${formatPrice(order.pricePaise, order.currency)} to the card you paid with.
+We have refunded ${formatPrice(order.totalPaise, order.currency)} to the card you paid with.
 
 Banks usually take five to ten working days to show it, and it returns to the original card. There is nothing you need to do.
 
@@ -536,13 +536,18 @@ Reference: ${order.reference}
   };
 }
 
-export function paymentReceivedEmail(order: Order): MailPayload {
+/**
+ * The receipt. `invoiceNumber` is passed in rather than looked up, because
+ * mail.ts knows nothing about the database and the caller has just issued it.
+ */
+export function paymentReceivedEmail(order: Order, invoiceNumber?: string | null): MailPayload {
   const trackUrl = `${env.siteUrl}/track-order/${order.reference}`;
+  const invoiceUrl = `${env.siteUrl}/invoice/${order.reference}`;
   const html = layout(
     'Order confirmed.',
     p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
       p(
-        `We've received your payment of <strong>${formatPrice(order.pricePaise, order.currency)}</strong>. ${
+        `We've received your payment of <strong>${formatPrice(order.totalPaise, order.currency)}</strong>. ${
           availableItems(order).length > 1
             ? 'Your notes are being prepared:'
             : `Your note from ${escapeHtml(availableItems(order)[0]?.displayDate ?? '')} is being prepared.`
@@ -554,7 +559,12 @@ export function paymentReceivedEmail(order: Order): MailPayload {
          <li>Packaged in an archival sleeve and gift box within 1–2 working days.</li>
          <li>Dispatched with tracked delivery, arriving in 3–5 days.</li>
          <li>We'll email your tracking number as soon as it ships.</li>
-       </ul>`,
+       </ul>` +
+      (invoiceNumber
+        ? p(
+            `Your tax invoice <strong>${escapeHtml(invoiceNumber)}</strong> is ready — <a href="${invoiceUrl}" style="color:#8B4513;">view or download it here</a>.`
+          )
+        : ''),
     { label: 'Track your order', url: trackUrl }
   );
   return {
@@ -563,13 +573,14 @@ export function paymentReceivedEmail(order: Order): MailPayload {
     html,
     text: `Hi ${order.customerName},
 
-We've received your payment of ${formatPrice(order.pricePaise, order.currency)}. Being prepared:
+We've received your payment of ${formatPrice(order.totalPaise, order.currency)}. Being prepared:
 ${itemLines(availableItems(order))
   .map((line) => `  - ${line}`)
   .join('\n')}
 
 Reference: ${order.reference}
 Track it: ${trackUrl}
+${invoiceNumber ? `Tax invoice ${invoiceNumber}: ${invoiceUrl}` : ''}
 
 Everything ships together, packaged within 1-2 working days and delivered in 3-5 days with tracking.
 

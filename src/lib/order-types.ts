@@ -59,6 +59,18 @@ export interface OrderItem {
   noteCountry: string | null;
 }
 
+/** Where an order is going. Null on every field until the customer fills it in. */
+export interface ShippingAddress {
+  name: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  /** The GST state code, which is what decides the tax split. */
+  stateCode: string;
+  pincode: string;
+  phone: string | null;
+}
+
 export interface Order {
   id: number;
   reference: string;
@@ -72,8 +84,30 @@ export interface Order {
   whatsappOptIn: boolean;
   message: string | null;
   status: OrderStatus;
-  /** The sum of the available items' prices. Recomputed whenever one changes. */
+  /**
+   * The sum of the available items' prices, before tax. Recomputed whenever
+   * one changes. This is the taxable value of the goods, not what is charged —
+   * see `totalPaise` for that.
+   */
   pricePaise: number;
+  /** Delivery, before tax. Zero when the order shipped free or found nothing. */
+  shippingPaise: number;
+  taxPaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  /** What the customer pays: notes + delivery + tax. The amount Stripe charges. */
+  totalPaise: number;
+  /**
+   * The rates this order was charged at, frozen when it was priced, so a rate
+   * change tomorrow cannot rewrite what an invoice issued today says.
+   */
+  gstGoodsRate: number;
+  gstShippingRate: number;
+  /** Null until the customer completes the address step before paying. */
+  shipping: ShippingAddress | null;
+  /** A business buyer's GSTIN, if they gave one to claim input credit. */
+  buyerGstin: string | null;
   currency: string;
   adminNotes: string | null;
   stripeSessionId: string | null;

@@ -44,6 +44,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // The delivery address decides the tax split, so it has to exist before the
+  // charge. The payment page collects it first; this is the guard for anyone
+  // calling the API directly.
+  if (!order.shipping) {
+    return NextResponse.json(
+      { error: 'Please enter a delivery address before paying.' },
+      { status: 409 }
+    );
+  }
+
   try {
     const session = await createCheckoutSession(order);
     await attachStripeSession(order.id, session.id);

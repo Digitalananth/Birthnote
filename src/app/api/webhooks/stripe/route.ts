@@ -15,6 +15,7 @@ import {
   refundedEmail,
 } from '@/lib/mail';
 import { sendWhatsApp, orderPaidWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
+import { issueInvoiceForOrder } from '@/lib/invoices';
 import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -66,7 +67,18 @@ export async function POST(request: Request) {
           // markOrderPaid returns the order only on the delivery that actually
           // flipped it, so Stripe's retries cannot send this twice.
           if (order) {
-            await sendMail(paymentReceivedEmail(order));
+            // The invoice is raised here, on the one delivery that flipped the
+            // order to paid, so a redelivered webhook cannot raise a second.
+            // A failure to issue must not lose the receipt: the sale happened
+            // either way, and the admin can see the order is missing its
+            // invoice on the invoices page.
+            let invoiceNumber: string | null = null;
+            try {
+              invoiceNumber = (await issueInvoiceForOrder(order)).number;
+            } catch (error) {
+              console.error('[stripe-webhook] could not issue invoice', error);
+            }
+            await sendMail(paymentReceivedEmail(order, invoiceNumber));
             if (whatsAppRecipient(order)) await sendWhatsApp(orderPaidWhatsApp(order));
           }
         }

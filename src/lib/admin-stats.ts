@@ -27,7 +27,8 @@ export interface AttentionOrder {
   reference: string;
   customerName: string;
   status: OrderStatus;
-  pricePaise: number;
+  /** What the customer pays, tax and delivery included. */
+  totalPaise: number;
   currency: string;
   /** Notes still awaiting an availability decision on this order. */
   pendingItems: number;
@@ -65,7 +66,7 @@ interface AttentionRow extends RowDataPacket {
   reference: string;
   customer_name: string;
   status: OrderStatus;
-  price_paise: number;
+  total_paise: number;
   currency: string;
   pending_items: number;
   created_at: Date;
@@ -76,7 +77,7 @@ function mapAttention(row: AttentionRow): AttentionOrder {
     reference: row.reference,
     customerName: row.customer_name,
     status: row.status,
-    pricePaise: row.price_paise,
+    totalPaise: Number(row.total_paise ?? 0),
     currency: row.currency,
     pendingItems: Number(row.pending_items ?? 0),
     createdAt: row.created_at.toISOString(),
@@ -134,6 +135,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   ] = await Promise.all([
     // One pass over the paid orders for all three revenue windows: SUM with a
     // CASE is a single scan where three queries would be three.
+    //
+    // Summed from `total_paise` — money actually collected, tax and delivery
+    // included — so this figure reconciles with the bank. The tax within it is
+    // collected on the government's behalf rather than earned; the invoices
+    // page is where that is broken out, and it is the page a return is filed
+    // from.
     query<
       (RowDataPacket & {
         last7: string | null;
@@ -145,9 +152,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       })[]
     >(
       `SELECT
-         SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY  THEN price_paise ELSE 0 END) AS last7,
-         SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY THEN price_paise ELSE 0 END) AS last30,
-         SUM(price_paise) AS all_time,
+         SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY  THEN total_paise ELSE 0 END) AS last7,
+         SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY THEN total_paise ELSE 0 END) AS last30,
+         SUM(total_paise) AS all_time,
          SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY  THEN 1 ELSE 0 END) AS paid7,
          SUM(CASE WHEN paid_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS paid30,
          MIN(currency) AS currency
@@ -198,7 +205,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
          (SELECT COUNT(*) FROM blog_posts WHERE status = 'draft') AS draft_posts`
     ),
     query<AttentionRow[]>(
-      `SELECT o.reference, o.customer_name, o.status, o.price_paise, o.currency, o.created_at,
+      `SELECT o.reference, o.customer_name, o.status, o.total_paise, o.currency, o.created_at,
               COUNT(i.id) AS pending_items
          FROM orders o
          JOIN order_items i ON i.order_id = o.id AND i.availability = 'pending'
@@ -208,7 +215,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         LIMIT 5`
     ),
     query<AttentionRow[]>(
-      `SELECT reference, customer_name, status, price_paise, currency, created_at,
+      `SELECT reference, customer_name, status, total_paise, currency, created_at,
               0 AS pending_items
          FROM orders
         WHERE status = 'paid' AND tracking_number IS NULL

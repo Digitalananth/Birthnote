@@ -2,6 +2,7 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import { getPool, query, transaction } from '@/lib/db';
+import { computeOrderMoney, type TaxSettings } from '@/lib/india-gst';
 import {
   ORDER_STATUSES,
   availableItems,
@@ -12,6 +13,7 @@ import {
   type OrderStatus,
   type ItemAvailability,
   type NewOrderInput,
+  type ShippingAddress,
   HOLD_SOON_DAYS,
 } from '@/lib/order-types';
 
@@ -24,6 +26,7 @@ export type {
   ItemAvailability,
   NewOrderInput,
   NewOrderItemInput,
+  ShippingAddress,
 } from '@/lib/order-types';
 
 interface OrderRow extends RowDataPacket {
@@ -37,6 +40,22 @@ interface OrderRow extends RowDataPacket {
   message: string | null;
   status: OrderStatus;
   price_paise: number;
+  shipping_paise: number;
+  tax_paise: number;
+  cgst_paise: number;
+  sgst_paise: number;
+  igst_paise: number;
+  total_paise: number;
+  gst_goods_rate: string | number;
+  gst_shipping_rate: string | number;
+  ship_name: string | null;
+  ship_line1: string | null;
+  ship_line2: string | null;
+  ship_city: string | null;
+  ship_state_code: string | null;
+  ship_pincode: string | null;
+  ship_phone: string | null;
+  buyer_gstin: string | null;
   currency: string;
   admin_notes: string | null;
   stripe_session_id: string | null;
@@ -96,6 +115,29 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
     message: row.message,
     status: row.status,
     pricePaise: row.price_paise,
+    shippingPaise: Number(row.shipping_paise ?? 0),
+    taxPaise: Number(row.tax_paise ?? 0),
+    cgstPaise: Number(row.cgst_paise ?? 0),
+    sgstPaise: Number(row.sgst_paise ?? 0),
+    igstPaise: Number(row.igst_paise ?? 0),
+    // Orders placed before tax existed carry the notes total here, backfilled
+    // by 0013 — never zero, which would claim they were free.
+    totalPaise: Number(row.total_paise ?? 0) || row.price_paise,
+    // MariaDB hands DECIMAL back as a string.
+    gstGoodsRate: Number(row.gst_goods_rate ?? 0),
+    gstShippingRate: Number(row.gst_shipping_rate ?? 0),
+    shipping: row.ship_line1
+      ? {
+          name: row.ship_name ?? '',
+          line1: row.ship_line1,
+          line2: row.ship_line2,
+          city: row.ship_city ?? '',
+          stateCode: row.ship_state_code ?? '',
+          pincode: row.ship_pincode ?? '',
+          phone: row.ship_phone,
+        }
+      : null,
+    buyerGstin: row.buyer_gstin,
     currency: row.currency,
     adminNotes: row.admin_notes,
     stripeSessionId: row.stripe_session_id,
@@ -163,22 +205,77 @@ export function generateReference(displayDate: string): string {
 }
 
 /**
- * The order total: every available item's price added up.
+ * The order's money, recomputed from its items and the current settings.
  *
- * Denormalised onto `orders` because Stripe, the receipt email and the payment
- * page all want one number, and recomputing it on every read would mean none
- * of them could trust the amount the customer was actually charged.
+ * Denormalised onto `orders` because Stripe, the receipt email, the payment
+ * page and the invoice all want the same numbers, and recomputing them on
+ * every read would mean none of them could trust the amount the customer was
+ * actually charged. The rates are stored alongside, so an invoice reprinted
+ * after a rate change still shows the rate that was applied.
+ *
+ * Runs whenever an item's price or availability changes — that is, while the
+ * admin is still checking. Once an order is paid the numbers are what was
+ * charged and must not move, which `updateOrderItem` enforces by refusing to
+ * edit a paid order at all.
  */
 async function recomputeTotal(conn: PoolConnection, orderId: number): Promise<void> {
-  await conn.execute(
-    `UPDATE orders o
-        SET price_paise = COALESCE((
-              SELECT SUM(i.price_paise) FROM order_items i
-               WHERE i.order_id = o.id AND i.availability = 'available'
-            ), 0)
-      WHERE o.id = ?`,
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT o.ship_state_code,
+            COALESCE((SELECT SUM(i.price_paise) FROM order_items i
+                       WHERE i.order_id = o.id AND i.availability = 'available'), 0) AS subtotal
+       FROM orders o WHERE o.id = ?`,
     [orderId]
   );
+  if (!rows.length) return;
+
+  // SUM() of an unsigned column comes back as a string.
+  const subtotal = Number(rows[0].subtotal) || 0;
+  const stateCode = (rows[0].ship_state_code as string | null) ?? null;
+
+  const settings = await readTaxSettings(conn);
+  const money = computeOrderMoney(subtotal, settings, stateCode);
+
+  await conn.execute(
+    `UPDATE orders
+        SET price_paise = ?, shipping_paise = ?, tax_paise = ?,
+            cgst_paise = ?, sgst_paise = ?, igst_paise = ?, total_paise = ?,
+            gst_goods_rate = ?, gst_shipping_rate = ?
+      WHERE id = ?`,
+    [
+      money.itemsSubtotalPaise,
+      money.shippingPaise,
+      money.taxPaise,
+      money.cgstPaise,
+      money.sgstPaise,
+      money.igstPaise,
+      money.totalPaise,
+      settings.goodsRatePercent,
+      settings.shippingRatePercent,
+      orderId,
+    ]
+  );
+}
+
+/**
+ * The tax settings, read on the transaction's own connection.
+ *
+ * `getSettings` uses the pool, and a pool checkout from inside a transaction
+ * is a different connection — harmless here, but reading the settings a
+ * recompute depends on outside its transaction is the kind of thing that is
+ * only harmless until it is not.
+ */
+async function readTaxSettings(conn: PoolConnection): Promise<TaxSettings> {
+  const [rows] = await conn.query<RowDataPacket[]>('SELECT setting_key, value FROM app_settings');
+  const stored = new Map(
+    rows.map((row) => [row.setting_key as string, (row.value as string) ?? ''])
+  );
+  return {
+    goodsRatePercent: Number(stored.get('gst_goods_rate')) || 0,
+    shippingRatePercent: Number(stored.get('gst_shipping_rate')) || 0,
+    shippingFlatPaise: Number(stored.get('shipping_flat_paise')) || 0,
+    shippingFreeAbovePaise: Number(stored.get('shipping_free_above_paise')) || 0,
+    sellerStateCode: stored.get('seller_state_code') ?? '',
+  };
 }
 
 export async function createOrder(input: NewOrderInput): Promise<Order> {
@@ -533,6 +630,55 @@ async function readOrder(conn: PoolConnection, orderId: number): Promise<Order> 
     [orderId]
   );
   return mapOrder(rows[0], items.map(mapItem));
+}
+
+/**
+ * Saves where the order is going, and re-prices it for that destination.
+ *
+ * The address is taken on our own page rather than at Stripe because the state
+ * decides whether the tax is CGST + SGST or IGST, and that has to be settled
+ * before the customer is charged, not after. The total does not move — the
+ * rate is the same either way — but the breakup does, and the invoice is only
+ * issuable once it is known.
+ *
+ * Only a confirmed, unpaid order accepts one: after payment the address is
+ * part of what was invoiced and changing it would rewrite a tax document.
+ */
+export async function saveShippingAddress(
+  reference: string,
+  address: ShippingAddress & { buyerGstin?: string | null }
+): Promise<Order | null> {
+  return transaction(async (conn) => {
+    const [rows] = await conn.query<OrderRow[]>(
+      'SELECT * FROM orders WHERE reference = ? FOR UPDATE',
+      [reference]
+    );
+    const row = rows[0];
+    if (!row || row.status !== 'confirmed') return null;
+
+    await conn.execute(
+      `UPDATE orders
+          SET ship_name = ?, ship_line1 = ?, ship_line2 = ?, ship_city = ?,
+              ship_state_code = ?, ship_pincode = ?, ship_phone = ?, buyer_gstin = ?
+        WHERE id = ?`,
+      [
+        address.name,
+        address.line1,
+        address.line2 || null,
+        address.city,
+        address.stateCode,
+        address.pincode,
+        address.phone || null,
+        address.buyerGstin || null,
+        row.id,
+      ]
+    );
+
+    // The destination is part of the price now, so the money is stale until
+    // this runs — the tax split was computed with no state to go on.
+    await recomputeTotal(conn, row.id);
+    return readOrder(conn, row.id);
+  });
 }
 
 export async function attachStripeSession(orderId: number, sessionId: string) {

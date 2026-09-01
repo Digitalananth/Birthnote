@@ -14,11 +14,27 @@ import type { AdminUser } from '@/lib/admin-roles';
  * the page and its API routes check the role themselves. Pages and Blog are
  * open to both roles; see `requireContentAdmin`.
  */
-type NavKey = 'dashboard' | 'orders' | 'reports' | 'pages' | 'blog' | 'master-data' | 'users';
+type NavKey =
+  | 'dashboard'
+  | 'orders'
+  | 'invoices'
+  | 'reports'
+  | 'pages'
+  | 'blog'
+  | 'master-data'
+  | 'settings'
+  | 'users';
 
 const ITEMS: { key: NavKey; href: string; label: string; icon: string; ownerOnly?: boolean }[] = [
   { key: 'dashboard', href: '/admin', label: 'Dashboard', icon: 'HomeIcon' },
   { key: 'orders', href: '/admin/orders', label: 'Orders', icon: 'ArchiveBoxIcon' },
+  {
+    key: 'invoices',
+    href: '/admin/invoices',
+    label: 'Invoices',
+    icon: 'DocumentTextIcon',
+    ownerOnly: true,
+  },
   {
     key: 'reports',
     href: '/admin/reports',
@@ -33,6 +49,13 @@ const ITEMS: { key: NavKey; href: string; label: string; icon: string; ownerOnly
     href: '/admin/master-data',
     label: 'Master data',
     icon: 'AdjustmentsHorizontalIcon',
+    ownerOnly: true,
+  },
+  {
+    key: 'settings',
+    href: '/admin/settings',
+    label: 'Settings',
+    icon: 'Cog6ToothIcon',
     ownerOnly: true,
   },
   { key: 'users', href: '/admin/users', label: 'Admins', icon: 'UserCircleIcon', ownerOnly: true },

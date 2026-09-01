@@ -83,7 +83,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
 
             <p className="text-sm text-muted-foreground mb-10 leading-relaxed">
               {settled
-                ? `We've charged ${formatPrice(order.pricePaise, order.currency)} and emailed your receipt to ${order.customerEmail}.`
+                ? `We've charged ${formatPrice(order.totalPaise, order.currency)} and emailed your receipt to ${order.customerEmail}.`
                 : 'Stripe is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
             </p>
 

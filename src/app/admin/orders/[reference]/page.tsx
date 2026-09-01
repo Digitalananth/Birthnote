@@ -11,6 +11,10 @@ import { getOrderByReference, getOrderEvents } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
 import { groupOrderItems } from '@/lib/order-types';
+import OrderTotals from '@/components/OrderTotals';
+import InvoicePanel from '@/app/admin/components/InvoicePanel';
+import { getInvoiceForOrder } from '@/lib/invoices';
+import { stateName } from '@/lib/india-gst';
 
 /** Rendering strategy: SSR — always the live record. */
 export const dynamic = 'force-dynamic';
@@ -37,6 +41,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
   if (!order) notFound();
 
   const events = await getOrderEvents(order.id);
+  const invoice = await getInvoiceForOrder(order.id);
   const groups = groupOrderItems(order.items);
   const config = STATUS_CONFIG[order.status];
 
@@ -81,7 +86,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
               ],
               // Summed from the notes marked found and priced below — never
               // typed by hand, so the total and the breakdown cannot disagree.
-              ['Total', formatPrice(order.pricePaise, order.currency)],
+              ['Total charged', formatPrice(order.totalPaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
               ['Stripe session', order.stripeSessionId],
             ]
@@ -95,6 +100,46 @@ export default async function AdminOrderPage({ params }: PageProps) {
                 </div>
               ))}
           </dl>
+
+          {/* The money, broken up as the invoice breaks it up. */}
+          {order.pricePaise > 0 && (
+            <div className="mt-6 pt-6 border-t border-border max-w-sm">
+              <OrderTotals order={order} />
+            </div>
+          )}
+
+          {/* Where it is going, and therefore how it is taxed. */}
+          {order.shipping && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                Delivery address
+              </p>
+              <address className="not-italic text-sm text-foreground leading-relaxed">
+                {order.shipping.name}
+                <br />
+                {order.shipping.line1}
+                {order.shipping.line2 && (
+                  <>
+                    <br />
+                    {order.shipping.line2}
+                  </>
+                )}
+                <br />
+                {order.shipping.city} {order.shipping.pincode}
+                <br />
+                {stateName(order.shipping.stateCode)}
+                {order.shipping.phone && (
+                  <>
+                    <br />
+                    {order.shipping.phone}
+                  </>
+                )}
+              </address>
+              {order.buyerGstin && (
+                <p className="text-xs text-muted-foreground mt-1">Buyer GSTIN {order.buyerGstin}</p>
+              )}
+            </div>
+          )}
 
           {order.message && (
             <div className="mt-6 pt-6 border-t border-border">
@@ -187,6 +232,18 @@ export default async function AdminOrderPage({ params }: PageProps) {
               </section>
             );
           })}
+        </div>
+
+        {/* The invoice */}
+        <div className="card-warm p-8">
+          <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">
+            Tax invoice
+          </h2>
+          <InvoicePanel
+            reference={order.reference}
+            invoiceNumber={invoice?.number ?? null}
+            canIssue={order.status === 'paid' || order.status === 'shipped'}
+          />
         </div>
 
         {/* Fulfilment actions */}

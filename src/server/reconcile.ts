@@ -4,6 +4,7 @@ import { recordError } from '@/server/errors';
 import { markOrderPaid } from '@/lib/orders';
 import { getStripe } from '@/lib/stripe';
 import { sendMail, paymentReceivedEmail } from '@/lib/mail';
+import { issueInvoiceForOrder } from '@/lib/invoices';
 import { sendWhatsApp, orderPaidWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
 
 /**
@@ -48,7 +49,15 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
       // Null when something else got there first; only the winner emails.
       if (order) {
         recovered.push(order.reference);
-        await sendMail(paymentReceivedEmail(order));
+        // A payment recovered here is as real as one the webhook delivered, so
+        // it gets its invoice the same way.
+        let invoiceNumber: string | null = null;
+        try {
+          invoiceNumber = (await issueInvoiceForOrder(order)).number;
+        } catch (invoiceError) {
+          recordError('reconcile.invoice', invoiceError, row.reference);
+        }
+        await sendMail(paymentReceivedEmail(order, invoiceNumber));
         if (whatsAppRecipient(order)) await sendWhatsApp(orderPaidWhatsApp(order));
       }
     } catch (error) {

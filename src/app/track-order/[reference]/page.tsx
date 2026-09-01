@@ -6,11 +6,13 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
 import OrderNotes from '@/components/OrderNotes';
+import OrderTotals from '@/components/OrderTotals';
 import { getOrderByReference, getOrderEvents, summariseOrder } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { maybeSweep } from '@/server/background-sweep';
 import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/lib/order-status';
 import { groupOrderItems } from '@/lib/order-types';
+import { getInvoiceForOrder } from '@/lib/invoices';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -50,6 +52,7 @@ export default async function TrackedOrderPage({ params }: PageProps) {
   if (!order) notFound();
 
   const events = await getOrderEvents(order.id);
+  const invoice = await getInvoiceForOrder(order.id);
   const status = STATUS_CONFIG[order.status];
   const currentStep = progressIndex(order.status);
   const stopped = order.status === 'unavailable';
@@ -152,7 +155,7 @@ export default async function TrackedOrderPage({ params }: PageProps) {
                 Total including tracked delivery anywhere in India
               </p>
               <p className="font-sans font-extrabold text-3xl text-foreground mb-6">
-                {formatPrice(order.pricePaise, order.currency)}
+                {formatPrice(order.totalPaise, order.currency)}
               </p>
               <Link
                 href={`/payment/${order.reference}`}
@@ -180,7 +183,35 @@ export default async function TrackedOrderPage({ params }: PageProps) {
               showDetails
               showPrices={order.status !== 'pending' && order.status !== 'checking'}
             />
+
+            {/* The breakup, once there is one to show. Before the admin has
+                priced anything there is nothing here but zeroes. */}
+            {order.pricePaise > 0 && (
+              <div className="mt-5 pt-5 border-t border-border">
+                <OrderTotals order={order} />
+              </div>
+            )}
           </div>
+
+          {/* The invoice, once it exists. Raised on payment, so an unpaid
+              order has none and is not offered a link to one. */}
+          {invoice && (
+            <div className="card-warm p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide">
+                  Tax invoice
+                </h2>
+                <p className="font-mono text-sm text-muted-foreground mt-1">{invoice.number}</p>
+              </div>
+              <Link
+                href={`/invoice/${order.reference}`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+              >
+                <Icon name="DocumentTextIcon" size={15} />
+                View invoice
+              </Link>
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="card-warm p-6 mb-10">
