@@ -31,6 +31,10 @@
 
   html {
     scroll-behavior: smooth;
+    /* The header is fixed and 5rem tall, so an anchor scrolled to the very top
+       of the viewport would arrive underneath it. Every in-page jump stops
+       5rem short instead. */
+    scroll-padding-top: 5rem;
   }
 
   body {

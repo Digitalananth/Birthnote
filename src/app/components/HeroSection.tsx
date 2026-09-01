@@ -5,8 +5,12 @@ import Icon from '@/components/ui/AppIcon';
 
 export default function HeroSection() {
 
+  // The header is fixed and 5rem tall. Starting the hero below it, and taking
+  // those 5rem off its height, keeps the photograph whole and still fills
+  // exactly one screen — the section used to begin at the very top of the page
+  // with its first 5rem hidden behind the header.
   return (
-    <section className="relative w-full min-h-screen overflow-hidden flex flex-col justify-end pb-12 md:pb-20">
+    <section className="relative mt-20 w-full min-h-[calc(100vh-5rem)] overflow-hidden flex flex-col justify-end pb-12 md:pb-20">
       {/* Background image layer — cinematic entrance */}
       <div className="absolute inset-0 z-0 bg-foreground">
         <AppImage
@@ -25,8 +29,10 @@ export default function HeroSection() {
         <div className="absolute inset-0 grain-overlay opacity-60" />
       </div>
       {/* Floating status badge */}
+      {/* top-8, not top-28: the 28 was clearing the fixed header, which the
+          section itself now sits below. */}
       <div
-        className="absolute top-28 right-6 md:right-12 z-20 badge-delayed-in">
+        className="absolute top-8 right-6 md:right-12 z-20 badge-delayed-in">
         
         <div className="px-4 py-2.5 rounded-xl bg-foreground/50 backdrop-blur-md border border-accent/30 flex items-center gap-2.5">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
