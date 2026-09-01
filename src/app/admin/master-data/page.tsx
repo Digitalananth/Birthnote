@@ -57,7 +57,14 @@ export default async function AdminMasterDataPage() {
 
         <div className="flex flex-col gap-6">
           {MASTER_LISTS.map((list) => (
-            <MasterListEditor key={list.key} listKey={list.key} options={lists[list.key]} />
+            <MasterListEditor
+              key={list.key}
+              listKey={list.key}
+              options={lists[list.key]}
+              denominations={lists.denomination
+                .filter((option) => option.isActive)
+                .map((option) => option.value)}
+            />
           ))}
         </div>
       </div>

@@ -81,6 +81,14 @@ export default function RequestFormSection({ user = null, options }: Props) {
   const denominations = options.denomination;
   const relationships = options.gift_relationship;
   const occasions = options.occasion;
+  // Only combinations whose notes are all still on offer: one that mentions a
+  // withdrawn denomination would tick a box that no longer exists, and the
+  // customer would count the notes and find one missing.
+  const combos = options.denomination_combo.filter(
+    (combo) =>
+      combo.denominations.length > 0 &&
+      combo.denominations.every((value) => denominations.includes(String(value)))
+  );
 
   // The same lists the server will check against, in the shape the validator
   // wants. Rebuilt per render, which is free beside a fetch.
@@ -168,6 +176,42 @@ export default function RequestFormSection({ user = null, options }: Props) {
             ? row.denominations.filter((v) => v !== value)
             : [...row.denominations, value],
         };
+      })
+    );
+  };
+
+  /**
+   * Ticks or unticks a whole combination for a date.
+   *
+   * A combination is a shortcut, not a fourth kind of thing: it ticks the
+   * denominations it stands for, and the order carries one note per
+   * denomination exactly as if they had been tapped one at a time. That is
+   * what keeps pricing, availability and the admin queue unchanged.
+   *
+   * Ticking stops at the cap rather than going over it, so a combination can
+   * be applied in part — the alternative is refusing it outright when there is
+   * room for four of its six notes.
+   */
+  const toggleCombo = (index: number, values: number[]) => {
+    setRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        const wanted = values.map(String);
+        const complete = wanted.every((value) => row.denominations.includes(value));
+
+        if (complete) {
+          return { ...row, denominations: row.denominations.filter((v) => !wanted.includes(v)) };
+        }
+
+        const next = [...row.denominations];
+        let total = noteCount(prev);
+        for (const value of wanted) {
+          if (next.includes(value)) continue;
+          if (total >= MAX_ITEMS_PER_ORDER) break;
+          next.push(value);
+          total += 1;
+        }
+        return { ...row, denominations: next };
       })
     );
   };
@@ -416,6 +460,44 @@ export default function RequestFormSection({ user = null, options }: Props) {
                         <legend className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">
                           Denominations <span className="text-accent">*</span>
                         </legend>
+
+                        {/* Combinations first: one tap for a set the shop
+                            already sells together. Ticking one ticks the notes
+                            below, which stay editable — a customer who wants
+                            "₹10 to ₹500 without the ₹20" can still say so. */}
+                        {combos.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Sets — one tap for several notes:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {combos.map((combo) => {
+                                const picked = combo.denominations.every((value) =>
+                                  row.denominations.includes(String(value))
+                                );
+                                return (
+                                  <button
+                                    key={combo.id}
+                                    type="button"
+                                    onClick={() => toggleCombo(index, combo.denominations)}
+                                    aria-pressed={picked}
+                                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                                      picked
+                                        ? 'border-accent bg-accent/10 text-foreground'
+                                        : 'border-border text-muted-foreground hover:border-accent/60'
+                                    }`}
+                                  >
+                                    {combo.label}
+                                    <span className="text-xs font-normal text-muted-foreground">
+                                      {combo.denominations.length} notes
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap gap-2">
                           {denominations.map((value) => {
                             const picked = row.denominations.includes(String(value));

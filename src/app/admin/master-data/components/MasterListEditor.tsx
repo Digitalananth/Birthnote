@@ -4,11 +4,38 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import {
+  describeCombo,
   masterListMeta,
+  parseComboValue,
   validateOptionValue,
   type MasterListKey,
   type MasterOption,
 } from '@/lib/master-option-types';
+
+/**
+ * A combination as the admin sees it: its name, the notes it stands for, and a
+ * warning when one of those notes is no longer on offer — that combination is
+ * hidden from the form, and silence about it would be a mystery.
+ */
+function ComboRow({ option, denominations }: { option: MasterOption; denominations: string[] }) {
+  const values = parseComboValue(option.value);
+  const missing = values.filter((value) => !denominations.includes(String(value)));
+
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{option.label?.trim() || describeCombo(values)}</span>
+      <span className="text-xs font-normal text-muted-foreground">
+        {values.map((value) => `₹${value}`).join(' · ')} — {values.length} notes
+      </span>
+      {missing.length > 0 && (
+        <span className="text-xs font-normal text-red-600">
+          Not offered on the form: {missing.map((value) => `₹${value}`).join(', ')}{' '}
+          {missing.length === 1 ? 'is' : 'are'} not in Denominations.
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * One editable list.
@@ -21,13 +48,21 @@ import {
 export default function MasterListEditor({
   listKey,
   options,
+  denominations,
 }: {
   listKey: MasterListKey;
   options: MasterOption[];
+  /**
+   * The denominations currently offered — active ones only, since a hidden
+   * denomination is not on the form either. A combination naming one that is
+   * missing says so here, rather than quietly vanishing from the form.
+   */
+  denominations: string[];
 }) {
   const meta = masterListMeta(listKey);
   const router = useRouter();
   const [value, setValue] = useState('');
+  const [label, setLabel] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -63,9 +98,12 @@ export default function MasterListEditor({
     const ok = await send('/api/admin/master-options', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listKey, value: checked.value }),
+      body: JSON.stringify({ listKey, value: checked.value, label: label.trim() }),
     });
-    if (ok) setValue('');
+    if (ok) {
+      setValue('');
+      setLabel('');
+    }
   };
 
   const patch = (id: number, payload: Record<string, unknown>) =>
@@ -78,7 +116,7 @@ export default function MasterListEditor({
   const remove = (option: MasterOption) => {
     if (
       !window.confirm(
-        `Delete “${option.value}” from ${meta.label}?\n\nOrders that already chose it keep it — they store the text, not a link to this list. It simply stops being offered.`
+        `Delete “${option.label?.trim() || option.value}” from ${meta.label}?\n\nOrders that already chose it keep it — they store the text, not a link to this list. It simply stops being offered.`
       )
     ) {
       return;
@@ -108,11 +146,12 @@ export default function MasterListEditor({
           {options.map((option, index) => (
             <li key={option.id} className="flex items-center gap-3 py-2.5">
               <span
-                className={`flex-1 text-sm font-medium ${
+                className={`flex-1 min-w-0 text-sm font-medium ${
                   option.isActive ? 'text-foreground' : 'text-muted-foreground/60 line-through'
                 }`}
               >
-                {meta.numeric ? `₹${option.value}` : option.value}
+                {meta.combo ? <ComboRow option={option} denominations={denominations} /> : null}
+                {meta.combo ? null : meta.numeric ? `₹${option.value}` : option.value}
               </span>
 
               {!option.isActive && (
@@ -169,7 +208,22 @@ export default function MasterListEditor({
         </ul>
       )}
 
-      <form onSubmit={add} className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+      <form
+        onSubmit={add}
+        className={`mt-4 pt-4 border-t border-border ${
+          meta.combo ? 'flex flex-col gap-2 sm:flex-row sm:items-center' : 'flex items-center gap-2'
+        }`}
+      >
+        {meta.combo && (
+          <input
+            type="text"
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="₹10 to ₹500"
+            aria-label="Combination name"
+            className="sm:w-44 px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/40"
+          />
+        )}
         {meta.numeric && <span className="text-sm font-semibold text-muted-foreground">₹</span>}
         <input
           type="text"
@@ -187,6 +241,16 @@ export default function MasterListEditor({
           Add
         </button>
       </form>
+
+      {meta.combo && (
+        <p className="text-xs text-muted-foreground/70 mt-2">
+          Amounts separated by commas. The name is optional — without one it is called “
+          {describeCombo(parseComboValue(value)) === 'Empty combination'
+            ? '₹10 to ₹500'
+            : describeCombo(parseComboValue(value))}
+          ”.
+        </p>
+      )}
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </section>

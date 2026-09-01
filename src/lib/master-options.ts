@@ -3,13 +3,16 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { query } from '@/lib/db';
 import {
   MASTER_LIST_KEYS,
+  describeCombo,
   masterListMeta,
+  parseComboValue,
+  type DenominationCombo,
   type MasterListKey,
   type MasterOption,
   type MasterOptionSets,
 } from '@/lib/master-option-types';
 
-export type { MasterOption, MasterOptionSets } from '@/lib/master-option-types';
+export type { DenominationCombo, MasterOption, MasterOptionSets } from '@/lib/master-option-types';
 
 /**
  * The option lists behind the request form's dropdowns.
@@ -31,6 +34,7 @@ interface OptionRow extends RowDataPacket {
   id: number;
   list_key: MasterListKey;
   value: string;
+  label: string | null;
   position: number;
   is_active: number;
 }
@@ -40,6 +44,7 @@ function toOption(row: OptionRow): MasterOption {
     id: row.id,
     listKey: row.list_key,
     value: row.value,
+    label: row.label,
     position: row.position,
     isActive: Boolean(row.is_active),
   };
@@ -59,7 +64,7 @@ function orderBy(listKey: MasterListKey): string {
 /** Every option in one list, active or not. The admin screen's view. */
 export async function listOptions(listKey: MasterListKey): Promise<MasterOption[]> {
   const rows = await query<OptionRow[]>(
-    `SELECT id, list_key, value, position, is_active
+    `SELECT id, list_key, value, label, position, is_active
        FROM master_options
       WHERE list_key = ?
       ${orderBy(listKey)}`,
@@ -86,28 +91,47 @@ export async function listAllOptions(): Promise<Record<MasterListKey, MasterOpti
  */
 export async function getMasterOptionSets(): Promise<MasterOptionSets> {
   const lists = await listAllOptions();
-  return Object.fromEntries(
-    MASTER_LIST_KEYS.map((key) => [
-      key,
-      lists[key].filter((option) => option.isActive).map((option) => option.value),
-    ])
-  ) as MasterOptionSets;
+  const active = (key: MasterListKey) => lists[key].filter((option) => option.isActive);
+
+  return {
+    denomination: active('denomination').map((option) => option.value),
+    denomination_combo: active('denomination_combo').map(toCombo),
+    gift_relationship: active('gift_relationship').map((option) => option.value),
+    occasion: active('occasion').map((option) => option.value),
+  };
 }
 
-export async function createOption(listKey: MasterListKey, value: string): Promise<MasterOption> {
+/** Unpacks a stored "10,20,50" into something the form can tick. */
+export function toCombo(option: MasterOption): DenominationCombo {
+  const denominations = parseComboValue(option.value);
+  return {
+    id: option.id,
+    label: option.label?.trim() || describeCombo(denominations),
+    denominations,
+  };
+}
+
+export async function createOption(
+  listKey: MasterListKey,
+  value: string,
+  label: string | null = null
+): Promise<MasterOption> {
   // Appended, not inserted: a new option goes to the bottom of the list where
   // whoever added it will look for it.
-  const [{ next }] = await query<(RowDataPacket & { next: number })[]>(
+  const [row] = await query<(RowDataPacket & { next: number | string })[]>(
     'SELECT COALESCE(MAX(position), -1) + 1 AS next FROM master_options WHERE list_key = ?',
     [listKey]
   );
+  // MySQL hands back the sum of an unsigned column as a string; without this
+  // the returned option carries a "2" where its type promises a 2.
+  const next = Number(row.next);
 
   try {
     const result = await query<ResultSetHeader>(
-      'INSERT INTO master_options (list_key, value, position) VALUES (?, ?, ?)',
-      [listKey, value, next]
+      'INSERT INTO master_options (list_key, value, label, position) VALUES (?, ?, ?, ?)',
+      [listKey, value, label, next]
     );
-    return { id: result.insertId, listKey, value, position: next, isActive: true };
+    return { id: result.insertId, listKey, value, label, position: next, isActive: true };
   } catch (error) {
     if ((error as { code?: string }).code === 'ER_DUP_ENTRY') throw new DuplicateOptionError();
     throw error;
@@ -138,7 +162,7 @@ export async function deleteOption(id: number): Promise<boolean> {
 /** Moves an option one place up or down its list. */
 export async function moveOption(id: number, direction: 'up' | 'down'): Promise<boolean> {
   const rows = await query<OptionRow[]>(
-    'SELECT id, list_key, value, position, is_active FROM master_options WHERE id = ?',
+    'SELECT id, list_key, value, label, position, is_active FROM master_options WHERE id = ?',
     [id]
   );
   if (!rows.length) return false;
