@@ -21,7 +21,9 @@ export default function Header() {
     } else {
       document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [mobileOpen]);
 
   const navLinks = [
@@ -38,11 +40,16 @@ export default function Header() {
 
   return (
     <>
+      {/*
+        Solid, never transparent. It used to fade in only past 40px of scroll,
+        which left the logo and the links painted in dark ink over the top of
+        the hero photograph — unreadable exactly when someone first lands. A
+        header that is always its own colour costs nothing and is always legible.
+        The scroll state now only lifts a shadow off the page.
+      */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled
-            ? 'bg-card/90 backdrop-blur-xl border-b border-border shadow-sm'
-            : 'bg-transparent'
+        className={`fixed top-0 left-0 right-0 z-50 bg-card border-b border-border transition-shadow duration-300 ${
+          scrolled ? 'shadow-sm' : ''
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 md:px-12 h-20 flex items-center justify-between">
@@ -54,7 +61,7 @@ export default function Header() {
               onClick={() => {}}
             />
             <span className="font-serif font-medium text-xl tracking-tight text-foreground">
-              BirthNote
+              My Lucky Dates
             </span>
           </Link>
 
