@@ -35,6 +35,10 @@ export default function ItemActions({
     // click rather than retyping the denomination they already told us.
     noteDenomination:
       item.noteDenomination ?? (item.requestedDenomination ? `₹${item.requestedDenomination}` : ''),
+    // Not on the form: we sell Indian notes only, so a text box that always
+    // says "India" is a spelling risk and nothing else. It is still stored,
+    // because the invoice and the customer's order both name the country —
+    // put the field back here if that ever stops being true.
     noteCountry: item.noteCountry ?? 'India',
     noteCondition: item.noteCondition ?? '',
     noteSerial: item.noteSerial ?? '',
@@ -165,7 +169,6 @@ export default function ItemActions({
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {field('noteDenomination', 'Denomination found', '₹10 Reserve Bank of India Note')}
-            {field('noteCountry', 'Country')}
             {conditionField()}
             {field('noteSerial', 'Serial prefix', '9AB')}
             {field('rupees', 'Price for this note (₹)', '2499')}
