@@ -121,6 +121,55 @@ export function availableItems(order: Order): OrderItem[] {
   return order.items.filter((item) => item.availability === 'available');
 }
 
+/**
+ * One date block as the customer filled it in.
+ *
+ * The form asks for a date, a recipient, and every denomination wanted for
+ * that date — and then expands that into one item per note. This puts the
+ * items back into the blocks they came from, so an order of seven notes reads
+ * as the two requests it actually was rather than seven unrelated lines.
+ */
+export interface OrderItemGroup {
+  key: string;
+  noteDate: string;
+  displayDate: string;
+  giftRelationship: string | null;
+  giftFor: string | null;
+  items: OrderItem[];
+}
+
+/**
+ * Groups an order's items back into the blocks they were requested in.
+ *
+ * The recipient is part of the key, not just the date: two notes for the same
+ * day bought for two different people were two blocks on the form, and merging
+ * them would put one person's name over the other's note. Order is preserved —
+ * groups appear in the order their first note does, and `position` already
+ * carries the sequence the customer typed.
+ */
+export function groupOrderItems(items: OrderItem[]): OrderItemGroup[] {
+  const groups = new Map<string, OrderItemGroup>();
+
+  for (const item of items) {
+    const key = `${item.noteDate}|${item.giftRelationship ?? ''}|${item.giftFor ?? ''}`;
+    const group = groups.get(key);
+    if (group) {
+      group.items.push(item);
+    } else {
+      groups.set(key, {
+        key,
+        noteDate: item.noteDate,
+        displayDate: item.displayDate,
+        giftRelationship: item.giftRelationship,
+        giftFor: item.giftFor,
+        items: [item],
+      });
+    }
+  }
+
+  return [...groups.values()];
+}
+
 /** A one-line description of what an order is for. */
 export function summariseOrder(order: Order): string {
   if (order.items.length === 1) return order.items[0].displayDate;

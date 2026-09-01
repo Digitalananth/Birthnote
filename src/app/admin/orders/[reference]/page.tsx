@@ -10,6 +10,7 @@ import { requireAdmin } from '@/lib/auth';
 import { getOrderByReference, getOrderEvents } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
+import { groupOrderItems } from '@/lib/order-types';
 
 /** Rendering strategy: SSR — always the live record. */
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
   if (!order) notFound();
 
   const events = await getOrderEvents(order.id);
+  const groups = groupOrderItems(order.items);
   const config = STATUS_CONFIG[order.status];
 
   return (
@@ -114,10 +116,37 @@ export default async function AdminOrderPage({ params }: PageProps) {
           <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
             Mark each one found or not found and give the found ones a price. The order total is the
             sum of what you price here.
+            {groups.length > 1 && ` Grouped by date — this order asked for ${groups.length} dates.`}
           </p>
-          <div className="flex flex-col gap-4">
-            {order.items.map((item) => (
-              <ItemActions key={item.id} order={order} item={item} />
+          {/*
+            Grouped by the date block the customer filled in, not listed flat.
+            One block is one request — a date, a recipient, and every
+            denomination wanted for it — so seven notes read as the two things
+            that were actually asked for. A flat list made the admin work out
+            for themselves which of seven lines belonged together.
+          */}
+          <div className="flex flex-col gap-8">
+            {groups.map((group) => (
+              <div key={group.key} className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-2">
+                  <p className="font-mono font-bold text-foreground tracking-wide">
+                    {group.displayDate}
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    {group.items.length === 1 ? '1 note' : `${group.items.length} notes`}
+                  </p>
+                  {(group.giftRelationship || group.giftFor) && (
+                    <p className="text-xs text-muted-foreground">
+                      {group.giftRelationship && `For ${group.giftRelationship.toLowerCase()}`}
+                      {group.giftFor && ` — ${group.giftFor}`}
+                    </p>
+                  )}
+                </div>
+
+                {group.items.map((item) => (
+                  <ItemActions key={item.id} order={order} item={item} />
+                ))}
+              </div>
             ))}
           </div>
         </div>
