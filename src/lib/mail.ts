@@ -677,17 +677,23 @@ export function signInCodeEmail(
     `<p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Enter this code to sign in to My Lucky Dates:</p>
      <p style="margin:0 0 18px;font-size:34px;letter-spacing:8px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(code)}</p>
      <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#6B5C4A;">It works for ${expiresInMinutes} minutes and once only.</p>
-     <p style="margin:0;font-size:14px;line-height:1.6;color:#6B5C4A;">If you did not ask to sign in, ignore this email. Nobody from My Lucky Dates will ever ask you for this code.</p>`
+     <p style="margin:0;font-size:14px;line-height:1.6;color:#6B5C4A;">If you did not ask to sign in, you can ignore this email. We will never phone or write to ask you to read this code out.</p>`
   );
   return {
     to: email,
-    subject: `${code} is your My Lucky Dates sign-in code`,
+    // The code deliberately does NOT lead the subject. Order emails from this
+    // same transport arrive fine and sign-in codes did not, which puts the
+    // difference in the content rather than the sender: a subject beginning
+    // with a bare six-digit number is a well-worn spam signal, and it is the
+    // one thing these two emails did not share.
+    subject: 'Your My Lucky Dates sign-in code',
     html,
     text: `Your My Lucky Dates sign-in code is ${code}
 
 It works for ${expiresInMinutes} minutes and once only.
 
-If you did not ask to sign in, ignore this email. Nobody from My Lucky Dates will ever ask you for this code.
+If you did not ask to sign in, you can ignore this email. We will never
+phone or write to ask you to read this code out.
 
 — My Lucky Dates`,
   };
