@@ -163,7 +163,7 @@ export default function ItemActions({
       {!locked && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {field('noteDenomination', 'Denomination found', '₹10 Reserve Bank of India Note')}
+            {field('noteDenomination', 'Denomination', '₹10 Reserve Bank of India Note')}
             {conditionField()}
             {field('noteSerial', 'Serial number', '9AB 123456')}
             {field('rupees', 'Price for this note (₹)', '2499')}
