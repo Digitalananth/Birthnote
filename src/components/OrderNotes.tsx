@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from '@/components/ui/AppIcon';
+import NotePhotos from '@/components/NotePhotos';
 import {
   groupOrderItems,
   type Order,
@@ -168,6 +169,14 @@ function NoteRow({
   return (
     <li className="flex items-start gap-4 py-3 first:pt-0 last:pb-0">
       <Icon name={state.icon} size={18} className={`${state.color} mt-0.5 shrink-0`} />
+
+      {/* The note itself, when the admin has photographed it. Beside the row
+          rather than inside the text, so it reads as this note's picture. */}
+      <NotePhotos
+        reference={order.reference}
+        photos={item.photos}
+        label={`${item.displayDate}${item.noteDenomination ? ` · ${item.noteDenomination}` : ''}`}
+      />
 
       <div className="flex-1 min-w-0">
         {withDate ? (

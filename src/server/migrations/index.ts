@@ -13,6 +13,7 @@ import { migration as m0011 } from './0011_master_options';
 import { migration as m0012 } from './0012_denomination_combos';
 import { migration as m0013 } from './0013_tax_shipping_invoices';
 import { migration as m0014 } from './0014_note_condition_options';
+import { migration as m0015 } from './0015_item_photos';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -38,4 +39,5 @@ export const migrations: readonly Migration[] = [
   m0012,
   m0013,
   m0014,
+  m0015,
 ];

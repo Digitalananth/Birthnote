@@ -42,6 +42,8 @@ export const HOLD_SOON_DAYS = 2;
 /** Where one requested note stands. Availability is per note, not per order. */
 export type ItemAvailability = 'pending' | 'available' | 'unavailable';
 
+import type { OrderItemPhoto } from '@/lib/order-photo-types';
+
 export interface OrderItem {
   id: number;
   position: number;
@@ -57,6 +59,11 @@ export interface OrderItem {
   noteCondition: string | null;
   noteSerial: string | null;
   noteCountry: string | null;
+  /**
+   * Photographs of the note itself, taken by the admin once it is found.
+   * Metadata only — the bytes are served from their own route.
+   */
+  photos: OrderItemPhoto[];
 }
 
 /** Where an order is going. Null on every field until the customer fills it in. */

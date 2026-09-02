@@ -16,6 +16,17 @@ import {
   type ShippingAddress,
   HOLD_SOON_DAYS,
 } from '@/lib/order-types';
+import { loadPhotosByItem } from '@/lib/order-photos';
+import type { OrderItemPhoto } from '@/lib/order-photo-types';
+
+/** The photo columns `readOrder` selects — the blob is deliberately not one. */
+interface PhotoMetaRow {
+  id: number;
+  order_item_id: number;
+  content_type: string;
+  byte_size: number;
+  created_at: Date;
+}
 
 export { ORDER_STATUSES, availableItems, summariseOrder };
 export type {
@@ -85,7 +96,7 @@ interface ItemRow extends RowDataPacket {
   note_country: string | null;
 }
 
-function mapItem(row: ItemRow): OrderItem {
+function mapItem(row: ItemRow, photos?: Map<number, OrderItemPhoto[]>): OrderItem {
   return {
     id: row.id,
     position: row.position,
@@ -100,6 +111,7 @@ function mapItem(row: ItemRow): OrderItem {
     noteCondition: row.note_condition,
     noteSerial: row.note_serial,
     noteCountry: row.note_country,
+    photos: photos?.get(row.id) ?? [],
   };
 }
 
@@ -172,9 +184,10 @@ async function loadItems(orderIds: number[]): Promise<Map<number, OrderItem[]>> 
       ORDER BY order_id, position, id`,
     orderIds
   );
+  const photos = await loadPhotosByItem(orderIds);
   for (const row of rows) {
     const list = grouped.get(row.order_id) ?? [];
-    list.push(mapItem(row));
+    list.push(mapItem(row, photos));
     grouped.set(row.order_id, list);
   }
   return grouped;
@@ -338,7 +351,7 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
           'SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id',
           [orderId]
         );
-        return mapOrder(rows[0], items.map(mapItem));
+        return mapOrder(rows[0], items.map((item) => mapItem(item)));
       });
     } catch (error) {
       const code = (error as { code?: string }).code;
@@ -629,7 +642,25 @@ async function readOrder(conn: PoolConnection, orderId: number): Promise<Order> 
     'SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id',
     [orderId]
   );
-  return mapOrder(rows[0], items.map(mapItem));
+  // Read on the same connection: this runs inside the transaction that just
+  // changed the order, and the pool's other connections cannot see it yet.
+  const [photoRows] = await conn.execute<(RowDataPacket & PhotoMetaRow)[]>(
+    `SELECT id, order_item_id, content_type, byte_size, created_at
+       FROM order_item_photos WHERE order_id = ? ORDER BY order_item_id, position, id`,
+    [orderId]
+  );
+  const photos = new Map<number, OrderItemPhoto[]>();
+  for (const photo of photoRows) {
+    const list = photos.get(photo.order_item_id) ?? [];
+    list.push({
+      id: photo.id,
+      contentType: photo.content_type,
+      byteSize: photo.byte_size,
+      createdAt: photo.created_at.toISOString(),
+    });
+    photos.set(photo.order_item_id, list);
+  }
+  return mapOrder(rows[0], items.map((item) => mapItem(item, photos)));
 }
 
 /**

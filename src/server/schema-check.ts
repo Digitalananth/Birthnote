@@ -33,6 +33,10 @@ const expected: Record<string, string[]> = {
     'gift_relationship', 'gift_for', 'availability', 'price_paise', 'note_denomination',
     'note_condition', 'note_serial', 'note_country', 'created_at', 'updated_at',
   ],
+  order_item_photos: [
+    'id', 'order_item_id', 'order_id', 'content_type', 'byte_size', 'sha256', 'data',
+    'position', 'uploaded_by', 'created_at',
+  ],
   order_events: ['id', 'order_id', 'status', 'note', 'actor', 'created_at'],
   rate_limits: ['bucket', 'hits', 'window_start'],
   admin_users: [

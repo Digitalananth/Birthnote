@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
+import ItemPhotos from '@/app/admin/components/ItemPhotos';
 import type { Order, OrderItem, ItemAvailability } from '@/lib/order-types';
 import { formatPrice } from '@/lib/validation';
 
@@ -203,6 +204,20 @@ export default function ItemActions({
             )}
           </div>
         </>
+      )}
+
+      {/* The photograph of the note, kept out of the field grid because it
+          saves on its own — a picture is added the moment the note is in hand,
+          which is not always the moment it gets priced. Hidden only for a note
+          we know we do not have, and then only while it has no photos. */}
+      {(item.availability !== 'unavailable' || item.photos.length > 0) && (
+        <ItemPhotos
+          reference={order.reference}
+          itemId={item.id}
+          label={`${item.displayDate}${fields.noteDenomination ? ` · ${fields.noteDenomination}` : ''}`}
+          photos={item.photos}
+          locked={locked}
+        />
       )}
 
       {locked && (
