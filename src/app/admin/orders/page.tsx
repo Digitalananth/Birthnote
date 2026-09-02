@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import AdminNav from '@/app/admin/components/AdminNav';
+import OrderPhotoQuickAdd from '@/app/admin/components/OrderPhotoQuickAdd';
 import { requireAdmin } from '@/lib/auth';
 import {
   listOrders,
@@ -171,11 +172,19 @@ export default async function AdminOrdersPage({
             {orders.map((order) => {
               const config = STATUS_CONFIG[order.status];
               return (
-                <Link
+                // The row is still one big link to the order, but the photo
+                // control on it is a button — so the link is an overlay behind
+                // the content rather than the element wrapping it. Nesting a
+                // button inside an anchor would navigate on every click.
+                <div
                   key={order.reference}
-                  href={`/admin/orders/${order.reference}`}
-                  className="card-warm p-5 flex flex-wrap items-center gap-4 hover:border-primary/40 transition-colors"
+                  className="relative card-warm p-5 flex flex-wrap items-center gap-4 hover:border-primary/40 transition-colors"
                 >
+                  <Link
+                    href={`/admin/orders/${order.reference}`}
+                    aria-label={`Open order ${order.reference}`}
+                    className="absolute inset-0 rounded-xl"
+                  />
                   <div
                     className={`w-10 h-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}
                   >
@@ -201,7 +210,9 @@ export default async function AdminOrdersPage({
                       {formatPrice(order.totalPaise, order.currency)}
                     </p>
                   </div>
-                </Link>
+
+                  <OrderPhotoQuickAdd order={order} />
+                </div>
               );
             })}
           </div>
