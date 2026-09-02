@@ -2,7 +2,6 @@ import React from 'react';
 import Icon from '@/components/ui/AppIcon';
 import NotePhotos from '@/components/NotePhotos';
 import {
-  describeRecipient,
   groupOrderItems,
   type Order,
   type OrderItem,
@@ -16,13 +15,16 @@ import { formatPrice } from '@/lib/validation';
  * The form asks for a date, a recipient and every denomination wanted for that
  * date, and the order then stores one row per note. Listed flat, "10 August
  * 1994" repeated six times reads as six unrelated notes rather than the one
- * date the customer asked about — so each block gets a heading and its notes
- * sit under it as denominations.
+ * date the customer asked about — so each request becomes its own section.
  *
- * A single-note order skips all of that and stays one line, as it should.
+ * A section leads with the four things the customer told us — the name, who it
+ * is for, the occasion and the date — set out as labelled fields rather than
+ * run together in a sentence: on the tracking page this is the record of what
+ * they asked for, and they are checking it, not reading it. The notes found
+ * for that request sit underneath.
  *
- * Shared by the tracking page, the payment page and the customer's account so
- * a bulk order reads the same wherever it appears.
+ * Shared by the tracking page and the payment page so an order reads the same
+ * wherever it appears.
  */
 const AVAILABILITY: Record<
   OrderItem['availability'],
@@ -46,28 +48,22 @@ export default function OrderNotes({
 }) {
   const groups = groupOrderItems(order.items);
 
-  // One note is one line. A heading above a single row would be ceremony
-  // around nothing, and it is the commonest order there is.
-  if (order.items.length === 1) {
-    return (
-      <ul className="flex flex-col divide-y divide-border">
-        <NoteRow
-          order={order}
-          item={order.items[0]}
-          showPrices={showPrices}
-          showDetails={showDetails}
-          withDate
-        />
-      </ul>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <div key={group.key}>
-          <GroupHeading group={group} order={order} showPrices={showPrices} />
-          <ul className="flex flex-col divide-y divide-border">
+    <div className="flex flex-col gap-4">
+      {groups.map((group, index) => (
+        <section
+          key={group.key}
+          aria-label={`Request ${index + 1}`}
+          className="rounded-xl border border-border p-4 sm:p-5"
+        >
+          <RequestDetails
+            group={group}
+            order={order}
+            showPrices={showPrices}
+            index={index}
+            total={groups.length}
+          />
+          <ul className="flex flex-col divide-y divide-border mt-4">
             {group.items.map((item) => (
               <NoteRow
                 key={item.id}
@@ -78,7 +74,7 @@ export default function OrderNotes({
               />
             ))}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   );
@@ -87,18 +83,27 @@ export default function OrderNotes({
 /**
  * What was asked for, once, above the notes it produced.
  *
- * The subtotal counts only notes that are both found and priced — a found note
+ * Every field is shown even when it is empty. An order placed before we asked
+ * for the recipient's name has no name, and a dash saying so is clearer than a
+ * field that quietly disappears and leaves someone wondering whether they
+ * filled it in.
+ *
+ * The subtotal counts only notes that are both found and priced: a found note
  * the admin has not priced yet contributes nothing rather than a misleading
  * zero, and it is left out entirely until there is something to show.
  */
-function GroupHeading({
+function RequestDetails({
   group,
   order,
   showPrices,
+  index,
+  total,
 }: {
   group: OrderItemGroup;
   order: Order;
   showPrices: boolean;
+  index: number;
+  total: number;
 }) {
   const subtotal = group.items.reduce(
     (sum, item) => sum + (item.availability === 'available' ? (item.pricePaise ?? 0) : 0),
@@ -106,23 +111,51 @@ function GroupHeading({
   );
 
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2 mb-1 border-b-2 border-accent/40">
-      <div className="min-w-0">
-        <p className="font-mono font-bold text-foreground tracking-wide">{group.displayDate}</p>
-        {describeRecipient(group) && (
-          <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(group)}</p>
-        )}
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-xs font-semibold text-muted-foreground">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2 border-b-2 border-accent/40">
+        <p className="text-[10px] uppercase tracking-widest font-bold text-primary">
+          Request {index + 1}
+          {total > 1 ? ` of ${total}` : ''} ·{' '}
           {group.items.length === 1 ? '1 note' : `${group.items.length} notes`}
         </p>
         {showPrices && subtotal > 0 && (
-          <p className="text-sm font-semibold text-foreground mt-0.5">
+          <p className="text-sm font-semibold text-foreground">
             {formatPrice(subtotal, order.currency)}
           </p>
         )}
       </div>
+
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+        <Detail label="Name" value={group.giftName} />
+        <Detail label="Who is it for" value={group.giftRelationship} />
+        <Detail label="Occasion" value={group.giftFor} />
+        <Detail label="Date" value={group.displayDate} mono />
+      </dl>
+    </div>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string | null;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={`mt-0.5 text-sm font-semibold break-words ${
+          value ? 'text-foreground' : 'text-muted-foreground/60'
+        } ${mono ? 'font-mono tracking-wide' : ''}`}
+      >
+        {value || '—'}
+      </dd>
     </div>
   );
 }
@@ -130,23 +163,20 @@ function GroupHeading({
 /**
  * One note.
  *
- * Under a heading it leads with the denomination, because the date is already
- * overhead and repeating it six times is the noise this grouping removes.
- * `withDate` puts the date back for the single-note order, which has no
- * heading to carry it.
+ * The date and the recipient are the section's job, so a row carries only what
+ * differs between the notes of one request: the denomination, its condition,
+ * the photograph of the note itself, and what it costs.
  */
 function NoteRow({
   order,
   item,
   showPrices,
   showDetails,
-  withDate = false,
 }: {
   order: Order;
   item: OrderItem;
   showPrices: boolean;
   showDetails: boolean;
-  withDate?: boolean;
 }) {
   const state = AVAILABILITY[item.availability];
   const details = [
@@ -160,7 +190,7 @@ function NoteRow({
   const denomination = item.noteDenomination
     ? item.noteDenomination
     : item.requestedDenomination
-      ? `₹${item.requestedDenomination}${withDate ? ' requested' : ''}`
+      ? `₹${item.requestedDenomination}`
       : null;
 
   return (
@@ -172,29 +202,13 @@ function NoteRow({
       <NotePhotos
         reference={order.reference}
         photos={item.photos}
-        label={`${item.displayDate}${item.noteDenomination ? ` · ${item.noteDenomination}` : ''}`}
+        label={`${item.displayDate}${denomination ? ` · ${denomination}` : ''}`}
       />
 
       <div className="flex-1 min-w-0">
-        {withDate ? (
-          <p className="font-mono font-bold text-foreground tracking-wide">
-            {item.displayDate}
-            {denomination && (
-              <span className="font-sans font-medium text-sm text-muted-foreground">
-                {' '}
-                · {denomination}
-              </span>
-            )}
-          </p>
-        ) : (
-          <p className="font-sans font-semibold text-foreground">
-            {denomination ?? 'Any denomination'}
-          </p>
-        )}
-
-        {withDate && describeRecipient(item) && (
-          <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(item)}</p>
-        )}
+        <p className="font-sans font-semibold text-foreground">
+          {denomination ?? 'Any denomination'}
+        </p>
         {showDetails && details && (
           <p className="text-xs text-muted-foreground mt-0.5">{details}</p>
         )}
