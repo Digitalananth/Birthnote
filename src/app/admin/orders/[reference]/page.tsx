@@ -6,11 +6,12 @@ import Icon from '@/components/ui/AppIcon';
 import StatusActions from '@/app/admin/components/StatusActions';
 import HoldActions from '@/app/admin/components/HoldActions';
 import ItemActions from '@/app/admin/components/ItemActions';
+import RequestFields from '@/components/RequestFields';
 import { requireAdmin } from '@/lib/auth';
 import { getOrderByReference, getOrderEvents } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
-import { describeRecipient, groupOrderItems } from '@/lib/order-types';
+import { groupOrderItems } from '@/lib/order-types';
 import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
@@ -192,20 +193,16 @@ export default async function AdminOrderPage({ params }: PageProps) {
             return (
               <section key={group.key} className="card-warm overflow-hidden">
                 <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-6 py-4 bg-secondary/30 border-b border-border">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-primary mb-2">
                       Request {index + 1}
                       {groups.length > 1 ? ` of ${groups.length}` : ''} ·{' '}
                       {group.items.length === 1 ? '1 note' : `${group.items.length} notes`}
                     </p>
-                    <p className="font-mono font-bold text-foreground tracking-wide">
-                      {group.displayDate}
-                    </p>
-                    {describeRecipient(group) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {describeRecipient(group)}
-                      </p>
-                    )}
+                    {/* The same four fields the customer sees on the tracking
+                        page, in the same order — so reading a request back to
+                        someone on the phone is reading the same thing. */}
+                    <RequestFields group={group} />
                   </div>
 
                   <div className="text-right shrink-0">

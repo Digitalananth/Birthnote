@@ -216,31 +216,6 @@ export function groupOrderItems(items: OrderItem[]): OrderItemGroup[] {
   return [...groups.values()];
 }
 
-/**
- * Who a note is for, in one line: the name, the relationship, the occasion.
- *
- * One function so the tracking page, the admin queue and the emails all
- * describe a recipient the same way, and so orders placed before the name was
- * asked for — where it is simply missing — still read as a sentence rather
- * than as a gap between two dashes.
- */
-export function describeRecipient(recipient: {
-  giftRelationship: string | null;
-  giftName: string | null;
-  giftFor: string | null;
-}): string {
-  const who = recipient.giftName
-    ? recipient.giftRelationship
-      ? `${recipient.giftName} (${recipient.giftRelationship.toLowerCase()})`
-      : recipient.giftName
-    : recipient.giftRelationship
-      ? `a ${recipient.giftRelationship.toLowerCase()}`
-      : '';
-  const lead = who ? `For ${who}` : '';
-  if (lead && recipient.giftFor) return `${lead} — ${recipient.giftFor}`;
-  return lead || recipient.giftFor || '';
-}
-
 /** A one-line description of what an order is for. */
 export function summariseOrder(order: Order): string {
   if (order.items.length === 1) return order.items[0].displayDate;

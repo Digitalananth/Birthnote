@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import ItemPhotos from '@/app/admin/components/ItemPhotos';
-import { describeRecipient, type Order, type OrderItem, type ItemAvailability } from '@/lib/order-types';
+import type { Order, OrderItem, ItemAvailability } from '@/lib/order-types';
 import { formatPrice } from '@/lib/validation';
 
 /**
@@ -153,9 +153,6 @@ export default function ItemActions({
               </span>
             )}
           </p>
-          {describeRecipient(item) && (
-            <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(item)}</p>
-          )}
         </div>
         <p className={`text-xs font-semibold ${state.color}`}>
           {state.label}

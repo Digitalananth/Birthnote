@@ -1,6 +1,7 @@
 import React from 'react';
 import Icon from '@/components/ui/AppIcon';
 import NotePhotos from '@/components/NotePhotos';
+import RequestFields from '@/components/RequestFields';
 import {
   groupOrderItems,
   type Order,
@@ -125,37 +126,7 @@ function RequestDetails({
         )}
       </div>
 
-      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-        <Detail label="Name" value={group.giftName} />
-        <Detail label="Who is it for" value={group.giftRelationship} />
-        <Detail label="Occasion" value={group.giftFor} />
-        <Detail label="Date" value={group.displayDate} mono />
-      </dl>
-    </div>
-  );
-}
-
-function Detail({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string | null;
-  mono?: boolean;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={`mt-0.5 text-sm font-semibold break-words ${
-          value ? 'text-foreground' : 'text-muted-foreground/60'
-        } ${mono ? 'font-mono tracking-wide' : ''}`}
-      >
-        {value || '—'}
-      </dd>
+      <RequestFields group={group} />
     </div>
   );
 }
