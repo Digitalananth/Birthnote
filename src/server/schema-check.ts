@@ -30,7 +30,7 @@ const expected: Record<string, string[]> = {
   ],
   order_items: [
     'id', 'order_id', 'position', 'note_date', 'display_date', 'requested_denomination',
-    'gift_relationship', 'gift_for', 'availability', 'price_paise', 'note_denomination',
+    'gift_relationship', 'gift_name', 'gift_for', 'availability', 'price_paise', 'note_denomination',
     'note_condition', 'note_serial', 'note_country', 'created_at', 'updated_at',
   ],
   order_item_photos: [

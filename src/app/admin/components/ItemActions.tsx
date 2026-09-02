@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import ItemPhotos from '@/app/admin/components/ItemPhotos';
-import type { Order, OrderItem, ItemAvailability } from '@/lib/order-types';
+import { describeRecipient, type Order, type OrderItem, type ItemAvailability } from '@/lib/order-types';
 import { formatPrice } from '@/lib/validation';
 
 /**
@@ -153,11 +153,8 @@ export default function ItemActions({
               </span>
             )}
           </p>
-          {(item.giftFor || item.giftRelationship) && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {item.giftRelationship && `For ${item.giftRelationship.toLowerCase()}`}
-              {item.giftFor && ` — ${item.giftFor}`}
-            </p>
+          {describeRecipient(item) && (
+            <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(item)}</p>
           )}
         </div>
         <p className={`text-xs font-semibold ${state.color}`}>

@@ -87,6 +87,7 @@ interface ItemRow extends RowDataPacket {
   display_date: string;
   requested_denomination: number | null;
   gift_relationship: string | null;
+  gift_name: string | null;
   gift_for: string | null;
   availability: ItemAvailability;
   price_paise: number | null;
@@ -104,6 +105,7 @@ function mapItem(row: ItemRow, photos?: Map<number, OrderItemPhoto[]>): OrderIte
     displayDate: row.display_date,
     requestedDenomination: row.requested_denomination,
     giftRelationship: row.gift_relationship,
+    giftName: row.gift_name,
     giftFor: row.gift_for,
     availability: row.availability,
     pricePaise: row.price_paise,
@@ -322,8 +324,8 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
           await conn.execute(
             `INSERT INTO order_items
                (order_id, position, note_date, display_date, requested_denomination,
-                gift_relationship, gift_for)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                gift_relationship, gift_name, gift_for)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               orderId,
               index + 1,
@@ -331,6 +333,7 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
               item.displayDate,
               item.requestedDenomination || null,
               item.giftRelationship || null,
+              item.giftName || null,
               item.giftFor || null,
             ]
           );

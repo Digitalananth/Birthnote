@@ -51,6 +51,8 @@ export interface OrderItem {
   displayDate: string;
   requestedDenomination: number | null;
   giftRelationship: string | null;
+  /** The recipient's name. Null on orders placed before we asked for one. */
+  giftName: string | null;
   giftFor: string | null;
   availability: ItemAvailability;
   /** What this note costs. Null until the admin confirms it. */
@@ -144,6 +146,7 @@ export interface NewOrderItemInput {
   displayDate: string;
   requestedDenomination?: number | null;
   giftRelationship?: string | null;
+  giftName?: string | null;
   giftFor?: string | null;
 }
 
@@ -175,6 +178,7 @@ export interface OrderItemGroup {
   noteDate: string;
   displayDate: string;
   giftRelationship: string | null;
+  giftName: string | null;
   giftFor: string | null;
   items: OrderItem[];
 }
@@ -192,7 +196,7 @@ export function groupOrderItems(items: OrderItem[]): OrderItemGroup[] {
   const groups = new Map<string, OrderItemGroup>();
 
   for (const item of items) {
-    const key = `${item.noteDate}|${item.giftRelationship ?? ''}|${item.giftFor ?? ''}`;
+    const key = `${item.noteDate}|${item.giftRelationship ?? ''}|${item.giftName ?? ''}|${item.giftFor ?? ''}`;
     const group = groups.get(key);
     if (group) {
       group.items.push(item);
@@ -202,6 +206,7 @@ export function groupOrderItems(items: OrderItem[]): OrderItemGroup[] {
         noteDate: item.noteDate,
         displayDate: item.displayDate,
         giftRelationship: item.giftRelationship,
+        giftName: item.giftName,
         giftFor: item.giftFor,
         items: [item],
       });
@@ -209,6 +214,31 @@ export function groupOrderItems(items: OrderItem[]): OrderItemGroup[] {
   }
 
   return [...groups.values()];
+}
+
+/**
+ * Who a note is for, in one line: the name, the relationship, the occasion.
+ *
+ * One function so the tracking page, the admin queue and the emails all
+ * describe a recipient the same way, and so orders placed before the name was
+ * asked for — where it is simply missing — still read as a sentence rather
+ * than as a gap between two dashes.
+ */
+export function describeRecipient(recipient: {
+  giftRelationship: string | null;
+  giftName: string | null;
+  giftFor: string | null;
+}): string {
+  const who = recipient.giftName
+    ? recipient.giftRelationship
+      ? `${recipient.giftName} (${recipient.giftRelationship.toLowerCase()})`
+      : recipient.giftName
+    : recipient.giftRelationship
+      ? `a ${recipient.giftRelationship.toLowerCase()}`
+      : '';
+  const lead = who ? `For ${who}` : '';
+  if (lead && recipient.giftFor) return `${lead} — ${recipient.giftFor}`;
+  return lead || recipient.giftFor || '';
 }
 
 /** A one-line description of what an order is for. */

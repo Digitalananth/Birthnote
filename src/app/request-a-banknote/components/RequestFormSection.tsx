@@ -50,6 +50,7 @@ const emptyRow = (): ItemRow => ({
   year: '',
   denominations: [],
   giftRelationship: '',
+  giftName: '',
   giftFor: '',
 });
 
@@ -538,17 +539,20 @@ export default function RequestFormSection({ user = null, options }: Props) {
                         )}
                       </fieldset>
 
-                      {/* Who it is for */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {/* Who it is for.
+
+                          Three fields, all required: the relationship, the
+                          person's name, and the occasion. They used to be two
+                          optional ones, which meant a note could arrive with
+                          nobody's name on it — and the name was competing with
+                          "Dad's 60th" for the same box. */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         <div>
                           <label
                             htmlFor={`relationship-${row.key}`}
                             className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
                           >
-                            Who is it for{' '}
-                            <span className="text-muted-foreground/50 normal-case font-normal tracking-normal">
-                              (optional)
-                            </span>
+                            Who is it for
                           </label>
                           <div className={underline(rowErrors.giftRelationship)}>
                             <select
@@ -565,6 +569,34 @@ export default function RequestFormSection({ user = null, options }: Props) {
                               ))}
                             </select>
                           </div>
+                          {rowErrors.giftRelationship && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {rowErrors.giftRelationship}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor={`giftName-${row.key}`}
+                            className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
+                          >
+                            Name
+                          </label>
+                          <div className={underline(rowErrors.giftName)}>
+                            <input
+                              id={`giftName-${row.key}`}
+                              type="text"
+                              autoComplete="off"
+                              placeholder="Anita"
+                              value={row.giftName}
+                              onChange={(e) => setRow(index, { giftName: e.target.value })}
+                              className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
+                            />
+                          </div>
+                          {rowErrors.giftName && (
+                            <p className="text-xs text-red-500 mt-1">{rowErrors.giftName}</p>
+                          )}
                         </div>
 
                         <div>
@@ -572,24 +604,21 @@ export default function RequestFormSection({ user = null, options }: Props) {
                             htmlFor={`giftFor-${row.key}`}
                             className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
                           >
-                            Occasion or name{' '}
-                            <span className="text-muted-foreground/50 normal-case font-normal tracking-normal">
-                              (optional)
-                            </span>
+                            Occasion
                           </label>
                           <div className={underline(rowErrors.giftFor)}>
                             {/*
                               A datalist, not a <select>: the admin's occasions
                               are offered, and anything else can still be typed.
-                              This field carries "Dad's 60th" and bare names as
-                              often as it carries "Birthday", and a dropdown
-                              would have thrown those away.
+                              This field carries "Dad's 60th" as often as it
+                              carries "Birthday", and a dropdown would have
+                              thrown those away.
                             */}
                             <input
                               id={`giftFor-${row.key}`}
                               type="text"
                               list={occasions.length ? `occasions-${row.key}` : undefined}
-                              placeholder="Dad's 60th"
+                              placeholder="60th birthday"
                               value={row.giftFor}
                               onChange={(e) => setRow(index, { giftFor: e.target.value })}
                               className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"

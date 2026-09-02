@@ -21,6 +21,8 @@ export interface RequestItemValues {
   /** Rupee values as strings, matching what the checkboxes hold. */
   denominations: string[];
   giftRelationship?: string;
+  /** The recipient's name. Required on every new request. */
+  giftName?: string;
   giftFor?: string;
 }
 
@@ -112,6 +114,7 @@ export interface NormalisedItem {
   displayDate: string;
   denomination: number;
   giftRelationship: string | null;
+  giftName: string | null;
   giftFor: string | null;
 }
 
@@ -147,6 +150,7 @@ export function validateRequestItem(
   const monthRaw = (values.month ?? '').trim();
   const yearRaw = (values.year ?? '').trim();
   const giftRelationship = (values.giftRelationship ?? '').trim();
+  const giftName = (values.giftName ?? '').trim();
   const giftFor = (values.giftFor ?? '').trim();
 
   const day = Number.parseInt(dayRaw, 10);
@@ -192,16 +196,25 @@ export function validateRequestItem(
     errors.denominations = 'Choose from the listed denominations';
   }
 
-  if (giftRelationship.length > 40) {
+  // Who the note is for is no longer an afterthought: the three fields below
+  // are what goes on the gift card and what the admin searches by, and a note
+  // found for nobody in particular is a note nobody can hand over. Required
+  // for new requests only — orders placed before this rule keep their blanks.
+  if (!giftRelationship) {
+    errors.giftRelationship = 'Choose who this note is for';
+  } else if (giftRelationship.length > 40) {
     errors.giftRelationship = 'Choose one of the listed options';
-  } else if (
-    giftRelationship &&
-    allowed &&
-    !allowed.giftRelationships.includes(giftRelationship)
-  ) {
+  } else if (allowed && !allowed.giftRelationships.includes(giftRelationship)) {
     errors.giftRelationship = 'Choose one of the listed options';
   }
-  if (giftFor.length > 160) {
+  if (!giftName) {
+    errors.giftName = 'Enter their name';
+  } else if (giftName.length > 160) {
+    errors.giftName = 'Keep this under 160 characters';
+  }
+  if (!giftFor) {
+    errors.giftFor = 'Tell us the occasion';
+  } else if (giftFor.length > 160) {
     errors.giftFor = 'Keep this under 160 characters';
   }
 
@@ -217,6 +230,7 @@ export function validateRequestItem(
       displayDate: `${dd}/${mm}/${yearRaw}`,
       denomination,
       giftRelationship: giftRelationship || null,
+      giftName: giftName || null,
       giftFor: giftFor || null,
     })),
   };

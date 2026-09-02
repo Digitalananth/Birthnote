@@ -10,7 +10,7 @@ import { requireAdmin } from '@/lib/auth';
 import { getOrderByReference, getOrderEvents } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
-import { groupOrderItems } from '@/lib/order-types';
+import { describeRecipient, groupOrderItems } from '@/lib/order-types';
 import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
@@ -201,10 +201,9 @@ export default async function AdminOrderPage({ params }: PageProps) {
                     <p className="font-mono font-bold text-foreground tracking-wide">
                       {group.displayDate}
                     </p>
-                    {(group.giftRelationship || group.giftFor) && (
+                    {describeRecipient(group) && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {group.giftRelationship && `For ${group.giftRelationship.toLowerCase()}`}
-                        {group.giftFor && ` — ${group.giftFor}`}
+                        {describeRecipient(group)}
                       </p>
                     )}
                   </div>

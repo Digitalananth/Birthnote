@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         displayDate: item.displayDate,
         requestedDenomination: item.denomination,
         giftRelationship: item.giftRelationship,
+        giftName: item.giftName,
         giftFor: item.giftFor,
       })),
     });

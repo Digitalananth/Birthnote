@@ -133,7 +133,13 @@ function itemLines(items: OrderItem[]): string[] {
     if (item.noteDenomination) parts.push(item.noteDenomination);
     else if (item.requestedDenomination) parts.push(`₹${item.requestedDenomination}`);
     if (item.noteCondition) parts.push(item.noteCondition);
-    if (item.giftFor) parts.push(`for ${item.giftFor}`);
+    // The name first, then the occasion — "for Anita (mother) · Birthday".
+    if (item.giftName) {
+      parts.push(
+        `for ${item.giftName}${item.giftRelationship ? ` (${item.giftRelationship.toLowerCase()})` : ''}`
+      );
+    }
+    if (item.giftFor) parts.push(item.giftFor);
     const line = parts.join(' · ');
     return item.pricePaise ? `${line} — ${formatPrice(item.pricePaise)}` : line;
   });

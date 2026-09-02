@@ -2,6 +2,7 @@ import React from 'react';
 import Icon from '@/components/ui/AppIcon';
 import NotePhotos from '@/components/NotePhotos';
 import {
+  describeRecipient,
   groupOrderItems,
   type Order,
   type OrderItem,
@@ -108,12 +109,8 @@ function GroupHeading({
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2 mb-1 border-b-2 border-accent/40">
       <div className="min-w-0">
         <p className="font-mono font-bold text-foreground tracking-wide">{group.displayDate}</p>
-        {(group.giftFor || group.giftRelationship) && (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {group.giftFor
-              ? `For ${group.giftFor}`
-              : `A gift for ${group.giftRelationship!.toLowerCase()}`}
-          </p>
+        {describeRecipient(group) && (
+          <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(group)}</p>
         )}
       </div>
       <div className="text-right shrink-0">
@@ -195,13 +192,8 @@ function NoteRow({
           </p>
         )}
 
-        {withDate && item.giftFor && (
-          <p className="text-xs text-muted-foreground mt-0.5">For {item.giftFor}</p>
-        )}
-        {withDate && item.giftRelationship && !item.giftFor && (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            A gift for {item.giftRelationship.toLowerCase()}
-          </p>
+        {withDate && describeRecipient(item) && (
+          <p className="text-xs text-muted-foreground mt-0.5">{describeRecipient(item)}</p>
         )}
         {showDetails && details && (
           <p className="text-xs text-muted-foreground mt-0.5">{details}</p>
