@@ -34,13 +34,20 @@ const PAGE_SIZE = 25;
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; page?: string; hold?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    page?: string;
+    hold?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   // The middleware only checks the cookie exists; this resolves the session
   // and gives us the admin whose name goes on anything they change.
   const admin = await requireAdmin('/admin/orders');
 
-  const { status, q, page, hold } = await searchParams;
+  const { status, q, page, hold, from, to } = await searchParams;
   const activeHold = hold === 'soon' || hold === 'lapsed' ? hold : undefined;
   const activeStatus = ORDER_STATUSES.includes(status as OrderStatus)
     ? (status as OrderStatus)
@@ -52,6 +59,8 @@ export default async function AdminOrdersPage({
       status: activeStatus,
       hold: activeHold,
       search: q?.trim() || undefined,
+      from,
+      to,
       limit: PAGE_SIZE,
       offset: (pageNumber - 1) * PAGE_SIZE,
     }),
@@ -61,13 +70,28 @@ export default async function AdminOrdersPage({
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
   const buildHref = (params: Record<string, string | undefined>) => {
     const search = new URLSearchParams();
-    const merged = { status: activeStatus, q, hold: activeHold, ...params };
+    const merged = { status: activeStatus, q, hold: activeHold, from, to, ...params };
     for (const [key, value] of Object.entries(merged)) {
       if (value) search.set(key, value);
     }
     const query = search.toString();
     return query ? `/admin/orders?${query}` : '/admin/orders';
   };
+
+  // The export takes the same filters as the view, minus the paging: what the
+  // admin is looking at is what downloads, all of it rather than this page.
+  const exportParams = new URLSearchParams();
+  for (const [key, value] of Object.entries({
+    status: activeStatus,
+    hold: activeHold,
+    q: q?.trim() || undefined,
+    from,
+    to,
+  })) {
+    if (value) exportParams.set(key, value);
+  }
+  const exportQuery = exportParams.toString();
+  const exportHref = `/api/admin/orders/export${exportQuery ? `?${exportQuery}` : ''}`;
 
   return (
     <main className="min-h-screen bg-secondary/20 px-4 md:px-10 py-10">
@@ -143,22 +167,53 @@ export default async function AdminOrdersPage({
           ))}
         </div>
 
-        {/* Search — a plain GET form, so it works without any client JS */}
-        <form action="/admin/orders" method="get" className="flex gap-2 mb-8">
+        {/* Search and date range — a plain GET form, so it works without any
+            client JS and a period stays in the URL to be bookmarked or handed
+            to the export. */}
+        <form action="/admin/orders" method="get" className="flex flex-wrap items-end gap-2 mb-8">
           {activeStatus && <input type="hidden" name="status" value={activeStatus} />}
           {activeHold && <input type="hidden" name="hold" value={activeHold} />}
           <input
             name="q"
             defaultValue={q ?? ''}
             placeholder="Search reference, name or email"
-            className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="flex-1 min-w-[14rem] px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+              From
+            </span>
+            <input
+              type="date"
+              name="from"
+              defaultValue={from ?? ''}
+              className="px-3 py-2 rounded-xl border border-border bg-background text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+              To
+            </span>
+            <input
+              type="date"
+              name="to"
+              defaultValue={to ?? ''}
+              className="px-3 py-2 rounded-xl border border-border bg-background text-sm"
+            />
+          </label>
           <button
             type="submit"
             className="px-5 py-2.5 rounded-xl bg-foreground text-background text-sm font-semibold"
           >
-            Search
+            Filter
           </button>
+          <a
+            href={exportHref}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Icon name="ArrowDownTrayIcon" size={14} />
+            CSV
+          </a>
         </form>
 
         {/* Orders */}

@@ -372,7 +372,10 @@ export async function createOrder(input: NewOrderInput): Promise<Order> {
           'SELECT * FROM order_items WHERE order_id = ? ORDER BY position, id',
           [orderId]
         );
-        return mapOrder(rows[0], items.map((item) => mapItem(item)));
+        return mapOrder(
+          rows[0],
+          items.map((item) => mapItem(item))
+        );
       });
     } catch (error) {
       const code = (error as { code?: string }).code;
@@ -452,12 +455,15 @@ export interface OrderListFilters {
   search?: string;
   /** Narrows to orders whose hold needs an admin's attention. */
   hold?: HoldFilter;
+  /** Inclusive dates (YYYY-MM-DD) on when the order was placed. */
+  from?: string;
+  to?: string;
   limit?: number;
   offset?: number;
 }
 
 export async function listOrders(filters: OrderListFilters = {}) {
-  const { status, search, hold, limit = 50, offset = 0 } = filters;
+  const { status, search, hold, from, to, limit = 50, offset = 0 } = filters;
   const where: string[] = [];
   const params: unknown[] = [];
 
@@ -479,6 +485,16 @@ export async function listOrders(filters: OrderListFilters = {}) {
       `o.status = 'confirmed' AND o.held_until IS NOT NULL
        AND (o.hold_lapsed_at IS NOT NULL OR o.held_until <= UTC_TIMESTAMP())`
     );
+  }
+  // Inclusive on both ends: "to" is the whole of that day, not midnight on it,
+  // because an admin picking today expects today's orders in the file.
+  if (from) {
+    where.push('o.created_at >= ?');
+    params.push(`${from} 00:00:00`);
+  }
+  if (to) {
+    where.push('o.created_at <= ?');
+    params.push(`${to} 23:59:59`);
   }
   if (search) {
     // Searching a date has to reach into the items now that dates live there.
@@ -681,7 +697,10 @@ async function readOrder(conn: PoolConnection, orderId: number): Promise<Order> 
     });
     photos.set(photo.order_item_id, list);
   }
-  return mapOrder(rows[0], items.map((item) => mapItem(item, photos)));
+  return mapOrder(
+    rows[0],
+    items.map((item) => mapItem(item, photos))
+  );
 }
 
 /**

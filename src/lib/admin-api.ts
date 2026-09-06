@@ -24,3 +24,17 @@ export async function requireOwnerApi(): Promise<
   }
   return { admin };
 }
+
+/**
+ * Any signed-in admin gate for an admin API route.
+ *
+ * The order queue is staff work, so anything that only reads it — the CSV
+ * export included — is open to every admin, the same as the page itself.
+ */
+export async function requireAdminApi(): Promise<
+  { admin: AdminUser; error?: undefined } | { admin?: undefined; error: NextResponse }
+> {
+  const admin = await getCurrentAdmin();
+  if (!admin) return { error: NextResponse.json({ error: 'Not signed in.' }, { status: 401 }) };
+  return { admin };
+}
