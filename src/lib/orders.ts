@@ -162,7 +162,7 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
       : null,
     buyerGstin: row.buyer_gstin,
     currency: row.currency,
-    gateway: row.gateway ?? 'razorpay',
+    gateway: row.gateway ?? 'phonepe',
     adminNotes: row.admin_notes,
     gatewayOrderId: row.gateway_order_id,
     gatewayPaymentId: row.gateway_payment_id,
@@ -240,7 +240,7 @@ export function generateReference(displayDate: string): string {
 /**
  * The order's money, recomputed from its items and the current settings.
  *
- * Denormalised onto `orders` because Razorpay, the receipt email, the payment
+ * Denormalised onto `orders` because PhonePe, the receipt email, the payment
  * page and the invoice all want the same numbers, and recomputing them on
  * every read would mean none of them could trust the amount the customer was
  * actually charged. The rates are stored alongside, so an invoice reprinted
@@ -734,26 +734,30 @@ export async function saveShippingAddress(
 }
 
 /**
- * Records which Razorpay order this order of ours is being paid through.
+ * Records which PhonePe order this order of ours is being paid through.
  *
- * Overwrites any previous id rather than keeping a history: a customer who
- * opens the checkout, closes it, and opens it again gets a second Razorpay
- * order, and it is the latest one the webhook will arrive for. The abandoned
- * one is never paid and expires on Razorpay's side.
+ * Overwrites any previous id rather than keeping a history: PhonePe keys an
+ * order by an id we mint, and mints a fresh one per attempt, so a customer who
+ * opens the checkout, abandons it and opens it again has a second PhonePe
+ * order — and it is the latest one the webhook will arrive for. The abandoned
+ * one is never paid and expires on PhonePe's side within the half hour.
+ *
+ * Losing the previous id costs nothing: it was never paid, and if it somehow
+ * were, the reconcile sweep asks about the id the row holds.
  */
 export async function attachGatewayOrder(orderId: number, gatewayOrderId: string) {
-  await query("UPDATE orders SET gateway_order_id = ?, gateway = 'razorpay' WHERE id = ?", [
+  await query("UPDATE orders SET gateway_order_id = ?, gateway = 'phonepe' WHERE id = ?", [
     gatewayOrderId,
     orderId,
   ]);
 }
 
 /**
- * Marks an order paid. Idempotent, and it has to be: Razorpay fires both
- * `payment.captured` and `order.paid` for a single payment, and retries each
- * of them until acknowledged. The row is locked and the update guarded on the
- * order not already being paid, so the second arrival appends no duplicate
- * event and re-sends no receipt.
+ * Marks an order paid. Idempotent, and it has to be: the webhook, the success
+ * page and the reconcile sweep all learn about the same payment independently,
+ * and PhonePe retries a webhook until it is acknowledged. The row is locked and
+ * the update guarded on the order not already being paid, so the second arrival
+ * appends no duplicate event and re-sends no receipt.
  *
  * Returns the order only when this call is the one that flipped it to paid.
  */
@@ -778,7 +782,7 @@ export async function markOrderPaid(
     );
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
-       VALUES (?, 'paid', 'Payment received via Razorpay.', 'razorpay')`,
+       VALUES (?, 'paid', 'Payment received via PhonePe.', 'phonepe')`,
       [order.id]
     );
 
@@ -787,18 +791,24 @@ export async function markOrderPaid(
 }
 
 /**
- * Records a refund against the order that payment belongs to.
+ * Records a refund against the order it was raised on.
+ *
+ * Looked up by the gateway *order* id, not the payment id. PhonePe's refund
+ * event names the order the refunded payment belonged to, and that is the id
+ * this row is guaranteed to hold — `gateway_payment_id` is only written once a
+ * payment has been seen to complete, and a refund is not the moment to
+ * discover it never was.
  *
  * Returns the order only on the delivery that actually changed it, so a
- * repeated `refund.processed` cannot email the customer twice. A partial
- * refund is still a refund as far as the customer's status is concerned;
- * the amount returned is Razorpay's record, not ours to restate.
+ * repeated `pg.refund.completed` cannot email the customer twice. A partial
+ * refund is still a refund as far as the customer's status is concerned; the
+ * amount returned is PhonePe's record, not ours to restate.
  */
-export async function markOrderRefunded(gatewayPaymentId: string): Promise<Order | null> {
+export async function markOrderRefunded(gatewayOrderId: string): Promise<Order | null> {
   return transaction(async (conn) => {
     const [rows] = await conn.execute<OrderRow[]>(
-      `${SELECT_ORDER} WHERE gateway_payment_id = ? LIMIT 1 FOR UPDATE`,
-      [gatewayPaymentId]
+      `${SELECT_ORDER} WHERE gateway_order_id = ? LIMIT 1 FOR UPDATE`,
+      [gatewayOrderId]
     );
     if (!rows.length) return null;
     const order = rows[0];
@@ -807,7 +817,7 @@ export async function markOrderRefunded(gatewayPaymentId: string): Promise<Order
     await conn.execute(`UPDATE orders SET status = 'refunded' WHERE id = ?`, [order.id]);
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
-       VALUES (?, 'refunded', 'Refund issued via Razorpay.', 'razorpay')`,
+       VALUES (?, 'refunded', 'Refund issued via PhonePe.', 'phonepe')`,
       [order.id]
     );
 

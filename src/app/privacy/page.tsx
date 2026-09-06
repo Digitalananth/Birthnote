@@ -26,7 +26,7 @@ export default function PrivacyPage() {
             body: [
               'When you request a banknote we store the date you asked for, your name, your email address, and anything you write in the optional gift and message fields. That is the whole record — we do not ask for a delivery address until payment.',
               'If you go ahead, we ask for a delivery address before payment — we need it to ship your order, and the delivery state decides how GST is applied. We store it, and it appears on your tax invoice.',
-              'Your card, UPI and netbanking details are entered on Razorpay\u2019s secure form, not ours. They are never sent to or stored on our servers; we receive only a payment reference and the amount.',
+              'Your card, UPI and netbanking details are entered on PhonePe\u2019s secure page, not ours. They are never sent to or stored on our servers; we receive only a payment reference and the amount.',
             ],
           },
           {
@@ -38,8 +38,8 @@ export default function PrivacyPage() {
           {
             heading: 'Who we share it with',
             body: [
-              'Razorpay, to process payment. Our email provider, to deliver transactional email. Our delivery partner, to ship your order. Nobody else — we do not sell data and we do not send marketing email.',
-              'Razorpay is an Indian payment processor and payment data stays in India. Nothing you give us is transferred outside the country.',
+              'PhonePe, to process payment. Our email provider, to deliver transactional email. Our delivery partner, to ship your order. Nobody else — we do not sell data and we do not send marketing email.',
+              'PhonePe is an Indian payment processor and payment data stays in India. Nothing you give us is transferred outside the country.',
             ],
           },
           {

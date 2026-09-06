@@ -54,7 +54,7 @@ export default function TermsPage() {
           {
             heading: 'Payment',
             body: [
-              'Payments are processed by Razorpay — UPI, cards, netbanking and wallets. We never see or store your card, UPI or netbanking details. Your statement will show a charge from My Lucky Dates.',
+              'Payments are processed by PhonePe — UPI, cards, netbanking and wallets. We never see or store your card, UPI or netbanking details. Your statement will show a charge from My Lucky Dates.',
             ],
           },
           {

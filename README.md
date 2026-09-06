@@ -1,7 +1,7 @@
 # My Lucky Dates
 
 A genuine banknote printed on your most memorable date. Next.js 15 (App
-Router, React 19), MySQL, Razorpay Checkout, Shiprocket and SMTP email —
+Router, React 19), MySQL, PhonePe Standard Checkout, Shiprocket and SMTP email —
 built to run on a Hostinger Web App.
 
 ## How an order actually works
@@ -17,9 +17,10 @@ You open /admin
     or "Mark unavailable"         status: unavailable, emails the bad news
 
 Customer opens /payment/[reference]
-  → POST /api/checkout            creates a Razorpay order
-  → pays in Razorpay's checkout    UPI, card, netbanking, wallet
-  → POST /api/webhooks/razorpay   status: paid, emails the receipt
+  → POST /api/checkout            creates a PhonePe order, returns its URL
+  → pays on PhonePe's page         UPI, card, netbanking, wallet
+  → redirected back to /success    asks PhonePe directly; settles if paid
+  → POST /api/webhooks/phonepe    the same, whichever arrives first
 
 You open the order and "Create shipment"
   → Shiprocket: order → AWB → pickup booked → label to print
@@ -61,7 +62,7 @@ Order BN-140387-WTXF3V  (3 notes)
 - **`orders.price_paise` is derived, never typed.** It is recomputed from the
   available items' prices on every item change (`recomputeTotal`), and both
   the breakup printed on the payment page and the single amount sent to
-  Razorpay come from those same rows — so the total, the breakdown and the
+  PhonePe come from those same rows — so the total, the breakdown and the
   amount charged cannot disagree.
 - **Two order statuses are checked against the items, server-side.**
   `confirmed` needs at least one note found _and_ priced, or the customer gets
@@ -145,9 +146,9 @@ Admins are different and still use email and password — see below. The scrypt
 helpers moved to `src/lib/password.ts`, which now serves them alone.
 
 **No card data ever reaches this server.** Card and UPI details are entered
-in Razorpay's checkout, which runs in an iframe on Razorpay's own origin —
-that is what keeps the site out of PCI-DSS scope. Do not add card fields to
-this codebase.
+on PhonePe's own payment page, which the customer is redirected to — that is
+what keeps the site out of PCI-DSS scope. Do not add card fields to this
+codebase.
 
 ## Admin accounts
 
@@ -316,9 +317,9 @@ cp .env.example .env      # then fill it in — see below
 npm run dev               # http://localhost:4028 — creates the tables on start
 ```
 
-`GET /api/health` reports whether the database, Razorpay, Shiprocket, mail and
-WhatsApp are wired up — including whether Razorpay is on test or live keys and
-whether a Shiprocket pickup location has been set.
+`GET /api/health` reports whether the database, PhonePe, Shiprocket, mail and
+WhatsApp are wired up — including whether PhonePe is pointed at sandbox or
+production and whether a Shiprocket pickup location has been set.
 
 ### Environment
 
@@ -329,14 +330,16 @@ list. The ones that matter:
   hPanel → Databases → Management. The tables are created, and later schema
   changes applied, automatically when the app starts — see "Database
   migrations" below.
-- **Razorpay** — `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and the separate
-  `RAZORPAY_WEBHOOK_SECRET`. Add a webhook endpoint at
-  `https://your-domain/api/webhooks/razorpay` subscribed to
-  `payment.captured`, `order.paid`, `payment.failed` and `refund.processed`.
-  Checkout runs in **INR** only; the delivery address is collected on our own
-  page before payment, because the state decides the GST split. Payments are
-  captured automatically — `src/lib/razorpay.ts` sets that per order rather
-  than relying on the account-wide dashboard setting.
+- **PhonePe** — `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`,
+  `PHONEPE_CLIENT_VERSION`, `PHONEPE_ENV` (`sandbox` or `production`), and the
+  separate `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD`. Add a
+  webhook endpoint at `https://your-domain/api/webhooks/phonepe` subscribed to
+  `checkout.order.completed`, `checkout.order.failed`, `pg.refund.completed`
+  and `pg.refund.failed`. Checkout runs in **INR** only; the delivery address
+  is collected on our own page before payment, because the state decides the
+  GST split. The order id PhonePe knows a payment by is **ours**, minted per
+  attempt as `REFERENCE-<timestamp>` — a retried payment gets a new one, so
+  `orders.gateway_order_id` always names the attempt in play.
 - **Shiprocket** — `SHIPROCKET_EMAIL`, `SHIPROCKET_PASSWORD` and
   `SHIPROCKET_WEBHOOK_TOKEN`. There are no API keys: the app trades the login
   for a ~10-day bearer token and caches it in `app_settings`, because repeated
@@ -397,13 +400,17 @@ dependency. Keep it that way.
    it creates the tables and, on an empty `admin_users`, seeds the first owner
    from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`. There is no manual
    migrate step.
-5. **Razorpay webhook** — point it at
-   `https://your-domain/api/webhooks/razorpay`, subscribe the four events
-   above, and copy the secret you typed there into `RAZORPAY_WEBHOOK_SECRET`
-   (it is *not* the API key secret). Without this, payments are taken but
-   orders never move to `paid` until the reconcile sweep catches them an hour
-   later. Check `/api/health` says `razorpay.keyMode: "live"` before
-   announcing the site.
+5. **PhonePe webhook** — point it at
+   `https://your-domain/api/webhooks/phonepe`, subscribe the four events
+   above, and copy the username and password you typed there into
+   `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD` (they are *not* the
+   client credentials). PhonePe hashes them into a constant `Authorization`
+   header — it does not sign the body, which is why the handler re-asks the
+   Order Status API before believing a payment. Without the webhook, orders
+   still settle when the customer lands back on the success page; a customer
+   who closes the tab waits for the reconcile sweep an hour later. Check
+   `/api/health` says `phonepe.mode: "production"` before announcing the
+   site.
 
 6. **Shiprocket webhook** — Settings → API → Webhooks, pointed at
    `https://your-domain/api/webhooks/shiprocket`, with the token copied into
@@ -458,7 +465,7 @@ only; nothing the running app prints is reachable from outside, which is why
   }, // what THIS boot did
   "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
   "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
-  "razorpay": { "configured": true, "keyMode": "live" },
+  "phonepe": { "configured": true, "mode": "production" },
   "shiprocket": { "configured": true, "pickupLocation": true, "pickupPincode": true },
   "mail": true,
   "whatsapp": false
@@ -605,7 +612,7 @@ src/
 ├── app/
 │   ├── api/                    route handlers (requests, checkout, webhook, admin)
 │   ├── admin/                  order queue, fulfilment and admin management (SSR)
-│   ├── payment/[reference]/    order summary → Razorpay Checkout (SSR)
+│   ├── payment/[reference]/    order summary → PhonePe Checkout (SSR)
 │   ├── track-order/[reference] customer-facing status and timeline (SSR)
 │   ├── request-a-banknote/     the request form (SSR)
 │   └── page.tsx                landing page (ISR)
@@ -616,7 +623,7 @@ src/
 │   ├── db.ts                   MySQL pool + transaction helper
 │   ├── orders.ts               all order reads/writes
 │   ├── mail.ts                 SMTP transport + email templates
-│   ├── razorpay.ts             order creation and signature verification
+│   ├── phonepe.ts              OAuth token, order creation, status, webhook auth
 │   ├── shiprocket.ts           token cache, shipments, AWBs, serviceability
 │   ├── auth.ts                 admin sessions and role guards
 │   ├── order-types.ts          order shapes + helpers (client-safe)

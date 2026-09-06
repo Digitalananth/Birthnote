@@ -83,10 +83,13 @@ export async function GET() {
       // Last few server-side failures, from the app_errors table: scope,
       // driver code and a value-redacted message. Empty when nothing failed.
       recentErrors: database ? await recentErrors() : [],
-      // `keyMode` is the Razorpay equivalent of the MSG91 template-id check
-      // below: a site left on test keys takes payments that look perfect to
-      // everyone involved and settle nothing, and no request can tell.
-      razorpay: { configured: env.razorpay.configured(), keyMode: env.razorpay.keyMode() },
+      // `mode` is the PhonePe equivalent of the MSG91 template-id check
+      // below: a site left on sandbox credentials takes payments that look
+      // perfect to everyone involved and settle nothing, and no request can
+      // tell. PhonePe credentials carry no mark saying which environment they
+      // belong to, so this reports what PHONEPE_ENV was set to and is only as
+      // true as that variable.
+      phonepe: { configured: env.phonepe.configured(), mode: env.phonepe.mode() },
       mail: env.smtp.enabled(),
       // False means MAIL_FROM is on a different domain from SMTP_USER, so
       // Gmail's DKIM signature does not align with the From header and DMARC

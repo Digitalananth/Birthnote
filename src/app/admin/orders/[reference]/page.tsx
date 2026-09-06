@@ -45,6 +45,12 @@ export default async function AdminOrderPage({ params }: PageProps) {
   const order = await getOrderByReference(reference);
   if (!order) notFound();
 
+  // 'phonepe' → 'Phonepe' is not quite the brand's capitalisation, so the two
+  // names in use are spelled out and anything else falls back to the raw value
+  // rather than to a wrong guess.
+  const gatewayLabel =
+    { phonepe: 'PhonePe', razorpay: 'Razorpay', stripe: 'Stripe' }[order.gateway] ?? order.gateway;
+
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
   const settings = await getSettings();
@@ -98,14 +104,13 @@ export default async function AdminOrderPage({ params }: PageProps) {
               // typed by hand, so the total and the breakdown cannot disagree.
               ['Total charged', formatPrice(order.totalPaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
-              // Named by the processor that issued them, because the two id
+              // Named by the processor that issued them, because the id
               // spaces are not interchangeable: an order paid before the
-              // Razorpay migration is looked up in the Stripe dashboard.
-              [`${order.gateway === 'stripe' ? 'Stripe' : 'Razorpay'} order`, order.gatewayOrderId],
-              [
-                `${order.gateway === 'stripe' ? 'Stripe' : 'Razorpay'} payment`,
-                order.gatewayPaymentId,
-              ],
+              // PhonePe migration is looked up in Razorpay's dashboard, and one
+              // before that in Stripe's. Read from the row rather than assumed,
+              // so a fourth processor needs no edit here.
+              [`${gatewayLabel} order`, order.gatewayOrderId],
+              [`${gatewayLabel} payment`, order.gatewayPaymentId],
             ]
               .filter(([, value]) => Boolean(value))
               .map(([label, value]) => (

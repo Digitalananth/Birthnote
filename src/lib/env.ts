@@ -3,7 +3,7 @@
  *
  * Every server module reads config through here so a missing variable fails
  * loudly at the call site instead of producing a confusing runtime error
- * deep inside mysql2 / nodemailer / razorpay.
+ * deep inside mysql2 / nodemailer / the PhonePe client.
  */
 
 function optional(name: string, fallback = ''): string {
@@ -46,42 +46,51 @@ export const env = {
   },
 
   /**
-   * Razorpay, which takes the money.
+   * PhonePe, which takes the money.
    *
-   * `keyId` is not secret — it goes to the browser to open the checkout — but
-   * it is not `NEXT_PUBLIC_` either. Baking it in at build time would mean a
-   * rebuild to move between test and live keys, and two places for the id to
-   * live. /api/checkout returns it in the same response as the order id, so
-   * there is exactly one source of truth and it is read at request time.
+   * All five values are secret, which is the first difference from the
+   * gateway this replaced: Razorpay's key id went to the browser to open a
+   * modal, but PhonePe hosts the payment page itself and the browser is only
+   * ever handed a URL. Nothing here is `NEXT_PUBLIC_` and nothing here should
+   * ever become so.
    *
-   * `webhookSecret` is a *different* secret from `keySecret`: Razorpay signs
-   * webhook bodies with the secret typed into the webhook settings page, and
-   * signs the checkout handler's response with the API key secret. Using one
-   * for the other verifies nothing and fails closed, which is the good case;
-   * the bad case is assuming they are the same and never testing it.
+   * `clientVersion` is not a version of ours. PhonePe issues it alongside the
+   * id and secret, and sending the wrong one fails the token request rather
+   * than falling back to a default — so it is `required`, not optional with a
+   * guess of `1`.
+   *
+   * The webhook credentials are a *different* pair from the client ones: they
+   * are whatever was typed into the dashboard when the webhook endpoint was
+   * registered. PhonePe hashes them into a constant Authorization header.
+   * Using the client secret for either verifies nothing and fails closed,
+   * which is the good case; the bad case is assuming they are the same and
+   * never testing it.
    */
-  razorpay: {
-    keyId: () => required('RAZORPAY_KEY_ID'),
-    keySecret: () => required('RAZORPAY_KEY_SECRET'),
-    webhookSecret: () => required('RAZORPAY_WEBHOOK_SECRET'),
+  phonepe: {
+    clientId: () => required('PHONEPE_CLIENT_ID'),
+    clientSecret: () => required('PHONEPE_CLIENT_SECRET'),
+    clientVersion: () => required('PHONEPE_CLIENT_VERSION'),
+    webhookUsername: () => required('PHONEPE_WEBHOOK_USERNAME'),
+    webhookPassword: () => required('PHONEPE_WEBHOOK_PASSWORD'),
     configured: () =>
-      Boolean(optional('RAZORPAY_KEY_ID')) && Boolean(optional('RAZORPAY_KEY_SECRET')),
+      Boolean(optional('PHONEPE_CLIENT_ID')) && Boolean(optional('PHONEPE_CLIENT_SECRET')),
     /**
-     * Whether the keys in use are live ones.
+     * Which PhonePe the site is talking to.
      *
-     * Razorpay test keys are prefixed `rzp_test_` and live ones `rzp_live_`,
-     * and a site running on test keys takes payments that look perfect and
-     * settle nothing. Nothing in the app can tell the difference at runtime —
-     * a test payment succeeds — so the judgement is published on /api/health
-     * beside the MSG91 template-id check, which exists for the same reason.
-     * 'unset' rather than 'test' when there is no key at all: the two have
-     * different fixes.
+     * Sandbox payments look perfect and settle nothing, and unlike Razorpay —
+     * whose test keys were prefixed `rzp_test_` and so gave themselves away —
+     * PhonePe credentials carry no mark saying which environment they belong
+     * to. Nothing in the app can tell the difference at runtime: a sandbox
+     * payment succeeds. So it is stated explicitly rather than inferred, and
+     * published on /api/health beside the MSG91 template-id check, which
+     * exists for the same reason.
+     *
+     * Defaulting to sandbox is the safe direction of the two: a live site
+     * left unconfigured refuses money it cannot settle, rather than accepting
+     * money that was never real.
      */
-    keyMode: (): 'live' | 'test' | 'unset' => {
-      const id = optional('RAZORPAY_KEY_ID');
-      if (!id) return 'unset';
-      return id.startsWith('rzp_live_') ? 'live' : 'test';
-    },
+    mode: (): 'production' | 'sandbox' =>
+      optional('PHONEPE_ENV', 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox',
   },
 
   smtp: {

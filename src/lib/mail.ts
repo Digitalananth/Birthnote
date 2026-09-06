@@ -445,9 +445,11 @@ Reference: ${order.reference}
  * closed the window. So this reassures rather than explains, and does not
  * imply their card was refused.
  *
- * It does not claim anything expired. Razorpay's checkout has no deadline of
- * its own — the reservation on the note does, and that is the thing worth
- * saying, so the hold date carries the urgency and the email carries none.
+ * It does not claim anything expired. A PhonePe checkout does expire, half an
+ * hour after it is opened, but that is not worth saying to someone a day later
+ * — pressing the button again simply makes a new one. The reservation on the
+ * note is the deadline that matters, so the hold date carries the urgency and
+ * the email carries none.
  */
 export function checkoutAbandonedEmail(order: Order): MailPayload {
   const payUrl = `${env.siteUrl}/payment/${order.reference}`;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOrderByReference, attachGatewayOrder } from '@/lib/orders';
-import { createPaymentOrder, NotPayableError } from '@/lib/razorpay';
+import { createPaymentOrder, NotPayableError } from '@/lib/phonepe';
 import { isValidReference } from '@/lib/validation';
 import { env } from '@/lib/env';
 
@@ -8,16 +8,16 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/checkout — public: open a Razorpay checkout for a confirmed order.
+ * POST /api/checkout — public: open a PhonePe checkout for a confirmed order.
  *
- * Answers with what the browser needs to open Razorpay's own form and nothing
- * more: the Razorpay order id, the publishable key id, and the amount. The
- * amount is echoed back for the checkout's own display only — it is fixed on
- * the Razorpay order server-side, so a browser that alters it changes nothing
- * about what is charged.
+ * Answers with one thing: the URL to send the browser to. PhonePe hosts the
+ * payment page on its own origin, so unlike the modal this replaced there is
+ * no key, no amount and no prefill for the client to be trusted with — the
+ * amount is fixed on PhonePe's order server-side and a browser that alters
+ * anything in this response changes nothing about what is charged.
  */
 export async function POST(request: Request) {
-  if (!env.razorpay.configured()) {
+  if (!env.phonepe.configured()) {
     return NextResponse.json(
       { error: 'Payments are not configured yet. Please contact us to complete your order.' },
       { status: 503 }
@@ -63,18 +63,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const gatewayOrder = await createPaymentOrder(order);
-    await attachGatewayOrder(order.id, gatewayOrder.id);
-    return NextResponse.json({
-      orderId: gatewayOrder.id,
-      keyId: env.razorpay.keyId(),
-      amount: gatewayOrder.amount,
-      prefill: {
-        name: order.customerName,
-        email: order.customerEmail,
-        contact: order.shipping?.phone || order.whatsapp || '',
-      },
-    });
+    const payment = await createPaymentOrder(order);
+    // Written before the browser is sent anywhere. PhonePe's webhook can
+    // arrive while the customer is still on their page, and it looks the
+    // order up by exactly this id — a redirect that raced the write would be
+    // a paid order nobody could find.
+    await attachGatewayOrder(order.id, payment.merchantOrderId);
+    return NextResponse.json({ redirectUrl: payment.redirectUrl });
   } catch (error) {
     // A NotPayableError is a fact about the order, not a gateway failure, and
     // the customer can act on it. Everything else is ours to fix and theirs
@@ -82,7 +77,7 @@ export async function POST(request: Request) {
     if (error instanceof NotPayableError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
-    console.error('[api/checkout] razorpay order failed', error);
+    console.error('[api/checkout] phonepe order failed', error);
     return NextResponse.json({ error: 'Could not start the payment.' }, { status: 502 });
   }
 }

@@ -107,7 +107,7 @@ export interface Order {
   cgstPaise: number;
   sgstPaise: number;
   igstPaise: number;
-  /** What the customer pays: notes + delivery + tax. The amount Razorpay charges. */
+  /** What the customer pays: notes + delivery + tax. The amount PhonePe charges. */
   totalPaise: number;
   /**
    * The rates this order was charged at, frozen when it was priced, so a rate
@@ -121,9 +121,11 @@ export interface Order {
   buyerGstin: string | null;
   currency: string;
   /**
-   * Which processor took the money. 'razorpay' for everything current;
-   * 'stripe' on orders that predate the migration, whose gateway ids belong
-   * to a different id space and must never be sent to Razorpay.
+   * Which processor took the money. 'phonepe' for everything current;
+   * 'razorpay' and 'stripe' on orders that predate their migrations, whose
+   * gateway ids belong to different id spaces and must never be sent to
+   * PhonePe — it would answer "no such order" for each of them, and the
+   * reconcile sweep would ask again every quarter of an hour for ever.
    */
   gateway: string;
   adminNotes: string | null;

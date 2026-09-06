@@ -8,7 +8,7 @@ import Icon from '@/components/ui/AppIcon';
 /**
  * The order's invoice, and a way to raise one that never got raised.
  *
- * Issuing happens automatically when Razorpay confirms the payment. It can still
+ * Issuing happens automatically when PhonePe confirms the payment. It can still
  * fail — most likely because the GSTIN had not been filled in on the settings
  * page yet — and when it does the money has already changed hands, so there
  * has to be a way to put it right that does not involve charging anyone again.

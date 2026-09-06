@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/admin/orders/[reference]/invoice — raise the invoice by hand.
  *
- * An invoice is normally raised the moment Razorpay confirms payment. This is
+ * An invoice is normally raised the moment PhonePe confirms payment. This is
  * for the case where that failed — most likely because the seller's GSTIN had
  * not been filled in yet — so the owner can issue it once the settings are
  * right, without the customer having to pay again.

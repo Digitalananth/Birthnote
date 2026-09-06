@@ -2,19 +2,19 @@ import 'server-only';
 import type { ResultSetHeader } from 'mysql2';
 import { query } from '@/lib/db';
 import { recordError } from '@/server/errors';
-import { markOrderPaid, getOrderByReference } from '@/lib/orders';
-import { getRazorpay } from '@/lib/razorpay';
-import { sendMail, paymentReceivedEmail, checkoutAbandonedEmail } from '@/lib/mail';
-import { issueInvoiceForOrder } from '@/lib/invoices';
-import { sendWhatsApp, orderPaidWhatsApp, whatsAppRecipient } from '@/lib/whatsapp';
+import { getOrderByReference } from '@/lib/orders';
+import { fetchOrderStatus } from '@/lib/phonepe';
+import { sendMail, checkoutAbandonedEmail } from '@/lib/mail';
+import { settleOrder } from '@/server/settle';
 
 /**
- * Payments Razorpay completed but never told us about.
+ * Payments PhonePe completed but never told us about.
  *
- * The webhook is the only thing that marks an order paid, so a delivery that
- * never arrives — a deploy mid-flight, an outage, a misconfigured endpoint —
- * leaves a customer who has paid looking unpaid for ever. This asks Razorpay
- * directly about anything still unpaid an hour after it was last touched.
+ * The webhook and the success page are both quick and both skippable — a
+ * delivery that never arrives, a customer who closes the tab on the return
+ * leg — and either way someone who has paid is left looking unpaid. This asks
+ * PhonePe directly about anything still unpaid an hour after it was last
+ * touched.
  *
  * The hour of delay keeps it off checkouts a customer is still in the middle
  * of, where the webhook is about to arrive anyway.
@@ -37,15 +37,15 @@ interface UnpaidRow {
 
 export async function reconcilePayments(): Promise<ReconcileResult> {
   /*
-   * `gateway = 'razorpay'` is not decoration. Orders that predate the
-   * migration hold Stripe identifiers in the same column, and a Stripe
-   * session id fetched from Razorpay is at best a 404 for every sweep from
+   * `gateway = 'phonepe'` is not decoration. Orders that predate the
+   * migrations hold Razorpay and Stripe identifiers in the same column, and
+   * one of those fetched from PhonePe is at best a 404 for every sweep from
    * now until the row is archived.
    */
   const rows = await query<UnpaidRow[]>(
     `SELECT reference, gateway_order_id FROM orders
       WHERE status = 'confirmed'
-        AND gateway = 'razorpay'
+        AND gateway = 'phonepe'
         AND gateway_order_id IS NOT NULL
         AND updated_at < UTC_TIMESTAMP() - INTERVAL 1 HOUR
       ORDER BY updated_at ASC
@@ -55,32 +55,19 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
   const recovered: string[] = [];
   for (const row of rows) {
     try {
-      const gatewayOrder = await getRazorpay().orders.fetch(row.gateway_order_id);
-      // 'created' is untouched, 'attempted' is tried and not completed. Only
-      // 'paid' means the full amount was captured.
-      if (gatewayOrder.status !== 'paid') continue;
+      // One call, unlike the two Razorpay needed: PhonePe returns the order's
+      // state and the attempt that carried it together. 'PENDING' is still in
+      // play or expired unpaid, 'FAILED' is decided against us. Only
+      // 'COMPLETED' means the money moved.
+      const status = await fetchOrderStatus(row.gateway_order_id);
+      if (status.state !== 'COMPLETED') continue;
 
-      // A Razorpay order carries no payment id, only its own. The captured
-      // payment has to be looked up separately — and the order may hold
-      // several attempts, of which at most one is captured.
-      const payments = await getRazorpay().orders.fetchPayments(row.gateway_order_id);
-      const captured = payments.items.find((payment) => payment.status === 'captured');
-
-      const order = await markOrderPaid(row.gateway_order_id, captured?.id ?? null);
-      // Null when something else got there first; only the winner emails.
-      if (order) {
-        recovered.push(order.reference);
-        // A payment recovered here is as real as one the webhook delivered, so
-        // it gets its invoice the same way.
-        let invoiceNumber: string | null = null;
-        try {
-          invoiceNumber = (await issueInvoiceForOrder(order)).number;
-        } catch (invoiceError) {
-          recordError('reconcile.invoice', invoiceError, row.reference);
-        }
-        await sendMail(paymentReceivedEmail(order, invoiceNumber));
-        if (whatsAppRecipient(order)) await sendWhatsApp(orderPaidWhatsApp(order));
-      }
+      // A payment recovered here is as real as one the webhook delivered, so
+      // it gets its invoice and its receipt the same way — and through the
+      // same call, so whichever of the three routes arrives first is the only
+      // one that emails.
+      const settled = await settleOrder(row.gateway_order_id, status.transactionId, 'reconcile');
+      if (settled) recovered.push(row.reference);
     } catch (error) {
       // One unreadable order must not stop the rest of the run.
       recordError('reconcile', error, row.reference);
@@ -95,9 +82,10 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
  * Reminds customers who opened a checkout a day ago and never came back.
  *
  * Stripe announced this as an event — a session expired, and the expiry was
- * the news. A Razorpay order does not expire, so nothing announces it and the
- * question has to be asked: which confirmed orders have had a checkout opened
- * against them, long enough ago that the customer is not still in it?
+ * the news. A PhonePe order does expire, half an hour after it is created, but
+ * nothing announces that either, so the question still has to be asked: which
+ * confirmed orders have had a checkout opened against them, long enough ago
+ * that the customer is not still in it?
  *
  * `checkout_reminder_at` is what stops it repeating. It is set before the mail
  * is sent rather than after: a send that throws halfway is far better left
@@ -112,7 +100,7 @@ async function nudgeAbandonedCheckouts(): Promise<string[]> {
   const rows = await query<{ reference: string }[]>(
     `SELECT reference FROM orders
       WHERE status = 'confirmed'
-        AND gateway = 'razorpay'
+        AND gateway = 'phonepe'
         AND gateway_order_id IS NOT NULL
         AND checkout_reminder_at IS NULL
         AND updated_at < UTC_TIMESTAMP() - INTERVAL 24 HOUR

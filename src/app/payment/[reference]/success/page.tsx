@@ -6,16 +6,24 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
 import { getOrderByReference, availableItems } from '@/lib/orders';
+import { confirmPendingPayment } from '@/server/settle';
 import { isValidReference, formatPrice } from '@/lib/validation';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
  *
- * The checkout sends the customer here after payment. Note that this page only
- * *reports* status — it never marks an order paid. That is the webhook's job,
- * because a browser redirect can be forged, blocked, or simply closed. If the
- * webhook has not landed yet the page says "confirming", which resolves on a
- * refresh a second later.
+ * PhonePe sends the customer here after payment, and sends them here whatever
+ * happened: the return URL carries no status, no transaction id and no
+ * signature, and can be reached by anyone who types it. So nothing on the
+ * redirect is believed. What the page does instead is *ask* PhonePe about the
+ * order before rendering, and settle it if the answer is that the money moved.
+ *
+ * That is not the same as trusting the browser. The question goes to PhonePe
+ * over an authenticated call about an id the server already holds, and the
+ * answer runs through the same idempotent `settleOrder` the webhook uses, so
+ * whichever arrives first wins and the customer is emailed once. If PhonePe is
+ * slow or the payment genuinely is still pending, the page says "confirming"
+ * and the webhook resolves it a moment later.
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,8 +44,12 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
   const { reference } = await params;
   if (!isValidReference(reference)) notFound();
 
-  const order = await getOrderByReference(reference);
-  if (!order) notFound();
+  const found = await getOrderByReference(reference);
+  if (!found) notFound();
+
+  // The one call that turns "confirming" into "confirmed" for the customer
+  // who is looking at the page right now. A no-op for an order already paid.
+  const order = await confirmPendingPayment(found);
 
   const settled = order.status === 'paid' || order.status === 'shipped';
   const notes = availableItems(order);
@@ -84,7 +96,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
             <p className="text-sm text-muted-foreground mb-10 leading-relaxed">
               {settled
                 ? `We've charged ${formatPrice(order.totalPaise, order.currency)} and emailed your receipt to ${order.customerEmail}.`
-                : 'Razorpay is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
+                : 'PhonePe is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
             </p>
 
             <div className="bg-secondary/50 rounded-2xl p-6 text-left mb-8">

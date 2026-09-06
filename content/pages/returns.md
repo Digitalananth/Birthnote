@@ -31,7 +31,7 @@ If the note does not bear the date you ordered, or is below the Fine condition w
 
 ## How refunds are paid
 
-Back to whatever you paid with, through Razorpay, within **5–7 working days** of us approving it. Your bank or UPI app may take a few days more to show it. We do not issue credit notes or store credit.
+Back to whatever you paid with, through PhonePe, within **5–7 working days** of us approving it. Your bank or UPI app may take a few days more to show it. We do not issue credit notes or store credit.
 
 ## Cancelling before you pay
 
