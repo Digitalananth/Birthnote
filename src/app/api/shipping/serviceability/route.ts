@@ -74,10 +74,14 @@ export async function GET(request: Request) {
     }
 
     const settings = await getSettings();
-    // Shiprocket needs to know where it is collecting from; the seller's own
-    // PIN code is the last six digits of the pickup address they registered.
-    const pickup = (settings.seller_address.match(/\b[1-9][0-9]{5}\b/g) ?? []).pop();
-    if (!pickup) {
+    // Set alongside the pickup address in Settings → Shipping, and filled in
+    // from the address that was actually chosen. It used to be scraped out of
+    // `seller_address` with a regex for the last six-digit number, which is
+    // wrong for any address ending in a building or phone number — and wrong
+    // silently, because the answer this route gives when it cannot ask is
+    // indistinguishable from a real one.
+    const pickup = settings.shiprocket_pickup_pincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(pickup)) {
       // No pickup PIN to ask from. Not an error the customer can act on.
       return NextResponse.json({ known: false });
     }

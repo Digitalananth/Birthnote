@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { INDIAN_STATES } from '@/lib/india-gst';
 import {
@@ -38,6 +38,59 @@ export default function SettingsForm({ settings }: { settings: AppSettings }) {
   const set = (key: SettingKey, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
+  };
+
+  /*
+   * The pickup addresses registered on the Shiprocket account.
+   *
+   * Fetched so the nickname can be chosen rather than remembered. A typo here
+   * passes every check the app can make on its own and then fails at booking
+   * time with an error from Shiprocket that does not say what was wrong — so
+   * the list is worth a round trip.
+   *
+   * `reason` rather than an error: when Shiprocket cannot be reached the field
+   * falls back to a plain text box and the page stays fully usable. Locking
+   * the owner out of editing their GST rates because a courier's API is down
+   * would be the worse bug by far.
+   */
+  const [pickups, setPickups] = useState<
+    { nickname: string; pincode: string; city: string; state: string }[]
+  >([]);
+  const [pickupReason, setPickupReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/admin/shiprocket/pickup-locations');
+        const payload = (await response.json()) as {
+          locations?: { nickname: string; pincode: string; city: string; state: string }[];
+          reason?: string | null;
+        };
+        if (cancelled) return;
+        setPickups(payload.locations ?? []);
+        setPickupReason(payload.reason ?? null);
+      } catch {
+        if (!cancelled) setPickupReason('Could not reach the server to list pickup addresses.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Choosing an address sets its PIN code too.
+   *
+   * The two are one fact — where the parcels leave from — and the only way
+   * they cannot disagree is for one choice to write both. The PIN code field
+   * stays editable underneath, because an account can hold an address whose
+   * registered PIN is wrong and the owner should be able to say so.
+   */
+  const choosePickup = (nickname: string) => {
+    set('shiprocket_pickup_location', nickname);
+    const match = pickups.find((location) => location.nickname === nickname);
+    if (match?.pincode) set('shiprocket_pickup_pincode', match.pincode);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -97,7 +150,21 @@ export default function SettingsForm({ settings }: { settings: AppSettings }) {
           {meta.requiredForInvoice && <span className="text-red-600"> *</span>}
         </span>
 
-        {meta.kind === 'state' ? (
+        {meta.kind === 'pickup' && pickups.length > 0 ? (
+          <select
+            value={value}
+            onChange={(event) => choosePickup(event.target.value)}
+            className={inputClass(meta.key)}
+          >
+            <option value="">Not set</option>
+            {pickups.map((location) => (
+              <option key={location.nickname} value={location.nickname}>
+                {location.nickname}
+                {location.city ? ` — ${location.city} ${location.pincode}` : ''}
+              </option>
+            ))}
+          </select>
+        ) : meta.kind === 'state' ? (
           <select
             value={value}
             onChange={(event) => set(meta.key, event.target.value)}
@@ -130,6 +197,12 @@ export default function SettingsForm({ settings }: { settings: AppSettings }) {
           />
         )}
 
+        {meta.kind === 'pickup' && pickups.length === 0 && (
+          <span className="text-xs text-amber-700 leading-relaxed">
+            {pickupReason ?? 'No pickup addresses are registered on your Shiprocket account yet.'}{' '}
+            Type the nickname exactly as it appears in Shiprocket → Settings → Pickup Addresses.
+          </span>
+        )}
         {meta.hint && <span className="text-xs text-muted-foreground/80">{meta.hint}</span>}
         {errors[meta.key] && <span className="text-xs text-red-600">{errors[meta.key]}</span>}
       </label>

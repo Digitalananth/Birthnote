@@ -104,7 +104,17 @@ export async function GET() {
       // database rather than the environment so nothing else surfaces it.
       shiprocket: {
         configured: env.shiprocket.configured(),
-        pickupLocation: database ? Boolean((await getSettings()).shiprocket_pickup_location) : null,
+        ...(database
+          ? await (async () => {
+              const settings = await getSettings();
+              return {
+                pickupLocation: Boolean(settings.shiprocket_pickup_location.trim()),
+                // Without this the serviceability check on the payment page
+                // silently answers "we could not ask" for ever.
+                pickupPincode: Boolean(settings.shiprocket_pickup_pincode.trim()),
+              };
+            })()
+          : { pickupLocation: null, pickupPincode: null }),
       },
       time: new Date().toISOString(),
     },

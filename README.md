@@ -342,9 +342,12 @@ list. The ones that matter:
   for a ~10-day bearer token and caches it in `app_settings`, because repeated
   logins are throttled. **Before anything can be booked**, register a pickup
   address in Shiprocket → Settings → Pickup Addresses, wait for it to be
-  approved, and put its *nickname* into Settings → Shipping in the admin. A
-  mismatch there is the commonest failure and `create/adhoc` reports it
-  unhelpfully. Parcel weight and dimensions live in the same admin page.
+  approved, then choose it in Settings → Shipping in the admin — the dropdown
+  is fetched live from your account, so the nickname cannot be mistyped, and
+  choosing an address fills in the pickup PIN code the serviceability check
+  needs. If Shiprocket cannot be reached the field falls back to free text so
+  the settings page stays usable. Parcel weight and dimensions live on the
+  same page.
 - **Price** — `BANKNOTE_PRICE_PAISE`, in paise. `249900` is ₹2,499. The value
   is copied onto each order when it is created, so changing it never re-prices
   an order already in the queue.
@@ -456,7 +459,7 @@ only; nothing the running app prints is reachable from outside, which is why
   "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
   "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
   "razorpay": { "configured": true, "keyMode": "live" },
-  "shiprocket": { "configured": true, "pickupLocation": true },
+  "shiprocket": { "configured": true, "pickupLocation": true, "pickupPincode": true },
   "mail": true,
   "whatsapp": false
 }

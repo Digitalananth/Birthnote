@@ -24,6 +24,7 @@ export const SETTING_KEYS = [
   'invoice_prefix',
   'invoice_terms',
   'shiprocket_pickup_location',
+  'shiprocket_pickup_pincode',
   'shiprocket_channel_id',
   'parcel_weight_kg',
   'parcel_length_cm',
@@ -44,7 +45,11 @@ export type SettingKind =
   | 'gstin'
   | 'multiline'
   /** A positive decimal in some real-world unit — kilograms, centimetres. */
-  | 'measure';
+  | 'measure'
+  /** Chosen from the pickup addresses registered on the Shiprocket account. */
+  | 'pickup'
+  /** A six-digit Indian PIN code. */
+  | 'pincode';
 
 export interface SettingMeta {
   key: SettingKey;
@@ -150,9 +155,15 @@ export const SETTING_GROUPS: SettingGroup[] = [
     settings: [
       {
         key: 'shiprocket_pickup_location',
-        label: 'Pickup location nickname',
-        kind: 'text',
-        hint: 'Exactly as it appears in Shiprocket → Settings → Pickup Addresses.',
+        label: 'Pickup location',
+        kind: 'pickup',
+        hint: 'Chosen from the addresses registered on your Shiprocket account. Choosing one fills in the PIN code below.',
+      },
+      {
+        key: 'shiprocket_pickup_pincode',
+        label: 'Pickup PIN code',
+        kind: 'pincode',
+        hint: 'Where couriers collect from. Used to ask whether a customer\u2019s PIN code is serviceable.',
       },
       {
         key: 'shiprocket_channel_id',
@@ -225,6 +236,20 @@ export function validateSetting(key: SettingKey, raw: string): { value?: string;
       // Couriers quote to two places; more is false precision on a parcel.
       return { value: (Math.round(amount * 100) / 100).toString() };
     }
+    case 'pincode': {
+      if (!trimmed) return { value: '' };
+      if (!/^[1-9][0-9]{5}$/.test(trimmed)) {
+        return { error: 'Enter a six-digit PIN code.' };
+      }
+      return { value: trimmed };
+    }
+    case 'pickup':
+      // Not checked against Shiprocket's list here: this runs in the browser
+      // too, and a settings page that cannot save while Shiprocket is down
+      // would be a worse failure than a mistyped nickname. The form offers
+      // the real list; this only guards the length.
+      if (trimmed.length > 200) return { error: 'Keep this under 200 characters.' };
+      return { value: trimmed };
     case 'multiline':
       if (trimmed.length > 600) return { error: 'Keep this under 600 characters.' };
       return { value: trimmed };

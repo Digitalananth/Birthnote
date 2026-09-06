@@ -190,7 +190,7 @@ export async function createShipment(order: Order): Promise<CreatedShipment> {
   const pickup = settings.shiprocket_pickup_location.trim();
   if (!pickup) {
     throw new ShiprocketError(
-      'No pickup location is set. Add one in Settings → Shipping, matching a pickup address registered in Shiprocket.',
+      'No pickup location is set. Choose one in Settings → Shipping — the list comes from the addresses registered on your Shiprocket account.',
       0
     );
   }
@@ -291,6 +291,52 @@ export async function generateLabel(shipmentId: string): Promise<string> {
     throw new ShiprocketError('Shiprocket generated no label.', 0);
   }
   return response.label_url;
+}
+
+export interface PickupLocation {
+  /** The nickname, which is what every other call refers to it by. */
+  nickname: string;
+  pincode: string;
+  city: string;
+  state: string;
+  address: string;
+}
+
+/**
+ * The pickup addresses registered on the account.
+ *
+ * Fetched so the owner can pick one rather than type its nickname from
+ * memory. A nickname that does not match exactly is accepted by every check
+ * we could make locally and then rejected by `create/adhoc` with an error
+ * that does not say why — which made a free-text box the single likeliest way
+ * to have a shop that looks configured and cannot ship anything.
+ *
+ * The PIN code comes back in the same record, which is the other half of the
+ * fix: the serviceability check needs a pickup PIN, and deriving it from the
+ * address that was actually chosen is the only way the two cannot drift.
+ */
+export async function listPickupLocations(): Promise<PickupLocation[]> {
+  const response = await call<{
+    data?: {
+      shipping_address?: {
+        pickup_location?: string;
+        pin_code?: string | number;
+        city?: string;
+        state?: string;
+        address?: string;
+      }[];
+    };
+  }>('/settings/company/pickup');
+
+  return (response.data?.shipping_address ?? [])
+    .filter((entry) => Boolean(entry.pickup_location))
+    .map((entry) => ({
+      nickname: String(entry.pickup_location),
+      pincode: entry.pin_code == null ? '' : String(entry.pin_code),
+      city: String(entry.city ?? ''),
+      state: String(entry.state ?? ''),
+      address: String(entry.address ?? ''),
+    }));
 }
 
 export interface Serviceability {

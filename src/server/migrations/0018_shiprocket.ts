@@ -109,6 +109,9 @@ export const migration: Migration = {
       // The *nickname* of a pickup address registered in the Shiprocket
       // dashboard, not the address. Nothing works until this matches one.
       ['shiprocket_pickup_location', ''],
+      // Where couriers collect from, so serviceability can be asked. Filled
+      // in from the chosen pickup address rather than typed twice.
+      ['shiprocket_pickup_pincode', ''],
       ['shiprocket_channel_id', ''],
       // A sleeved note in a gift box. create/adhoc refuses an order without
       // both a weight and three dimensions.
