@@ -14,9 +14,12 @@ import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
 import { groupOrderItems } from '@/lib/order-types';
 import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
+import ShipmentPanel from '@/app/admin/components/ShipmentPanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
 import { listOptions } from '@/lib/master-options';
 import { stateName } from '@/lib/india-gst';
+import { getSettings } from '@/lib/settings';
+import { env } from '@/lib/env';
 
 /** Rendering strategy: SSR — always the live record. */
 export const dynamic = 'force-dynamic';
@@ -44,6 +47,7 @@ export default async function AdminOrderPage({ params }: PageProps) {
 
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
+  const settings = await getSettings();
   // The grades this shop uses, so every note is described the same way.
   const conditions = (await listOptions('note_condition'))
     .filter((option) => option.isActive)
@@ -255,11 +259,25 @@ export default async function AdminOrderPage({ params }: PageProps) {
         </div>
 
         {/* Fulfilment actions */}
-        <div className="card-warm p-8">
-          <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">
-            Update this order
-          </h2>
-          <StatusActions order={order} />
+        <div className="card-warm p-8 flex flex-col gap-6">
+          <div>
+            <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">
+              Update this order
+            </h2>
+            <StatusActions order={order} />
+          </div>
+
+          {/*
+            The courier sits with the fulfilment controls rather than in a card
+            of its own: booking a parcel and marking it dispatched are two
+            halves of the same job, done in one sitting, and separating them
+            across the page would hide that the first has to come first.
+          */}
+          <ShipmentPanel
+            order={order}
+            configured={env.shiprocket.configured()}
+            pickupLocationSet={Boolean(settings.shiprocket_pickup_location.trim())}
+          />
         </div>
 
         {/*

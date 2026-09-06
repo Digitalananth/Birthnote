@@ -12,6 +12,13 @@ import { env } from '@/lib/env';
  * know about. This is what turns the resulting "Unknown column" 500s into a
  * name you can act on. Nothing is reported on a healthy database.
  */
+/*
+ * Deliberately laid out compactly, several column names to a line: this is a
+ * list to be compared against a database, and one name per line would run to
+ * several screens of scrolling for something nobody reads top to bottom.
+ * Prettier would do exactly that, so it is told not to.
+ */
+// prettier-ignore
 const expected: Record<string, string[]> = {
   users: [
     'id', 'name', 'email', 'phone', 'whatsapp', 'phone_verified', 'email_verified',
@@ -26,7 +33,8 @@ const expected: Record<string, string[]> = {
     'id', 'reference', 'user_id', 'customer_name', 'customer_email', 'whatsapp',
     'whatsapp_opt_in', 'message', 'status', 'price_paise', 'currency', 'gateway',
     'admin_notes', 'gateway_order_id', 'gateway_payment_id', 'checkout_reminder_at', 'paid_at',
-    'tracking_number',
+    'tracking_number', 'shiprocket_order_id', 'shiprocket_shipment_id', 'courier_name',
+    'label_url', 'shipment_status', 'delivered_at',
     'created_at', 'updated_at',
   ],
   order_items: [

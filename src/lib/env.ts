@@ -225,6 +225,34 @@ export const env = {
   },
 
   /**
+   * Shiprocket, which moves the parcels.
+   *
+   * There are no API keys: you post the dashboard login to /auth/login and get
+   * a bearer token good for about ten days. Repeated logins are throttled
+   * hard, so the token is cached in `app_settings` where every worker can see
+   * it — see src/lib/shiprocket.ts. The password stays here and is never
+   * written to the database.
+   *
+   * `webhookToken` is whatever you type into Shiprocket's webhook settings
+   * page; they send it back as an `x-api-key` header. It is a shared secret
+   * compared byte for byte, not a signature over the body — there is nothing
+   * to verify cryptographically, which is worth knowing when reasoning about
+   * what the webhook actually proves.
+   */
+  shiprocket: {
+    /** Overridable so tests can point at a stub instead of the real API. */
+    apiBase: optional('SHIPROCKET_API_BASE', 'https://apiv2.shiprocket.in/v1/external').replace(
+      /\/+$/,
+      ''
+    ),
+    email: () => required('SHIPROCKET_EMAIL'),
+    password: () => required('SHIPROCKET_PASSWORD'),
+    webhookToken: () => required('SHIPROCKET_WEBHOOK_TOKEN'),
+    configured: () =>
+      Boolean(optional('SHIPROCKET_EMAIL')) && Boolean(optional('SHIPROCKET_PASSWORD')),
+  },
+
+  /**
    * The shared secret the scheduled sweep authenticates with.
    *
    * The sweep runs over HTTP because Hostinger prunes the deployment to .next

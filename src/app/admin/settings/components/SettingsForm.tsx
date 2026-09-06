@@ -120,7 +120,11 @@ export default function SettingsForm({ settings }: { settings: AppSettings }) {
         ) : (
           <input
             value={value}
-            inputMode={meta.kind === 'rate' || meta.kind === 'money' ? 'decimal' : undefined}
+            inputMode={
+              meta.kind === 'rate' || meta.kind === 'money' || meta.kind === 'measure'
+                ? 'decimal'
+                : undefined
+            }
             onChange={(event) => set(meta.key, event.target.value)}
             className={inputClass(meta.key)}
           />

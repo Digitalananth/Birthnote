@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { pingDatabase } from '@/lib/orders';
 import { query } from '@/lib/db';
 import { env } from '@/lib/env';
+import { getSettings } from '@/lib/settings';
 import { getMigrationStatus } from '@/server/migration-status';
 import { checkSchema, type SchemaDrift } from '@/server/schema-check';
 import { recentErrors } from '@/server/errors';
@@ -98,6 +99,13 @@ export async function GET() {
       // arrived" with no failure anywhere to point at.
       sms: { enabled: env.msg91.enabled(), templateId: env.msg91.templateIdFormat() },
       whatsapp: env.whatsapp.enabled(),
+      // `pickupLocation` is the likeliest silent misconfiguration in the whole
+      // shipping path: without it every booking fails, and it is set in the
+      // database rather than the environment so nothing else surfaces it.
+      shiprocket: {
+        configured: env.shiprocket.configured(),
+        pickupLocation: database ? Boolean((await getSettings()).shiprocket_pickup_location) : null,
+      },
       time: new Date().toISOString(),
     },
     { status: healthy ? 200 : 503 }

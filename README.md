@@ -1,8 +1,8 @@
 # My Lucky Dates
 
 A genuine banknote printed on your most memorable date. Next.js 15 (App
-Router, React 19), MySQL, Razorpay Checkout, and SMTP email — built to run on
-a Hostinger Web App with no external platform services beyond Razorpay.
+Router, React 19), MySQL, Razorpay Checkout, Shiprocket and SMTP email —
+built to run on a Hostinger Web App.
 
 ## How an order actually works
 
@@ -21,8 +21,13 @@ Customer opens /payment/[reference]
   → pays in Razorpay's checkout    UPI, card, netbanking, wallet
   → POST /api/webhooks/razorpay   status: paid, emails the receipt
 
-You post the note, then "Mark dispatched"
+You open the order and "Create shipment"
+  → Shiprocket: order → AWB → pickup booked → label to print
+
+You hand over the parcel, then "Mark dispatched"
   → status: shipped, emails the tracking number
+  → POST /api/webhooks/shiprocket  courier scans onto the timeline
+  → on delivery                    status: delivered, emails the customer
 ```
 
 Every step is stored in MySQL and visible to the customer at
@@ -311,8 +316,9 @@ cp .env.example .env      # then fill it in — see below
 npm run dev               # http://localhost:4028 — creates the tables on start
 ```
 
-`GET /api/health` reports whether the database, Razorpay, mail and WhatsApp are
-wired up — including whether Razorpay is on test or live keys.
+`GET /api/health` reports whether the database, Razorpay, Shiprocket, mail and
+WhatsApp are wired up — including whether Razorpay is on test or live keys and
+whether a Shiprocket pickup location has been set.
 
 ### Environment
 
@@ -331,6 +337,14 @@ list. The ones that matter:
   page before payment, because the state decides the GST split. Payments are
   captured automatically — `src/lib/razorpay.ts` sets that per order rather
   than relying on the account-wide dashboard setting.
+- **Shiprocket** — `SHIPROCKET_EMAIL`, `SHIPROCKET_PASSWORD` and
+  `SHIPROCKET_WEBHOOK_TOKEN`. There are no API keys: the app trades the login
+  for a ~10-day bearer token and caches it in `app_settings`, because repeated
+  logins are throttled. **Before anything can be booked**, register a pickup
+  address in Shiprocket → Settings → Pickup Addresses, wait for it to be
+  approved, and put its *nickname* into Settings → Shipping in the admin. A
+  mismatch there is the commonest failure and `create/adhoc` reports it
+  unhelpfully. Parcel weight and dimensions live in the same admin page.
 - **Price** — `BANKNOTE_PRICE_PAISE`, in paise. `249900` is ₹2,499. The value
   is copied onto each order when it is created, so changing it never re-prices
   an order already in the queue.
@@ -388,6 +402,11 @@ dependency. Keep it that way.
    later. Check `/api/health` says `razorpay.keyMode: "live"` before
    announcing the site.
 
+6. **Shiprocket webhook** — Settings → API → Webhooks, pointed at
+   `https://your-domain/api/webhooks/shiprocket`, with the token copied into
+   `SHIPROCKET_WEBHOOK_TOKEN`. Without it, orders never move past `shipped`
+   and courier scans never reach the customer's timeline.
+
 ### Every deploy
 
 ```bash
@@ -437,6 +456,7 @@ only; nothing the running app prints is reachable from outside, which is why
   "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
   "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
   "razorpay": { "configured": true, "keyMode": "live" },
+  "shiprocket": { "configured": true, "pickupLocation": true },
   "mail": true,
   "whatsapp": false
 }
@@ -594,6 +614,7 @@ src/
 │   ├── orders.ts               all order reads/writes
 │   ├── mail.ts                 SMTP transport + email templates
 │   ├── razorpay.ts             order creation and signature verification
+│   ├── shiprocket.ts           token cache, shipments, AWBs, serviceability
 │   ├── auth.ts                 admin sessions and role guards
 │   ├── order-types.ts          order shapes + helpers (client-safe)
 │   ├── content.ts              pages, posts and categories

@@ -97,7 +97,11 @@ export default function StatusActions({ order }: { order: Order }) {
     </label>
   );
 
-  const locked = order.status === 'paid' || order.status === 'shipped';
+  // Nothing here moves an order that is paid for except dispatch, and nothing
+  // moves one that has already arrived.
+  const locked =
+    order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered';
+  const finished = order.status === 'delivered';
 
   // What the order-level actions are allowed to say, derived from the notes.
   const priced = availableItems(order).filter((item) => (item.pricePaise ?? 0) > 0);
@@ -134,6 +138,7 @@ export default function StatusActions({ order }: { order: Order }) {
       {(() => {
         const reasonFor = (status: OrderStatus): string | null => {
           if (status === order.status) return 'the order is already at this stage';
+          if (finished) return 'the parcel has been delivered — the order is closed';
           if (locked && status !== 'shipped') {
             return 'the order is paid for and can only move on to dispatch';
           }

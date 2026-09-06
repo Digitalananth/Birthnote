@@ -23,6 +23,12 @@ export const SETTING_KEYS = [
   'sac_shipping',
   'invoice_prefix',
   'invoice_terms',
+  'shiprocket_pickup_location',
+  'shiprocket_channel_id',
+  'parcel_weight_kg',
+  'parcel_length_cm',
+  'parcel_breadth_cm',
+  'parcel_height_cm',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];
@@ -30,7 +36,15 @@ export type SettingKey = (typeof SETTING_KEYS)[number];
 export type AppSettings = Record<SettingKey, string>;
 
 /** How a setting is entered, and how it is checked. */
-export type SettingKind = 'rate' | 'money' | 'text' | 'state' | 'gstin' | 'multiline';
+export type SettingKind =
+  | 'rate'
+  | 'money'
+  | 'text'
+  | 'state'
+  | 'gstin'
+  | 'multiline'
+  /** A positive decimal in some real-world unit — kilograms, centimetres. */
+  | 'measure';
 
 export interface SettingMeta {
   key: SettingKey;
@@ -129,6 +143,34 @@ export const SETTING_GROUPS: SettingGroup[] = [
       },
     ],
   },
+  {
+    title: 'Shipping (Shiprocket)',
+    description:
+      'Used when a shipment is pushed to Shiprocket. The pickup location must be the nickname of an address already registered and approved in the Shiprocket dashboard — nothing can be booked until it matches one exactly.',
+    settings: [
+      {
+        key: 'shiprocket_pickup_location',
+        label: 'Pickup location nickname',
+        kind: 'text',
+        hint: 'Exactly as it appears in Shiprocket → Settings → Pickup Addresses.',
+      },
+      {
+        key: 'shiprocket_channel_id',
+        label: 'Channel ID',
+        kind: 'text',
+        hint: 'Optional. Leave blank to use your default channel.',
+      },
+      {
+        key: 'parcel_weight_kg',
+        label: 'Parcel weight (kg)',
+        kind: 'measure',
+        hint: 'A sleeved note in a gift box. Couriers bill on the greater of this and the volumetric weight.',
+      },
+      { key: 'parcel_length_cm', label: 'Parcel length (cm)', kind: 'measure' },
+      { key: 'parcel_breadth_cm', label: 'Parcel breadth (cm)', kind: 'measure' },
+      { key: 'parcel_height_cm', label: 'Parcel height (cm)', kind: 'measure' },
+    ],
+  },
 ];
 
 export const SETTING_META: Record<SettingKey, SettingMeta> = Object.fromEntries(
@@ -174,6 +216,14 @@ export function validateSetting(key: SettingKey, raw: string): { value?: string;
         return { error: 'Choose a state from the list.' };
       }
       return { value: trimmed };
+    }
+    case 'measure': {
+      const amount = Number(trimmed);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { error: 'Enter a number greater than zero.' };
+      }
+      // Couriers quote to two places; more is false precision on a parcel.
+      return { value: (Math.round(amount * 100) / 100).toString() };
     }
     case 'multiline':
       if (trimmed.length > 600) return { error: 'Keep this under 600 characters.' };

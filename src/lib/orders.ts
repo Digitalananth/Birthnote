@@ -78,6 +78,12 @@ interface OrderRow extends RowDataPacket {
   hold_reminder_count: number;
   hold_lapsed_at: Date | null;
   tracking_number: string | null;
+  shiprocket_order_id: string | null;
+  shiprocket_shipment_id: string | null;
+  courier_name: string | null;
+  label_url: string | null;
+  shipment_status: string | null;
+  delivered_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -166,6 +172,12 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
     holdReminderCount: Number(row.hold_reminder_count ?? 0),
     holdLapsedAt: row.hold_lapsed_at ? row.hold_lapsed_at.toISOString() : null,
     trackingNumber: row.tracking_number,
+    shiprocketOrderId: row.shiprocket_order_id,
+    shiprocketShipmentId: row.shiprocket_shipment_id,
+    courierName: row.courier_name,
+    labelUrl: row.label_url,
+    shipmentStatus: row.shipment_status,
+    deliveredAt: row.delivered_at ? row.delivered_at.toISOString() : null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     items,
@@ -801,6 +813,122 @@ export async function markOrderRefunded(gatewayPaymentId: string): Promise<Order
 
     return readOrder(conn, order.id);
   });
+}
+
+/**
+ * Records one step of a Shiprocket booking.
+ *
+ * Written a step at a time rather than once at the end, and that is the whole
+ * point of the shape: creating a shipment, assigning an AWB, booking a pickup
+ * and generating a label are four calls to somebody else's server, any of
+ * which can be the one that fails. Persisting after each means a run that dies
+ * at the third resumes at the third — where persisting at the end would lose
+ * the shipment id and make the retry look like a duplicate booking.
+ */
+export async function saveShipmentFields(
+  orderId: number,
+  fields: {
+    shiprocketOrderId?: string | null;
+    shiprocketShipmentId?: string | null;
+    trackingNumber?: string | null;
+    courierName?: string | null;
+    labelUrl?: string | null;
+  }
+): Promise<void> {
+  const columns: Array<[string, unknown]> = [
+    ['shiprocket_order_id', fields.shiprocketOrderId],
+    ['shiprocket_shipment_id', fields.shiprocketShipmentId],
+    ['tracking_number', fields.trackingNumber],
+    ['courier_name', fields.courierName],
+    ['label_url', fields.labelUrl],
+  ];
+  const set: string[] = [];
+  const params: unknown[] = [];
+  for (const [column, value] of columns) {
+    if (value === undefined || value === null || value === '') continue;
+    set.push(`${column} = ?`);
+    params.push(value);
+  }
+  if (!set.length) return;
+  params.push(orderId);
+  await query(`UPDATE orders SET ${set.join(', ')} WHERE id = ?`, params);
+}
+
+export async function getOrderByAwb(awb: string): Promise<Order | null> {
+  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE tracking_number = ? LIMIT 1`, [awb]);
+  return rows.length ? (await withItems(rows))[0] : null;
+}
+
+/**
+ * Records where the courier says the parcel is.
+ *
+ * Shiprocket's wording is stored verbatim and never mapped: their vocabulary
+ * differs between couriers and grows without notice, so a status nobody has
+ * seen before is worth recording rather than discarding. Only one of those
+ * strings changes our own status, and that is decided by the caller.
+ */
+export async function saveShipmentStatus(orderId: number, status: string): Promise<void> {
+  await query('UPDATE orders SET shipment_status = ? WHERE id = ?', [status.slice(0, 60), orderId]);
+}
+
+/**
+ * Marks an order delivered, once.
+ *
+ * Same shape as `markOrderPaid` and for the same reason: Shiprocket redelivers
+ * webhooks freely, and returning the order only to the call that changed it is
+ * what stops the customer being told twice that their parcel arrived.
+ */
+export async function markOrderDelivered(awb: string): Promise<Order | null> {
+  return transaction(async (conn) => {
+    const [rows] = await conn.execute<OrderRow[]>(
+      `${SELECT_ORDER} WHERE tracking_number = ? LIMIT 1 FOR UPDATE`,
+      [awb]
+    );
+    if (!rows.length) return null;
+    const order = rows[0];
+    if (order.status === 'delivered') return null;
+
+    await conn.execute(
+      `UPDATE orders SET status = 'delivered', delivered_at = UTC_TIMESTAMP() WHERE id = ?`,
+      [order.id]
+    );
+    await conn.execute(
+      `INSERT INTO order_events (order_id, status, note, actor)
+       VALUES (?, 'delivered', 'Delivered by the courier.', 'shiprocket')`,
+      [order.id]
+    );
+
+    return readOrder(conn, order.id);
+  });
+}
+
+/**
+ * Appends a courier scan to the timeline, unless it is already there.
+ *
+ * Shiprocket redelivers whole webhook payloads, scans and all, so without the
+ * duplicate check a customer sees the same "Reached Chennai hub" three times.
+ * There is no natural unique key to lean on — the timeline is append-only by
+ * design — so the check is a read of what this order already has.
+ */
+export async function appendScanEvent(
+  orderId: number,
+  note: string,
+  occurredAt: Date
+): Promise<boolean> {
+  const trimmed = note.slice(0, 500);
+  const existing = await query<(RowDataPacket & { n: number })[]>(
+    `SELECT COUNT(*) AS n FROM order_events
+      WHERE order_id = ? AND actor = 'shiprocket' AND note = ? AND created_at = ?`,
+    [orderId, trimmed, occurredAt]
+  );
+  if (Number(existing[0]?.n ?? 0) > 0) return false;
+
+  await query(
+    `INSERT INTO order_events (order_id, status, note, actor, created_at)
+     VALUES (?, 'shipped', ?, 'shiprocket', ?)`,
+    [orderId, trimmed, occurredAt]
+  );
+  return true;
 }
 
 /** True when the database is reachable — used by the health endpoint. */

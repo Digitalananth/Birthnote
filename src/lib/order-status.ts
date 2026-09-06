@@ -79,6 +79,14 @@ export const STATUS_CONFIG: Record<OrderStatus, StatusPresentation> = {
     bg: 'bg-primary/10',
     border: 'border-primary/30',
   },
+  delivered: {
+    label: 'Delivered',
+    description: 'Your note has arrived. We hope it is everything you hoped for.',
+    icon: 'CheckCircleIcon',
+    color: 'text-green-700',
+    bg: 'bg-green-50',
+    border: 'border-green-200',
+  },
 };
 
 export const PROGRESS_STEPS = [
@@ -87,6 +95,7 @@ export const PROGRESS_STEPS = [
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'paid', label: 'Paid' },
   { key: 'shipped', label: 'Dispatched' },
+  { key: 'delivered', label: 'Delivered' },
 ] as const;
 
 /** How far along the progress bar a status sits. -1 when the order stopped. */

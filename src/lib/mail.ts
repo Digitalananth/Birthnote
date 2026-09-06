@@ -642,6 +642,52 @@ Reference: ${order.reference}
   };
 }
 
+/**
+ * Sent when the courier says the parcel arrived.
+ *
+ * The journey used to end at "dispatched", which left the customer to work out
+ * for themselves whether the thing had come. It also left one thing unsaid
+ * that costs them money: the seven-day return window in /terms starts on
+ * delivery, and until now nothing ever told them it had started.
+ */
+export function deliveredEmail(order: Order): MailPayload {
+  const delivered = availableItems(order);
+  const many = delivered.length > 1;
+  const invoiceUrl = `${env.siteUrl}/invoice/${order.reference}`;
+  return {
+    to: order.customerEmail,
+    subject: `Delivered — ${order.reference}`,
+    html: layout(
+      many ? 'Your notes have arrived.' : 'Your note has arrived.',
+      p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
+        p(
+          many
+            ? `Your ${delivered.length} banknotes were delivered today. We hope they are everything you hoped for.`
+            : `Your banknote from ${escapeHtml(delivered[0]?.displayDate ?? '')} was delivered today. We hope it is everything you hoped for.`
+        ) +
+        p(
+          `If anything is not right — damaged in transit, or not as described — tell us within seven days and we will replace it or refund you in full. Your tax invoice is at <a href="${invoiceUrl}">${invoiceUrl}</a>.`
+        ) +
+        refBlock(order.reference),
+      { label: 'See your order', url: `${env.siteUrl}/track-order/${order.reference}` }
+    ),
+    text: `Hi ${order.customerName},
+
+${
+  many
+    ? `Your ${delivered.length} banknotes were delivered today.`
+    : `Your banknote from ${delivered[0]?.displayDate ?? ''} was delivered today.`
+} We hope ${many ? 'they are' : 'it is'} everything you hoped for.
+
+If anything is not right — damaged in transit, or not as described — tell us within seven days and we will replace it or refund you in full.
+
+Tax invoice: ${invoiceUrl}
+Reference: ${order.reference}
+
+— My Lucky Dates`,
+  };
+}
+
 /** Internal heads-up so a new request is not missed. */
 export function newRequestAdminEmail(order: Order): MailPayload | null {
   const to = env.smtp.replyTo || env.smtp.user;

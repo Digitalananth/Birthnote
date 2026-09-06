@@ -39,6 +39,14 @@ const FALLBACKS: AppSettings = {
   sac_shipping: '996812',
   invoice_prefix: 'MLD',
   invoice_terms: '',
+  // Blank until the owner registers a pickup address in Shiprocket and types
+  // its nickname here. No shipment can be booked before then.
+  shiprocket_pickup_location: '',
+  shiprocket_channel_id: '',
+  parcel_weight_kg: '0.1',
+  parcel_length_cm: '20',
+  parcel_breadth_cm: '15',
+  parcel_height_cm: '2',
 };
 
 interface SettingRow extends RowDataPacket {

@@ -16,6 +16,7 @@ import { migration as m0014 } from './0014_note_condition_options';
 import { migration as m0015 } from './0015_item_photos';
 import { migration as m0016 } from './0016_gift_name';
 import { migration as m0017 } from './0017_razorpay';
+import { migration as m0018 } from './0018_shiprocket';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -44,4 +45,5 @@ export const migrations: readonly Migration[] = [
   m0015,
   m0016,
   m0017,
+  m0018,
 ];

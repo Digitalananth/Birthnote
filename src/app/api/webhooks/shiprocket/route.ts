@@ -1,0 +1,127 @@
+import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
+import {
+  getOrderByAwb,
+  markOrderDelivered,
+  saveShipmentStatus,
+  appendScanEvent,
+} from '@/lib/orders';
+import { sendMail, deliveredEmail } from '@/lib/mail';
+import { env } from '@/lib/env';
+import { recordError } from '@/server/errors';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * POST /api/webhooks/shiprocket
+ *
+ * Where the parcel is, according to the courier.
+ *
+ * Configure it at Shiprocket → Settings → API → Webhooks, pointing at
+ * https://your-domain/api/webhooks/shiprocket, with the token you set there
+ * copied into SHIPROCKET_WEBHOOK_TOKEN.
+ *
+ * Worth being clear about what that token proves: Shiprocket sends it back as
+ * a plain `x-api-key` header, not as a signature over the body. So this
+ * authenticates the *caller* and says nothing about the payload — anyone
+ * holding the token can claim anything. That is Shiprocket's design, not a
+ * choice made here, and it is why the only status this route acts on is the
+ * one that closes an order it can already see is shipped.
+ */
+
+interface Scan {
+  date?: string;
+  activity?: string;
+  location?: string;
+  'sr-status-label'?: string;
+}
+
+interface ShiprocketWebhookBody {
+  awb?: string | number;
+  current_status?: string;
+  shipment_status?: string;
+  order_id?: string;
+  scans?: Scan[];
+}
+
+/** Constant-time compare, so the token cannot be guessed a byte at a time. */
+function tokenMatches(provided: string): boolean {
+  const expected = Buffer.from(env.shiprocket.webhookToken(), 'utf8');
+  const actual = Buffer.from(provided, 'utf8');
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
+}
+
+export async function POST(request: Request) {
+  const provided = request.headers.get('x-api-key');
+  if (!provided || !tokenMatches(provided)) {
+    return NextResponse.json({ error: 'Not authorised.' }, { status: 401 });
+  }
+
+  let body: ShiprocketWebhookBody;
+  try {
+    body = (await request.json()) as ShiprocketWebhookBody;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  }
+
+  const awb = body.awb == null ? '' : String(body.awb).trim();
+  if (!awb) {
+    // Acknowledged rather than refused: a payload with no AWB will never
+    // become one, and a 4xx only buys retries of the same thing.
+    return NextResponse.json({ received: true, matched: false });
+  }
+
+  try {
+    const order = await getOrderByAwb(awb);
+    if (!order) {
+      // Not ours, or ours and not yet saved. Either way there is nothing to
+      // retry — say so plainly rather than making Shiprocket keep trying.
+      return NextResponse.json({ received: true, matched: false });
+    }
+
+    const status = String(body.current_status ?? body.shipment_status ?? '').trim();
+    if (status) await saveShipmentStatus(order.id, status);
+
+    /*
+     * Every scan on the timeline, once.
+     *
+     * Shiprocket redelivers whole payloads — scans included — so without the
+     * duplicate check in `appendScanEvent` the customer would see "Reached
+     * Chennai hub" three times. The scan's own timestamp is used as the event
+     * time rather than now, so the timeline reads in the order things
+     * happened rather than the order we were told about them.
+     */
+    for (const scan of body.scans ?? []) {
+      const activity = String(scan.activity ?? scan['sr-status-label'] ?? '').trim();
+      if (!activity) continue;
+      const when = scan.date ? new Date(scan.date) : null;
+      if (!when || Number.isNaN(when.getTime())) continue;
+      const location = String(scan.location ?? '').trim();
+      await appendScanEvent(order.id, location ? `${activity} — ${location}` : activity, when);
+    }
+
+    /*
+     * Only one of their strings changes our status.
+     *
+     * Shiprocket's vocabulary is long, differs between couriers and grows
+     * without notice. RTO and cancellation are real states that deserve real
+     * handling, but inventing that handling now would encode a guess about
+     * wording nobody has verified — so they are recorded in `shipment_status`
+     * and left for a human to notice.
+     */
+    if (/^delivered$/i.test(status)) {
+      // Null when a redelivery already recorded it; only the winner emails.
+      const delivered = await markOrderDelivered(awb);
+      if (delivered) await sendMail(deliveredEmail(delivered));
+    }
+  } catch (error) {
+    // A 500 makes Shiprocket retry, which is what we want for a transient
+    // database error.
+    recordError('shiprocket-webhook', error, awb);
+    return NextResponse.json({ error: 'Handler failed.' }, { status: 500 });
+  }
+
+  return NextResponse.json({ received: true, matched: true });
+}

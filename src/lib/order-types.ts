@@ -13,6 +13,7 @@ export type OrderStatus =
   | 'unavailable'
   | 'paid'
   | 'shipped'
+  | 'delivered'
   | 'refunded';
 
 export const ORDER_STATUSES: OrderStatus[] = [
@@ -22,6 +23,7 @@ export const ORDER_STATUSES: OrderStatus[] = [
   'unavailable',
   'paid',
   'shipped',
+  'delivered',
   'refunded',
 ];
 
@@ -138,7 +140,17 @@ export interface Order {
   holdReminderCount: number;
   /** Set when a hold ran out unpaid. The order is flagged, never auto-cancelled. */
   holdLapsedAt: string | null;
+  /** The courier's AWB, whether Shiprocket assigned it or an admin typed it. */
   trackingNumber: string | null;
+  /** Shiprocket's own ids, null until a shipment is created for this order. */
+  shiprocketOrderId: string | null;
+  shiprocketShipmentId: string | null;
+  courierName: string | null;
+  /** Shiprocket-hosted label PDF. Null until one is generated. */
+  labelUrl: string | null;
+  /** Shiprocket's latest wording for where the parcel is. Never mapped. */
+  shipmentStatus: string | null;
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
   /** Always at least one, including for orders that predate bulk. */

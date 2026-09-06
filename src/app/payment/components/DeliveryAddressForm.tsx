@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import { INDIAN_STATES } from '@/lib/india-gst';
@@ -50,6 +50,56 @@ export default function DeliveryAddressForm({
   const set =
     (key: keyof AddressInput) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setFields((prev) => ({ ...prev, [key]: event.target.value }));
+
+  /*
+   * Whether a courier will come here, asked as the PIN code is typed.
+   *
+   * Purely advisory, and the three states are deliberately three and not two:
+   * yes, no, and *we do not know*. An outage, a rate limit or a slow reply all
+   * land on "do not know", and that renders as nothing at all — the form looks
+   * exactly as it did before the check existed and payment carries on. Showing
+   * "we cannot deliver here" because Shiprocket was down would cost a sale for
+   * a reason that is not true.
+   */
+  const [coverage, setCoverage] = useState<{
+    serviceable: boolean;
+    etd: string | null;
+  } | null>(null);
+
+  const pincode = (fields.pincode ?? '').trim();
+  useEffect(() => {
+    if (!/^[1-9][0-9]{5}$/.test(pincode)) {
+      setCoverage(null);
+      return;
+    }
+    // Abandoned if the customer keeps typing: an answer for a PIN code that is
+    // no longer in the box is worse than no answer.
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/shipping/serviceability?pincode=${pincode}`, {
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as {
+          known?: boolean;
+          serviceable?: boolean;
+          etd?: string | null;
+        };
+        setCoverage(
+          payload.known
+            ? { serviceable: Boolean(payload.serviceable), etd: payload.etd ?? null }
+            : null
+        );
+      } catch {
+        setCoverage(null);
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [pincode]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -197,7 +247,22 @@ export default function DeliveryAddressForm({
           {errors.stateCode && <span className="text-xs text-red-600">{errors.stateCode}</span>}
         </label>
 
-        {field('pincode', 'PIN code', { inputMode: 'numeric', placeholder: '600001' })}
+        <div className="flex flex-col gap-1.5">
+          {field('pincode', 'PIN code', { inputMode: 'numeric', placeholder: '600001' })}
+          {coverage && (
+            <span
+              className={`text-xs leading-relaxed ${
+                coverage.serviceable ? 'text-green-700' : 'text-amber-700'
+              }`}
+            >
+              {coverage.serviceable
+                ? coverage.etd
+                  ? `We deliver here — estimated ${coverage.etd}.`
+                  : 'We deliver here.'
+                : 'No courier covers this PIN code yet. You can still order — we will email you before charging anything.'}
+            </span>
+          )}
+        </div>
         {field('phone', 'Mobile number', { optional: true, inputMode: 'tel' })}
         {field('buyerGstin', 'Your GSTIN', {
           className: 'sm:col-span-2',
