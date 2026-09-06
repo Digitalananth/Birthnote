@@ -14,13 +14,18 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/webhooks/shiprocket
+ * POST /api/webhooks/courier
  *
  * Where the parcel is, according to the courier.
  *
  * Configure it at Shiprocket → Settings → API → Webhooks, pointing at
- * https://your-domain/api/webhooks/shiprocket, with the token you set there
+ * https://your-domain/api/webhooks/courier, with the token you set there
  * copied into SHIPROCKET_WEBHOOK_TOKEN.
+ *
+ * The path says `courier` rather than `shiprocket` because Shiprocket's own
+ * form rejects any URL containing `shiprocket`, `kartrocket`, `sr` or `kr`
+ * — it refuses to save one, so the obvious name is the one name that cannot
+ * be used. Do not "fix" this back.
  *
  * Worth being clear about what that token proves: Shiprocket sends it back as
  * a plain `x-api-key` header, not as a signature over the body. So this

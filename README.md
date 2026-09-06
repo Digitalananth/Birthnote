@@ -27,7 +27,7 @@ You open the order and "Create shipment"
 
 You hand over the parcel, then "Mark dispatched"
   → status: shipped, emails the tracking number
-  → POST /api/webhooks/shiprocket  courier scans onto the timeline
+  → POST /api/webhooks/courier  courier scans onto the timeline
   → on delivery                    status: delivered, emails the customer
 ```
 
@@ -413,7 +413,7 @@ dependency. Keep it that way.
    site.
 
 6. **Shiprocket webhook** — Settings → API → Webhooks, pointed at
-   `https://your-domain/api/webhooks/shiprocket`, with the token copied into
+   `https://your-domain/api/webhooks/courier`, with the token copied into
    `SHIPROCKET_WEBHOOK_TOKEN`. Without it, orders never move past `shipped`
    and courier scans never reach the customer's timeline.
 
