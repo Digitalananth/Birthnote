@@ -439,38 +439,42 @@ Reference: ${order.reference}
 }
 
 /**
- * Sent when a Stripe checkout session expired unused.
+ * Sent when a customer opened the checkout a day ago and never finished it.
  *
  * Distinct from a failed payment: nothing was attempted, the customer simply
- * left the tab. So this reassures rather than explains, and does not imply
- * their card was refused.
+ * closed the window. So this reassures rather than explains, and does not
+ * imply their card was refused.
+ *
+ * It does not claim anything expired. Razorpay's checkout has no deadline of
+ * its own — the reservation on the note does, and that is the thing worth
+ * saying, so the hold date carries the urgency and the email carries none.
  */
-export function checkoutExpiredEmail(order: Order): MailPayload {
+export function checkoutAbandonedEmail(order: Order): MailPayload {
   const payUrl = `${env.siteUrl}/payment/${order.reference}`;
   return {
     to: order.customerEmail,
-    subject: `Your checkout expired — ${order.reference}`,
+    subject: `Your order is still waiting — ${order.reference}`,
     html: layout(
-      'Your checkout page expired',
+      'You left before paying',
       p(`Hi ${escapeHtml(order.customerName.split(' ')[0])},`) +
         p(
-          'The secure checkout you opened has expired, as they do after a day. Nothing was charged and nothing is lost.'
+          'You opened the payment page for your order yesterday and did not finish. Nothing was charged and nothing is lost.'
         ) +
         p(
           `${
             order.heldUntil
-              ? `Your order is still reserved until ${escapeHtml(holdDeadline(order.heldUntil))}. `
-              : 'Your order is still reserved. '
-          }The link below opens a new one whenever you are ready.`
+              ? `Your note is reserved until ${escapeHtml(holdDeadline(order.heldUntil))}. `
+              : 'Your note is still reserved. '
+          }The link below picks up where you left off.`
         ) +
         refBlock(order.reference),
-      { label: 'Open a new checkout', url: payUrl }
+      { label: 'Finish paying', url: payUrl }
     ),
     text: `Hi ${order.customerName},
 
-The secure checkout you opened has expired, as they do after a day. Nothing was charged and nothing is lost.
+You opened the payment page for your order yesterday and did not finish. Nothing was charged and nothing is lost.
 
-${order.heldUntil ? `Your order is still reserved until ${holdDeadline(order.heldUntil)}. ` : 'Your order is still reserved. '}Open a new one whenever you are ready:
+${order.heldUntil ? `Your note is reserved until ${holdDeadline(order.heldUntil)}. ` : 'Your note is still reserved. '}Pick up where you left off:
 
 ${payUrl}
 Reference: ${order.reference}

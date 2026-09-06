@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getOrderByReference, attachStripeSession } from '@/lib/orders';
-import { createCheckoutSession } from '@/lib/stripe';
+import { getOrderByReference, attachGatewayOrder } from '@/lib/orders';
+import { createPaymentOrder, NotPayableError } from '@/lib/razorpay';
 import { isValidReference } from '@/lib/validation';
 import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** POST /api/checkout — public: start Stripe Checkout for a confirmed order. */
+/**
+ * POST /api/checkout — public: open a Razorpay checkout for a confirmed order.
+ *
+ * Answers with what the browser needs to open Razorpay's own form and nothing
+ * more: the Razorpay order id, the publishable key id, and the amount. The
+ * amount is echoed back for the checkout's own display only — it is fixed on
+ * the Razorpay order server-side, so a browser that alters it changes nothing
+ * about what is charged.
+ */
 export async function POST(request: Request) {
-  if (!env.stripe.configured()) {
+  if (!env.razorpay.configured()) {
     return NextResponse.json(
       { error: 'Payments are not configured yet. Please contact us to complete your order.' },
       { status: 503 }
@@ -55,11 +63,26 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await createCheckoutSession(order);
-    await attachStripeSession(order.id, session.id);
-    return NextResponse.json({ url: session.url });
+    const gatewayOrder = await createPaymentOrder(order);
+    await attachGatewayOrder(order.id, gatewayOrder.id);
+    return NextResponse.json({
+      orderId: gatewayOrder.id,
+      keyId: env.razorpay.keyId(),
+      amount: gatewayOrder.amount,
+      prefill: {
+        name: order.customerName,
+        email: order.customerEmail,
+        contact: order.shipping?.phone || order.whatsapp || '',
+      },
+    });
   } catch (error) {
-    console.error('[api/checkout] stripe session failed', error);
+    // A NotPayableError is a fact about the order, not a gateway failure, and
+    // the customer can act on it. Everything else is ours to fix and theirs
+    // to retry.
+    if (error instanceof NotPayableError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    console.error('[api/checkout] razorpay order failed', error);
     return NextResponse.json({ error: 'Could not start the payment.' }, { status: 502 });
   }
 }

@@ -15,6 +15,7 @@ import { migration as m0013 } from './0013_tax_shipping_invoices';
 import { migration as m0014 } from './0014_note_condition_options';
 import { migration as m0015 } from './0015_item_photos';
 import { migration as m0016 } from './0016_gift_name';
+import { migration as m0017 } from './0017_razorpay';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -42,4 +43,5 @@ export const migrations: readonly Migration[] = [
   m0014,
   m0015,
   m0016,
+  m0017,
 ];

@@ -5,7 +5,7 @@ import type { ShippingAddress } from '@/lib/order-types';
  * The delivery address, checked the same way on the form and at the API.
  *
  * Client-safe, and deliberately shared: an address rejected by the server
- * after a redirect to Stripe would be rejected too late, and a message that
+ * after the checkout has opened would be rejected too late, and a message that
  * differs between the two is a customer told two different things.
  *
  * The rules are the postal ones, not a validation exercise. A PIN code is six

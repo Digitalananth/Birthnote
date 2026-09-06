@@ -10,7 +10,7 @@ import type { ShippingAddress } from '@/lib/order-types';
 /**
  * Where the parcel goes — asked before payment, not after.
  *
- * Two reasons it lives here rather than at Stripe. It is a courier's
+ * Two reasons it lives here rather than at the gateway. It is a courier's
  * instruction, so the customer should be able to correct it without going near
  * a card form; and the state decides whether the tax is CGST + SGST or IGST,
  * which has to be settled before the charge rather than discovered on the

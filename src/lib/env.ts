@@ -3,7 +3,7 @@
  *
  * Every server module reads config through here so a missing variable fails
  * loudly at the call site instead of producing a confusing runtime error
- * deep inside mysql2 / nodemailer / stripe.
+ * deep inside mysql2 / nodemailer / razorpay.
  */
 
 function optional(name: string, fallback = ''): string {
@@ -45,10 +45,43 @@ export const env = {
     connectionLimit: int('MYSQL_CONNECTION_LIMIT', 5),
   },
 
-  stripe: {
-    secretKey: () => required('STRIPE_SECRET_KEY'),
-    webhookSecret: () => required('STRIPE_WEBHOOK_SECRET'),
-    configured: () => Boolean(optional('STRIPE_SECRET_KEY')),
+  /**
+   * Razorpay, which takes the money.
+   *
+   * `keyId` is not secret — it goes to the browser to open the checkout — but
+   * it is not `NEXT_PUBLIC_` either. Baking it in at build time would mean a
+   * rebuild to move between test and live keys, and two places for the id to
+   * live. /api/checkout returns it in the same response as the order id, so
+   * there is exactly one source of truth and it is read at request time.
+   *
+   * `webhookSecret` is a *different* secret from `keySecret`: Razorpay signs
+   * webhook bodies with the secret typed into the webhook settings page, and
+   * signs the checkout handler's response with the API key secret. Using one
+   * for the other verifies nothing and fails closed, which is the good case;
+   * the bad case is assuming they are the same and never testing it.
+   */
+  razorpay: {
+    keyId: () => required('RAZORPAY_KEY_ID'),
+    keySecret: () => required('RAZORPAY_KEY_SECRET'),
+    webhookSecret: () => required('RAZORPAY_WEBHOOK_SECRET'),
+    configured: () =>
+      Boolean(optional('RAZORPAY_KEY_ID')) && Boolean(optional('RAZORPAY_KEY_SECRET')),
+    /**
+     * Whether the keys in use are live ones.
+     *
+     * Razorpay test keys are prefixed `rzp_test_` and live ones `rzp_live_`,
+     * and a site running on test keys takes payments that look perfect and
+     * settle nothing. Nothing in the app can tell the difference at runtime —
+     * a test payment succeeds — so the judgement is published on /api/health
+     * beside the MSG91 template-id check, which exists for the same reason.
+     * 'unset' rather than 'test' when there is no key at all: the two have
+     * different fixes.
+     */
+    keyMode: (): 'live' | 'test' | 'unset' => {
+      const id = optional('RAZORPAY_KEY_ID');
+      if (!id) return 'unset';
+      return id.startsWith('rzp_live_') ? 'live' : 'test';
+    },
   },
 
   smtp: {

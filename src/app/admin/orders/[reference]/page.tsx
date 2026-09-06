@@ -94,7 +94,14 @@ export default async function AdminOrderPage({ params }: PageProps) {
               // typed by hand, so the total and the breakdown cannot disagree.
               ['Total charged', formatPrice(order.totalPaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
-              ['Stripe session', order.stripeSessionId],
+              // Named by the processor that issued them, because the two id
+              // spaces are not interchangeable: an order paid before the
+              // Razorpay migration is looked up in the Stripe dashboard.
+              [`${order.gateway === 'stripe' ? 'Stripe' : 'Razorpay'} order`, order.gatewayOrderId],
+              [
+                `${order.gateway === 'stripe' ? 'Stripe' : 'Razorpay'} payment`,
+                order.gatewayPaymentId,
+              ],
             ]
               .filter(([, value]) => Boolean(value))
               .map(([label, value]) => (

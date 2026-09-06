@@ -24,8 +24,9 @@ const expected: Record<string, string[]> = {
   ],
   orders: [
     'id', 'reference', 'user_id', 'customer_name', 'customer_email', 'whatsapp',
-    'whatsapp_opt_in', 'message', 'status', 'price_paise', 'currency', 'admin_notes',
-    'stripe_session_id', 'stripe_payment_id', 'paid_at', 'tracking_number',
+    'whatsapp_opt_in', 'message', 'status', 'price_paise', 'currency', 'gateway',
+    'admin_notes', 'gateway_order_id', 'gateway_payment_id', 'checkout_reminder_at', 'paid_at',
+    'tracking_number',
     'created_at', 'updated_at',
   ],
   order_items: [

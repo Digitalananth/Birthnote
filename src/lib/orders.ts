@@ -68,8 +68,11 @@ interface OrderRow extends RowDataPacket {
   ship_phone: string | null;
   buyer_gstin: string | null;
   currency: string;
+  gateway: string;
   admin_notes: string | null;
-  stripe_session_id: string | null;
+  gateway_order_id: string | null;
+  gateway_payment_id: string | null;
+  checkout_reminder_at: Date | null;
   paid_at: Date | null;
   held_until: Date | null;
   hold_reminder_count: number;
@@ -153,8 +156,11 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
       : null,
     buyerGstin: row.buyer_gstin,
     currency: row.currency,
+    gateway: row.gateway ?? 'razorpay',
     adminNotes: row.admin_notes,
-    stripeSessionId: row.stripe_session_id,
+    gatewayOrderId: row.gateway_order_id,
+    gatewayPaymentId: row.gateway_payment_id,
+    checkoutReminderAt: row.checkout_reminder_at ? row.checkout_reminder_at.toISOString() : null,
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
     heldUntil: row.held_until ? row.held_until.toISOString() : null,
     holdReminderCount: Number(row.hold_reminder_count ?? 0),
@@ -222,7 +228,7 @@ export function generateReference(displayDate: string): string {
 /**
  * The order's money, recomputed from its items and the current settings.
  *
- * Denormalised onto `orders` because Stripe, the receipt email, the payment
+ * Denormalised onto `orders` because Razorpay, the receipt email, the payment
  * page and the invoice all want the same numbers, and recomputing them on
  * every read would mean none of them could trust the amount the customer was
  * actually charged. The rates are stored alongside, so an invoice reprinted
@@ -398,9 +404,9 @@ export async function getUserOrderByReference(
   return rows.length ? (await withItems(rows))[0] : null;
 }
 
-export async function getOrderByStripeSession(sessionId: string): Promise<Order | null> {
-  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE stripe_session_id = ? LIMIT 1`, [
-    sessionId,
+export async function getOrderByGatewayOrder(gatewayOrderId: string): Promise<Order | null> {
+  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE gateway_order_id = ? LIMIT 1`, [
+    gatewayOrderId,
   ]);
   return rows.length ? (await withItems(rows))[0] : null;
 }
@@ -669,7 +675,7 @@ async function readOrder(conn: PoolConnection, orderId: number): Promise<Order> 
 /**
  * Saves where the order is going, and re-prices it for that destination.
  *
- * The address is taken on our own page rather than at Stripe because the state
+ * The address is taken on our own page rather than at the gateway because the state
  * decides whether the tax is CGST + SGST or IGST, and that has to be settled
  * before the customer is charged, not after. The total does not move — the
  * rate is the same either way — but the breakup does, and the invoice is only
@@ -715,25 +721,38 @@ export async function saveShippingAddress(
   });
 }
 
-export async function attachStripeSession(orderId: number, sessionId: string) {
-  await query('UPDATE orders SET stripe_session_id = ? WHERE id = ?', [sessionId, orderId]);
+/**
+ * Records which Razorpay order this order of ours is being paid through.
+ *
+ * Overwrites any previous id rather than keeping a history: a customer who
+ * opens the checkout, closes it, and opens it again gets a second Razorpay
+ * order, and it is the latest one the webhook will arrive for. The abandoned
+ * one is never paid and expires on Razorpay's side.
+ */
+export async function attachGatewayOrder(orderId: number, gatewayOrderId: string) {
+  await query("UPDATE orders SET gateway_order_id = ?, gateway = 'razorpay' WHERE id = ?", [
+    gatewayOrderId,
+    orderId,
+  ]);
 }
 
 /**
- * Marks an order paid. Idempotent: Stripe retries webhooks, and the UPDATE is
- * guarded on the order not already being paid so duplicate deliveries do not
- * append duplicate events or re-send the receipt.
+ * Marks an order paid. Idempotent, and it has to be: Razorpay fires both
+ * `payment.captured` and `order.paid` for a single payment, and retries each
+ * of them until acknowledged. The row is locked and the update guarded on the
+ * order not already being paid, so the second arrival appends no duplicate
+ * event and re-sends no receipt.
  *
  * Returns the order only when this call is the one that flipped it to paid.
  */
 export async function markOrderPaid(
-  sessionId: string,
-  paymentIntentId: string | null
+  gatewayOrderId: string,
+  gatewayPaymentId: string | null
 ): Promise<Order | null> {
   return transaction(async (conn) => {
     const [rows] = await conn.execute<OrderRow[]>(
-      `${SELECT_ORDER} WHERE stripe_session_id = ? LIMIT 1 FOR UPDATE`,
-      [sessionId]
+      `${SELECT_ORDER} WHERE gateway_order_id = ? LIMIT 1 FOR UPDATE`,
+      [gatewayOrderId]
     );
     if (!rows.length) return null;
     const order = rows[0];
@@ -741,13 +760,13 @@ export async function markOrderPaid(
 
     await conn.execute(
       `UPDATE orders
-         SET status = 'paid', stripe_payment_id = ?, paid_at = UTC_TIMESTAMP()
+         SET status = 'paid', gateway_payment_id = ?, paid_at = UTC_TIMESTAMP()
        WHERE id = ?`,
-      [paymentIntentId, order.id]
+      [gatewayPaymentId, order.id]
     );
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
-       VALUES (?, 'paid', 'Payment received via Stripe.', 'stripe')`,
+       VALUES (?, 'paid', 'Payment received via Razorpay.', 'razorpay')`,
       [order.id]
     );
 
@@ -756,18 +775,18 @@ export async function markOrderPaid(
 }
 
 /**
- * Records a refund against the order that payment intent belongs to.
+ * Records a refund against the order that payment belongs to.
  *
  * Returns the order only on the delivery that actually changed it, so a
- * repeated `charge.refunded` cannot email the customer twice. A partial
+ * repeated `refund.processed` cannot email the customer twice. A partial
  * refund is still a refund as far as the customer's status is concerned;
- * the amount returned is Stripe's record, not ours to restate.
+ * the amount returned is Razorpay's record, not ours to restate.
  */
-export async function markOrderRefunded(paymentIntentId: string): Promise<Order | null> {
+export async function markOrderRefunded(gatewayPaymentId: string): Promise<Order | null> {
   return transaction(async (conn) => {
     const [rows] = await conn.execute<OrderRow[]>(
-      `${SELECT_ORDER} WHERE stripe_payment_id = ? LIMIT 1 FOR UPDATE`,
-      [paymentIntentId]
+      `${SELECT_ORDER} WHERE gateway_payment_id = ? LIMIT 1 FOR UPDATE`,
+      [gatewayPaymentId]
     );
     if (!rows.length) return null;
     const order = rows[0];
@@ -776,7 +795,7 @@ export async function markOrderRefunded(paymentIntentId: string): Promise<Order 
     await conn.execute(`UPDATE orders SET status = 'refunded' WHERE id = ?`, [order.id]);
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
-       VALUES (?, 'refunded', 'Refund issued via Stripe.', 'stripe')`,
+       VALUES (?, 'refunded', 'Refund issued via Razorpay.', 'razorpay')`,
       [order.id]
     );
 

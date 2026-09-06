@@ -25,7 +25,6 @@ export const revalidate = 0;
 
 interface PageProps {
   params: Promise<{ reference: string }>;
-  searchParams: Promise<{ cancelled?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -36,14 +35,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function PaymentPage({ params, searchParams }: PageProps) {
+export default async function PaymentPage({ params }: PageProps) {
   // Someone returning to the payment page may be returning *because* a payment
   // did not register. Reconciling before this renders is exactly when it is
   // worth doing.
   maybeSweep();
 
   const { reference } = await params;
-  const { cancelled } = await searchParams;
 
   if (!isValidReference(reference)) notFound();
   const order = await getOrderByReference(reference);
@@ -105,20 +103,6 @@ export default async function PaymentPage({ params, searchParams }: PageProps) {
 
         <section className="bg-background py-8 md:py-12 pb-10">
           <div className="max-w-2xl mx-auto px-6 md:px-12 flex flex-col gap-5">
-            {cancelled && (
-              <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/10 px-5 py-4">
-                <Icon
-                  name="InformationCircleIcon"
-                  size={18}
-                  className="text-accent mt-0.5 shrink-0"
-                />
-                <p className="text-sm text-foreground leading-relaxed">
-                  Your payment was cancelled and you have not been charged. Your note is still
-                  reserved — you can complete the order below whenever you are ready.
-                </p>
-              </div>
-            )}
-
             {/* Order summary */}
             <div className="card-warm p-6 md:p-8">
               <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-5">

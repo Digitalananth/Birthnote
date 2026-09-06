@@ -82,7 +82,10 @@ export async function GET() {
       // Last few server-side failures, from the app_errors table: scope,
       // driver code and a value-redacted message. Empty when nothing failed.
       recentErrors: database ? await recentErrors() : [],
-      stripe: env.stripe.configured(),
+      // `keyMode` is the Razorpay equivalent of the MSG91 template-id check
+      // below: a site left on test keys takes payments that look perfect to
+      // everyone involved and settle nothing, and no request can tell.
+      razorpay: { configured: env.razorpay.configured(), keyMode: env.razorpay.keyMode() },
       mail: env.smtp.enabled(),
       // False means MAIL_FROM is on a different domain from SMTP_USER, so
       // Gmail's DKIM signature does not align with the From header and DMARC

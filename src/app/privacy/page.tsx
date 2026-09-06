@@ -25,7 +25,8 @@ export default function PrivacyPage() {
             heading: 'What we collect',
             body: [
               'When you request a banknote we store the date you asked for, your name, your email address, and anything you write in the optional gift and message fields. That is the whole record — we do not ask for a delivery address until payment.',
-              'If you pay, Stripe collects your payment and delivery details on its own hosted checkout page. Those details are never sent to or stored on our servers; we receive only a payment reference, the amount, and the delivery address needed to ship your order.',
+              'If you go ahead, we ask for a delivery address before payment — we need it to ship your order, and the delivery state decides how GST is applied. We store it, and it appears on your tax invoice.',
+              'Your card, UPI and netbanking details are entered on Razorpay\u2019s secure form, not ours. They are never sent to or stored on our servers; we receive only a payment reference and the amount.',
             ],
           },
           {
@@ -37,8 +38,8 @@ export default function PrivacyPage() {
           {
             heading: 'Who we share it with',
             body: [
-              'Stripe, to process payment. Our email provider, to deliver transactional email. Our delivery partner, to ship your order. Nobody else — we do not sell data and we do not send marketing email.',
-              'Stripe processes payment data on servers outside India. Submitting an order means agreeing to that transfer, which is necessary to take payment.',
+              'Razorpay, to process payment. Our email provider, to deliver transactional email. Our delivery partner, to ship your order. Nobody else — we do not sell data and we do not send marketing email.',
+              'Razorpay is an Indian payment processor and payment data stays in India. Nothing you give us is transferred outside the country.',
             ],
           },
           {

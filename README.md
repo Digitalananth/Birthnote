@@ -1,8 +1,8 @@
 # My Lucky Dates
 
 A genuine banknote printed on your most memorable date. Next.js 15 (App
-Router, React 19), MySQL, Stripe Checkout, and SMTP email — built to run on a
-Hostinger Web App with no external platform services beyond Stripe.
+Router, React 19), MySQL, Razorpay Checkout, and SMTP email — built to run on
+a Hostinger Web App with no external platform services beyond Razorpay.
 
 ## How an order actually works
 
@@ -17,9 +17,9 @@ You open /admin
     or "Mark unavailable"         status: unavailable, emails the bad news
 
 Customer opens /payment/[reference]
-  → POST /api/checkout            creates a Stripe Checkout session
-  → pays on Stripe's hosted page
-  → POST /api/webhooks/stripe     status: paid, emails the receipt
+  → POST /api/checkout            creates a Razorpay order
+  → pays in Razorpay's checkout    UPI, card, netbanking, wallet
+  → POST /api/webhooks/razorpay   status: paid, emails the receipt
 
 You post the note, then "Mark dispatched"
   → status: shipped, emails the tracking number
@@ -54,9 +54,10 @@ Order BN-140387-WTXF3V  (3 notes)
 ```
 
 - **`orders.price_paise` is derived, never typed.** It is recomputed from the
-  available items' prices on every item change (`recomputeTotal`), and the
-  Stripe line items are built from those same rows — so the total, the
-  breakdown and the amount charged cannot disagree.
+  available items' prices on every item change (`recomputeTotal`), and both
+  the breakup printed on the payment page and the single amount sent to
+  Razorpay come from those same rows — so the total, the breakdown and the
+  amount charged cannot disagree.
 - **Two order statuses are checked against the items, server-side.**
   `confirmed` needs at least one note found _and_ priced, or the customer gets
   a payment link for ₹0; `unavailable` needs every note to be missing. The
@@ -138,9 +139,10 @@ still reachable by reference.
 Admins are different and still use email and password — see below. The scrypt
 helpers moved to `src/lib/password.ts`, which now serves them alone.
 
-**No card data ever reaches this server.** Card details are entered on
-Stripe's hosted checkout page, which is what keeps the site out of PCI-DSS
-scope. Do not add card fields to this codebase.
+**No card data ever reaches this server.** Card and UPI details are entered
+in Razorpay's checkout, which runs in an iframe on Razorpay's own origin —
+that is what keeps the site out of PCI-DSS scope. Do not add card fields to
+this codebase.
 
 ## Admin accounts
 
@@ -309,8 +311,8 @@ cp .env.example .env      # then fill it in — see below
 npm run dev               # http://localhost:4028 — creates the tables on start
 ```
 
-`GET /api/health` reports whether the database, Stripe, mail and WhatsApp are
-wired up.
+`GET /api/health` reports whether the database, Razorpay, mail and WhatsApp are
+wired up — including whether Razorpay is on test or live keys.
 
 ### Environment
 
@@ -321,10 +323,14 @@ list. The ones that matter:
   hPanel → Databases → Management. The tables are created, and later schema
   changes applied, automatically when the app starts — see "Database
   migrations" below.
-- **Stripe** — `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Add a webhook
-  endpoint at `https://your-domain/api/webhooks/stripe` for
-  `checkout.session.completed`. Checkout runs in **INR** and collects delivery
-  addresses in **India only**; both are set in `src/lib/stripe.ts`.
+- **Razorpay** — `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and the separate
+  `RAZORPAY_WEBHOOK_SECRET`. Add a webhook endpoint at
+  `https://your-domain/api/webhooks/razorpay` subscribed to
+  `payment.captured`, `order.paid`, `payment.failed` and `refund.processed`.
+  Checkout runs in **INR** only; the delivery address is collected on our own
+  page before payment, because the state decides the GST split. Payments are
+  captured automatically — `src/lib/razorpay.ts` sets that per order rather
+  than relying on the account-wide dashboard setting.
 - **Price** — `BANKNOTE_PRICE_PAISE`, in paise. `249900` is ₹2,499. The value
   is copied onto each order when it is created, so changing it never re-prices
   an order already in the queue.
@@ -374,9 +380,13 @@ dependency. Keep it that way.
    it creates the tables and, on an empty `admin_users`, seeds the first owner
    from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`. There is no manual
    migrate step.
-5. **Stripe webhook** — point it at `https://your-domain/api/webhooks/stripe`
-   and copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Without this,
-   payments are taken but orders never move to `paid`.
+5. **Razorpay webhook** — point it at
+   `https://your-domain/api/webhooks/razorpay`, subscribe the four events
+   above, and copy the secret you typed there into `RAZORPAY_WEBHOOK_SECRET`
+   (it is *not* the API key secret). Without this, payments are taken but
+   orders never move to `paid` until the reconcile sweep catches them an hour
+   later. Check `/api/health` says `razorpay.keyMode: "live"` before
+   announcing the site.
 
 ### Every deploy
 
@@ -426,7 +436,7 @@ only; nothing the running app prints is reachable from outside, which is why
   }, // what THIS boot did
   "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
   "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
-  "stripe": true,
+  "razorpay": { "configured": true, "keyMode": "live" },
   "mail": true,
   "whatsapp": false
 }
@@ -572,7 +582,7 @@ src/
 ├── app/
 │   ├── api/                    route handlers (requests, checkout, webhook, admin)
 │   ├── admin/                  order queue, fulfilment and admin management (SSR)
-│   ├── payment/[reference]/    order summary → Stripe Checkout (SSR)
+│   ├── payment/[reference]/    order summary → Razorpay Checkout (SSR)
 │   ├── track-order/[reference] customer-facing status and timeline (SSR)
 │   ├── request-a-banknote/     the request form (SSR)
 │   └── page.tsx                landing page (ISR)
@@ -583,7 +593,7 @@ src/
 │   ├── db.ts                   MySQL pool + transaction helper
 │   ├── orders.ts               all order reads/writes
 │   ├── mail.ts                 SMTP transport + email templates
-│   ├── stripe.ts               Checkout session creation
+│   ├── razorpay.ts             order creation and signature verification
 │   ├── auth.ts                 admin sessions and role guards
 │   ├── order-types.ts          order shapes + helpers (client-safe)
 │   ├── content.ts              pages, posts and categories

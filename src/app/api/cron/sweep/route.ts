@@ -57,8 +57,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authorised.' }, { status: 401 });
   }
 
-  let reconciled: ReconcileResult = { recovered: [], checked: 0 };
-  if (env.stripe.configured()) {
+  let reconciled: ReconcileResult = { recovered: [], checked: 0, nudged: [] };
+  if (env.razorpay.configured()) {
     try {
       reconciled = await reconcilePayments();
     } catch (error) {
@@ -72,7 +72,8 @@ export async function POST(request: Request) {
     ok: true,
     at,
     recovered: reconciled.recovered,
-    sessionsChecked: reconciled.checked,
+    ordersChecked: reconciled.checked,
+    nudged: reconciled.nudged,
   });
 }
 

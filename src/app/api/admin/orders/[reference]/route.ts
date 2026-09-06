@@ -56,10 +56,10 @@ export async function PATCH(request: Request, { params }: Context) {
       { status: 422 }
     );
   }
-  // Payment state is owned by the Stripe webhook, never by a human click.
+  // Payment state is owned by the Razorpay webhook, never by a human click.
   if (status === 'paid') {
     return NextResponse.json(
-      { error: 'Paid status is set by the Stripe webhook, not manually.' },
+      { error: 'Paid status is set by the Razorpay webhook, not manually.' },
       { status: 409 }
     );
   }
