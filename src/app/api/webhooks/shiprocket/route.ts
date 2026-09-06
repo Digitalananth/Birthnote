@@ -45,6 +45,42 @@ interface ShiprocketWebhookBody {
   scans?: Scan[];
 }
 
+/**
+ * A scan's timestamp, as an instant.
+ *
+ * Shiprocket sends `YYYY-MM-DD HH:MM:SS` with no timezone on it, and means
+ * IST. `new Date(...)` on that string uses the *server's* timezone, which is
+ * IST on a developer's laptop in India and UTC on the host — so the same
+ * payload would land correctly in development and five and a half hours early
+ * in production, on a timeline nobody would think to check.
+ *
+ * A string that does carry an offset is trusted as-is, in case they ever
+ * start sending one.
+ */
+const IST_OFFSET_MINUTES = 330;
+
+function parseScanDate(raw: string): Date | null {
+  const value = raw.trim();
+  if (!value) return null;
+
+  const naive = value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (naive) {
+    const [, y, mo, d, h, mi, sec] = naive;
+    const asUtc = Date.UTC(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(sec ?? '0')
+    );
+    return new Date(asUtc - IST_OFFSET_MINUTES * 60_000);
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /** Constant-time compare, so the token cannot be guessed a byte at a time. */
 function tokenMatches(provided: string): boolean {
   const expected = Buffer.from(env.shiprocket.webhookToken(), 'utf8');
@@ -55,7 +91,11 @@ function tokenMatches(provided: string): boolean {
 
 export async function POST(request: Request) {
   const provided = request.headers.get('x-api-key');
-  if (!provided || !tokenMatches(provided)) {
+  // Deliberately one answer for three cases — no header, wrong token, and no
+  // token configured at all. A caller learns nothing about which, and an
+  // unconfigured endpoint refuses rather than erroring: a 500 here would tell
+  // Shiprocket to retry a request that can never be accepted.
+  if (!env.shiprocket.webhookEnabled() || !provided || !tokenMatches(provided)) {
     return NextResponse.json({ error: 'Not authorised.' }, { status: 401 });
   }
 
@@ -96,8 +136,8 @@ export async function POST(request: Request) {
     for (const scan of body.scans ?? []) {
       const activity = String(scan.activity ?? scan['sr-status-label'] ?? '').trim();
       if (!activity) continue;
-      const when = scan.date ? new Date(scan.date) : null;
-      if (!when || Number.isNaN(when.getTime())) continue;
+      const when = scan.date ? parseScanDate(String(scan.date)) : null;
+      if (!when) continue;
       const location = String(scan.location ?? '').trim();
       await appendScanEvent(order.id, location ? `${activity} — ${location}` : activity, when);
     }

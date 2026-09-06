@@ -248,6 +248,18 @@ export const env = {
     email: () => required('SHIPROCKET_EMAIL'),
     password: () => required('SHIPROCKET_PASSWORD'),
     webhookToken: () => required('SHIPROCKET_WEBHOOK_TOKEN'),
+    /**
+     * Whether the webhook has a secret at all.
+     *
+     * Separate from `configured` because the webhook is reachable whether or
+     * not the rest of Shiprocket is set up, and `webhookToken()` throws when
+     * unset. Reading it inside the handler without checking this first turns
+     * an unauthenticated request into a 500 — which tells the caller the
+     * endpoint exists and is misconfigured, and makes Shiprocket retry a
+     * request that can never succeed. The route refuses everything instead,
+     * exactly as /api/cron/sweep does with its own secret.
+     */
+    webhookEnabled: () => Boolean(optional('SHIPROCKET_WEBHOOK_TOKEN')),
     configured: () =>
       Boolean(optional('SHIPROCKET_EMAIL')) && Boolean(optional('SHIPROCKET_PASSWORD')),
   },
