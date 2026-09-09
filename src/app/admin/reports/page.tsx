@@ -511,7 +511,8 @@ export default async function AdminReportsPage({
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                The date on the note is the date printed on it, not when it sold.
+                The date on the note is the date printed on it, not when it sold. DD/MM/YY as on the
+                request form, or any part of it — 15/03/90, 03/1990, 1990.
               </p>
             </form>
 

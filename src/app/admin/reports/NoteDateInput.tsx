@@ -26,8 +26,8 @@ export default function NoteDateInput({ defaultValue }: { defaultValue: string }
       onChange={(event) => setValue(event.target.value.replace(/[^0-9/-]/g, '').slice(0, 10))}
       maxLength={10}
       inputMode="numeric"
-      placeholder="15/08/1947 or 1947"
-      title="Digits and / or - only, e.g. 15/08/1947 or 1947"
+      placeholder="15/03/90 or 1990"
+      title="DD/MM/YY as on the request form, or any part of it: 15/03/90, 03/1990, 1990"
       className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-44 focus:outline-none focus:ring-2 focus:ring-primary/30"
     />
   );

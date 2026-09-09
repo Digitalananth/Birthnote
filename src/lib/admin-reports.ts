@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import { query } from '@/lib/db';
 import type { OrderStatus } from '@/lib/order-types';
 import type { Granularity, ReportRange } from '@/lib/report-range';
+import { expandYear } from '@/lib/validation';
 
 /**
  * The six admin reports.
@@ -585,6 +586,60 @@ export interface SoldNotesOptions {
   offset?: number;
 }
 
+/** The parts of a date on a note that an admin actually typed. */
+export interface NoteDateParts {
+  day?: number;
+  month?: number;
+  year?: number;
+}
+
+/**
+ * Reads the "date on note" search the way the request form's Memorable Date
+ * is written — DD/MM/YY, two-digit year and all — and as the ledger displays
+ * it, so what the owner sees on screen is what they can paste back.
+ *
+ * Accepted: "1947", "90", "08/1947", "15/08", "15/03/90", "15/08/1947" and
+ * the stored "1947-08-15". A bare one- or two-digit number is a year, not a
+ * day: an admin searching the ledger is looking for the year on the note.
+ *
+ * Returns null when the text cannot be a date at all ("99/99"), which the
+ * caller turns into an honest empty result rather than a silent match-all.
+ *
+ * Parsing here rather than matching a formatted string in SQL is deliberate:
+ * the comparison ends up numeric, so there is no string for the server's
+ * collation to disagree with the connection's about.
+ */
+export function parseNoteDateSearch(term: string): NoteDateParts | null {
+  const parts = term.split(/[/-]+/).filter(Boolean);
+  if (!parts.length || parts.length > 3 || parts.some((part) => !/^\d{1,4}$/.test(part))) {
+    return null;
+  }
+  const n = parts.map((part) => Number.parseInt(part, 10));
+
+  const year = (raw: string, value: number) =>
+    raw.length === 4 ? value : expandYear(raw.padStart(2, '0'));
+  const ok = (p: NoteDateParts) =>
+    (p.day === undefined || (p.day >= 1 && p.day <= 31)) &&
+    (p.month === undefined || (p.month >= 1 && p.month <= 12)) &&
+    (p.year === undefined || (p.year >= 1 && p.year <= 9999))
+      ? p
+      : null;
+
+  if (parts.length === 1) {
+    // "1947" or "90" — a year either way. Three digits is a typo.
+    return parts[0].length === 3 ? null : ok({ year: year(parts[0], n[0]) });
+  }
+  if (parts.length === 2) {
+    // "1947-08" reads year-first; "08/1947" month-first; "15/08" day-first.
+    if (parts[0].length === 4) return ok({ year: n[0], month: n[1] });
+    if (parts[1].length === 4) return ok({ month: n[0], year: n[1] });
+    return ok({ day: n[0], month: n[1] });
+  }
+  // "1947-08-15" as stored, or "15/08/1947" and "15/03/90" as written.
+  if (parts[0].length === 4) return ok({ year: n[0], month: n[1], day: n[2] });
+  return ok({ day: n[0], month: n[1], year: year(parts[2], n[2]) });
+}
+
 /** LIKE has its own wildcards; a customer's serial must not act as a pattern. */
 function likeContains(term: string): string {
   return `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
@@ -613,6 +668,7 @@ export async function getSoldNotesReport(
 ): Promise<SoldNotesReport> {
   const serial = (options.serial ?? '').trim();
   const noteDate = (options.noteDate ?? '').trim();
+  const dateParts = noteDate ? parseNoteDateSearch(noteDate) : null;
   // MySQL's prepared-statement protocol rejects placeholders in LIMIT/OFFSET,
   // so both are clamped to integers here and interpolated — same as
   // listOrders in lib/orders.ts.
@@ -628,18 +684,21 @@ export async function getSoldNotesReport(
     // The escape character is spelled out: a serial containing % or _ must
     // match itself, not act as a wildcard.
     ...(serial ? ["i.note_serial LIKE ? ESCAPE '\\\\'"] : []),
-    // The date is matched against both the way an admin writes it
-    // (15/08/1947) and the way it is stored (1947-08-15), joined into one
-    // string, so a partial "1947", "08/1947" or "1947-08" all hit.
-    ...(noteDate
-      ? [
-          "CONCAT(DATE_FORMAT(i.note_date, '%d/%m/%Y'), ' ', DATE_FORMAT(i.note_date, '%Y-%m-%d')) LIKE ? ESCAPE '\\\\'",
-        ]
-      : []),
+    // Matched part by part against the stored date, never as text: a
+    // formatted string here mixes the server's collation with the
+    // connection's and 500s on MariaDB. Numbers have no collation.
+    ...(dateParts?.year !== undefined ? ['YEAR(i.note_date) = ?'] : []),
+    ...(dateParts?.month !== undefined ? ['MONTH(i.note_date) = ?'] : []),
+    ...(dateParts?.day !== undefined ? ['DAY(i.note_date) = ?'] : []),
+    // A date search that cannot be a date matches nothing, rather than
+    // quietly widening to every note ever sold.
+    ...(noteDate && !dateParts ? ['1 = 0'] : []),
   ].join(' AND ');
   const params: unknown[] = [range.from, range.toExclusive];
   if (serial) params.push(likeContains(serial));
-  if (noteDate) params.push(likeContains(noteDate));
+  if (dateParts?.year !== undefined) params.push(dateParts.year);
+  if (dateParts?.month !== undefined) params.push(dateParts.month);
+  if (dateParts?.day !== undefined) params.push(dateParts.day);
 
   const [rows, totals] = await Promise.all([
     query<
