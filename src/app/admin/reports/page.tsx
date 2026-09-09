@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import AdminNav from '@/app/admin/components/AdminNav';
+import NoteDateInput from './NoteDateInput';
 import { requireOwner } from '@/lib/auth';
 import { getAllReports } from '@/lib/admin-reports';
 import { resolveRange, rangeQuery, RANGE_PRESETS, type ReportRange } from '@/lib/report-range';
@@ -492,20 +493,7 @@ export default async function AdminReportsPage({
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-muted-foreground">Date on note</span>
-                  {/* The same rule the server applies, enforced before the
-                      search is sent: digits and separators only, and a
-                      numeric keypad on a phone. */}
-                  <input
-                    type="search"
-                    name="noteDate"
-                    defaultValue={noteDate}
-                    maxLength={10}
-                    inputMode="numeric"
-                    pattern="[0-9/-]*"
-                    title="Digits and / or - only, e.g. 15/08/1947 or 1947"
-                    placeholder="15/08/1947 or 1947"
-                    className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-44 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
+                  <NoteDateInput defaultValue={noteDate} />
                 </label>
                 <button
                   type="submit"
