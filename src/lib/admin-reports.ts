@@ -628,9 +628,18 @@ export async function getSoldNotesReport(
     // The escape character is spelled out: a serial containing % or _ must
     // match itself, not act as a wildcard.
     ...(serial ? ["i.note_serial LIKE ? ESCAPE '\\\\'"] : []),
+    // The date is matched against both the way an admin writes it
+    // (15/08/1947) and the way it is stored (1947-08-15), joined into one
+    // string, so a partial "1947", "08/1947" or "1947-08" all hit.
+    ...(noteDate
+      ? [
+          "CONCAT(DATE_FORMAT(i.note_date, '%d/%m/%Y'), ' ', DATE_FORMAT(i.note_date, '%Y-%m-%d')) LIKE ? ESCAPE '\\\\'",
+        ]
+      : []),
   ].join(' AND ');
   const params: unknown[] = [range.from, range.toExclusive];
   if (serial) params.push(likeContains(serial));
+  if (noteDate) params.push(likeContains(noteDate));
 
   const [rows, totals] = await Promise.all([
     query<

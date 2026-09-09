@@ -209,7 +209,13 @@ export default async function AdminReportsPage({
   const range = resolveRange(params);
 
   const serial = (params.serial ?? '').trim().slice(0, 60);
-  const noteDate = (params.noteDate ?? '').trim().slice(0, 10);
+  // A date on a note is only ever digits and separators; anything else is a
+  // typo or a paste, and dropping it keeps a junk search from reading as
+  // "we never sold that note".
+  const noteDate = (params.noteDate ?? '')
+    .trim()
+    .replace(/[^0-9/-]/g, '')
+    .slice(0, 10);
   // The notes ledger's filters as a query string, shared by every link and
   // form on the page that must not lose them.
   const notesFilters = new URLSearchParams();
@@ -461,11 +467,7 @@ export default async function AdminReportsPage({
           csv={`${csv('notes')}${notesSearch ? `&${notesSearch}` : ''}`}
         >
           <div id="notes" className="scroll-mt-6">
-            <form
-              action="/admin/reports"
-              method="get"
-              className="flex flex-wrap items-end gap-2 mb-6"
-            >
+            <form action="/admin/reports" method="get" className="mb-6">
               {/* The range travels with the search; without it, searching would
                   reset the dates the owner just chose. */}
               {range.preset === 'custom' ? (
@@ -476,45 +478,47 @@ export default async function AdminReportsPage({
               ) : (
                 <input type="hidden" name="preset" value={range.preset} />
               )}
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-muted-foreground">Serial number</span>
-                <input
-                  type="search"
-                  name="serial"
-                  defaultValue={serial}
-                  maxLength={60}
-                  placeholder="e.g. 5AB 123456"
-                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-56 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-muted-foreground">Date on note</span>
-                <input
-                  type="search"
-                  name="noteDate"
-                  defaultValue={noteDate}
-                  maxLength={10}
-                  placeholder="15/08/1947 or 1947"
-                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-44 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <span className="text-[11px] text-muted-foreground">
-                  The date printed on the note, not when it sold
-                </span>
-              </label>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl bg-foreground text-background text-sm font-semibold"
-              >
-                Search
-              </button>
-              {notesSearch && (
-                <Link
-                  href={`/admin/reports?${rangeQuery(range)}#notes`}
-                  className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground"
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground">Serial number</span>
+                  <input
+                    type="search"
+                    name="serial"
+                    defaultValue={serial}
+                    maxLength={60}
+                    placeholder="e.g. 5AB 123456"
+                    className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-56 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground">Date on note</span>
+                  <input
+                    type="search"
+                    name="noteDate"
+                    defaultValue={noteDate}
+                    maxLength={10}
+                    placeholder="15/08/1947 or 1947"
+                    className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-44 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-foreground text-background text-sm font-semibold"
                 >
-                  Clear
-                </Link>
-              )}
+                  Search
+                </button>
+                {notesSearch && (
+                  <Link
+                    href={`/admin/reports?${rangeQuery(range)}#notes`}
+                    className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </Link>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                The date on the note is the date printed on it, not when it sold.
+              </p>
             </form>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
