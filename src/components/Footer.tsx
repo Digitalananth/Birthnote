@@ -48,11 +48,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr_1fr] gap-10 md:gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <AppLogo size={28} />
-              <span className="font-serif text-base font-medium text-foreground">
-                My Lucky Dates
-              </span>
+            <Link href="/" className="flex items-center" aria-label="My Lucky Dates — home">
+              <AppLogo size={34} />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">
               Original banknotes printed on the dates that matter — found, verified and gift-boxed.

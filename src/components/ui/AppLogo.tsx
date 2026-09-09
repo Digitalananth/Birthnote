@@ -33,10 +33,10 @@ const AppLogo = memo(function AppLogo({
       {src ? (
         <AppImage
           src={src}
-          alt="Logo"
+          alt="My Lucky Dates"
           width={size}
           height={size}
-          // The artwork is a wide banknote, not a square. `size` is the height
+          // The artwork is a wide wordmark, not a square. `size` is the height
           // it should occupy; letting the width follow the aspect ratio keeps
           // it from being squeezed into a box it was never drawn for.
           className="flex-shrink-0 w-auto"

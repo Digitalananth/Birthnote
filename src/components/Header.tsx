@@ -63,15 +63,15 @@ export default function Header() {
       >
         <div className="max-w-7xl mx-auto px-6 md:px-12 h-20 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href="/" className="flex items-center group" aria-label="My Lucky Dates — home">
+            {/*
+              The logo is the full wordmark, so it carries the name itself; a
+              second "My Lucky Dates" beside it would just say it twice.
+            */}
             <AppLogo
-              size={36}
+              size={40}
               className="transition-transform duration-300 group-hover:scale-105"
-              onClick={() => {}}
             />
-            <span className="font-serif font-medium text-xl tracking-tight text-foreground">
-              My Lucky Dates
-            </span>
           </Link>
 
           {/* Desktop Nav */}
