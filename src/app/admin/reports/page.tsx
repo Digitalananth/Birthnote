@@ -127,15 +127,21 @@ function Table({
   );
 }
 
-/** Presets as links, plus a custom from/to that works without client JS. */
-function RangeControl({ range }: { range: ReportRange }) {
+/**
+ * Presets as links, plus a custom from/to that works without client JS.
+ *
+ * A serial being searched for rides along in both, so changing the date range
+ * narrows the same search rather than silently dropping it.
+ */
+function RangeControl({ range, serial }: { range: ReportRange; serial: string }) {
+  const carry = serial ? `&serial=${encodeURIComponent(serial)}` : '';
   return (
     <div className="flex flex-col gap-3 mb-8">
       <div className="flex flex-wrap gap-2">
         {RANGE_PRESETS.map((preset) => (
           <Link
             key={preset.key}
-            href={`/admin/reports?preset=${preset.key}`}
+            href={`/admin/reports?preset=${preset.key}${carry}`}
             className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-colors ${
               range.preset === preset.key
                 ? 'bg-primary text-primary-foreground border-primary'
@@ -147,6 +153,7 @@ function RangeControl({ range }: { range: ReportRange }) {
         ))}
       </div>
       <form action="/admin/reports" method="get" className="flex flex-wrap items-end gap-2">
+        {serial && <input type="hidden" name="serial" value={serial} />}
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-muted-foreground">From</span>
           <input
@@ -176,20 +183,43 @@ function RangeControl({ range }: { range: ReportRange }) {
   );
 }
 
+/** Rows of the sold-note ledger per screen. The CSV is never paginated. */
+const NOTES_PER_PAGE = 50;
+
 const hours = (value: number | null) =>
   value === null ? '—' : value < 48 ? `${value} h` : `${Math.round(value / 24)} d`;
 
 export default async function AdminReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; from?: string; to?: string }>;
+  searchParams: Promise<{
+    preset?: string;
+    from?: string;
+    to?: string;
+    serial?: string;
+    page?: string;
+  }>;
 }) {
   const owner = await requireOwner('/admin/reports');
   const params = await searchParams;
   const range = resolveRange(params);
-  const { sales, demand, funnel, speed, customers } = await getAllReports(range);
+
+  const serial = (params.serial ?? '').trim().slice(0, 60);
+  // A page number out of a query string is whatever someone typed; anything
+  // that is not a positive integer is page one.
+  const page = Math.max(Math.trunc(Number(params.page)) || 1, 1);
+  const { sales, demand, funnel, speed, customers, notes } = await getAllReports(range, {
+    serial,
+    limit: NOTES_PER_PAGE,
+    offset: (page - 1) * NOTES_PER_PAGE,
+  });
 
   const csv = (report: string) => `/api/admin/reports?report=${report}&${rangeQuery(range)}`;
+  const notesQuery = (next: number) =>
+    `/admin/reports?${rangeQuery(range)}${
+      serial ? `&serial=${encodeURIComponent(serial)}` : ''
+    }${next > 1 ? `&page=${next}` : ''}#notes`;
+  const lastPage = Math.max(Math.ceil(notes.total / NOTES_PER_PAGE), 1);
   const price = (paise: number) => formatPrice(paise, sales.currency);
 
   return (
@@ -207,7 +237,7 @@ export default async function AdminReportsPage({
           </p>
         </div>
 
-        <RangeControl range={range} />
+        <RangeControl range={range} serial={serial} />
 
         {/* 1 — Sales */}
         <Section
@@ -410,6 +440,144 @@ export default async function AdminReportsPage({
               formatPrice(customer.revenue, customer.currency),
             ])}
           />
+        </Section>
+
+        {/* 6 — Sold notes, by serial number */}
+        <Section
+          title="Notes sold"
+          description="Every banknote that went out on a paid order in this range — serial number, what it was, and who bought it. Search finds any part of a serial."
+          csv={`${csv('notes')}${serial ? `&serial=${encodeURIComponent(serial)}` : ''}`}
+        >
+          <div id="notes" className="scroll-mt-6">
+            <form
+              action="/admin/reports"
+              method="get"
+              className="flex flex-wrap items-end gap-2 mb-6"
+            >
+              {/* The range travels with the search; without it, searching would
+                  reset the dates the owner just chose. */}
+              {range.preset === 'custom' ? (
+                <>
+                  <input type="hidden" name="from" value={range.from} />
+                  <input type="hidden" name="to" value={range.to} />
+                </>
+              ) : (
+                <input type="hidden" name="preset" value={range.preset} />
+              )}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-muted-foreground">Serial number</span>
+                <input
+                  type="search"
+                  name="serial"
+                  defaultValue={serial}
+                  maxLength={60}
+                  placeholder="e.g. 5AB 123456"
+                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-56 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-foreground text-background text-sm font-semibold"
+              >
+                Search
+              </button>
+              {serial && (
+                <Link
+                  href={`/admin/reports?${rangeQuery(range)}#notes`}
+                  className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </Link>
+              )}
+            </form>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <Figure
+                label={serial ? 'Notes matching' : 'Notes sold'}
+                value={String(notes.total)}
+                hint={serial ? `serial contains "${serial}"` : undefined}
+              />
+              <Figure label="Value" value={formatPrice(notes.revenue, notes.currency)} />
+              <Figure
+                label="No serial recorded"
+                value={String(notes.missingSerial)}
+                hint="Sold notes still missing their number"
+              />
+              <Figure
+                label="Showing"
+                value={notes.total ? `${page} of ${lastPage}` : '—'}
+                hint={`${NOTES_PER_PAGE} per page`}
+              />
+            </div>
+
+            <Table
+              headers={['Serial', 'Note', 'Order', 'Customer', 'Paid', 'Price']}
+              align={['left', 'left', 'left', 'left', 'left', 'right']}
+              empty={
+                serial
+                  ? 'No sold note in this range has that serial number.'
+                  : 'No notes were sold in this range.'
+              }
+              rows={notes.notes.map((note) => [
+                <span key="serial" className="font-mono text-foreground">
+                  {note.serial ?? (
+                    <span className="text-muted-foreground italic">not recorded</span>
+                  )}
+                </span>,
+                <span key="note">
+                  <span className="text-foreground">{note.displayDate}</span>
+                  <span className="text-muted-foreground text-xs block">
+                    {[note.denomination, note.condition, note.country]
+                      .filter(Boolean)
+                      .join(' · ') || '—'}
+                  </span>
+                </span>,
+                <Link
+                  key="order"
+                  href={`/admin/orders/${note.reference}`}
+                  className="font-mono font-semibold text-primary"
+                >
+                  {note.reference}
+                </Link>,
+                <span key="customer">
+                  <span className="text-foreground">{note.customerName}</span>
+                  <span className="text-muted-foreground text-xs block">{note.customerEmail}</span>
+                </span>,
+                <span key="paid" className="text-muted-foreground">
+                  {note.paidAt ?? '—'}
+                </span>,
+                formatPrice(note.price, note.currency),
+              ])}
+            />
+
+            {lastPage > 1 && (
+              <div className="flex items-center justify-between gap-3 mt-4">
+                {page > 1 ? (
+                  <Link
+                    href={notesQuery(page - 1)}
+                    className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    ← Previous
+                  </Link>
+                ) : (
+                  <span />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  Page {page} of {lastPage}
+                </span>
+                {page < lastPage ? (
+                  <Link
+                    href={notesQuery(page + 1)}
+                    className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Next →
+                  </Link>
+                ) : (
+                  <span />
+                )}
+              </div>
+            )}
+          </div>
         </Section>
       </div>
     </main>

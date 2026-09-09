@@ -5,7 +5,7 @@ import type { OrderStatus } from '@/lib/order-types';
 import type { Granularity, ReportRange } from '@/lib/report-range';
 
 /**
- * The five admin reports.
+ * The six admin reports.
  *
  * Same discipline as admin-stats: the database groups and counts, Node does
  * not walk rows. The one deliberate exception is the turnaround percentiles —
@@ -15,7 +15,7 @@ import type { Granularity, ReportRange } from '@/lib/report-range';
  * both passed as parameters. No date is ever interpolated into SQL.
  */
 
-export const REPORT_KEYS = ['sales', 'demand', 'funnel', 'speed', 'customers'] as const;
+export const REPORT_KEYS = ['sales', 'demand', 'funnel', 'speed', 'customers', 'notes'] as const;
 export type ReportKey = (typeof REPORT_KEYS)[number];
 
 /** MySQL date formats per bucket width, and the label each produces. */
@@ -536,21 +536,189 @@ export async function getCustomersReport(range: ReportRange): Promise<CustomersR
   };
 }
 
+// ---------------------------------------------------------------------------
+// Sold notes (the serial-number ledger)
+// ---------------------------------------------------------------------------
+
+export interface SoldNote {
+  itemId: number;
+  reference: string;
+  serial: string | null;
+  displayDate: string;
+  noteDate: string;
+  denomination: string | null;
+  condition: string | null;
+  country: string | null;
+  customerName: string;
+  customerEmail: string;
+  paidAt: string | null;
+  status: OrderStatus;
+  price: number;
+  currency: string;
+}
+
+export interface SoldNotesReport {
+  notes: SoldNote[];
+  /** Every note matching the filters, not merely the page returned. */
+  total: number;
+  /** Sum of the matching notes' prices, in paise. */
+  revenue: number;
+  /** Matching notes whose serial was never filled in — a data-entry backlog. */
+  missingSerial: number;
+  currency: string;
+  /** Echoed back so the page and the CSV agree on what was searched. */
+  serial: string;
+  limit: number;
+  offset: number;
+}
+
+export interface SoldNotesOptions {
+  /** Substring of the serial number. Empty means no serial filter. */
+  serial?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** LIKE has its own wildcards; a customer's serial must not act as a pattern. */
+function likeContains(term: string): string {
+  return `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
+/**
+ * One row per banknote actually sold: which serial went out, on which order,
+ * to whom, for how much.
+ *
+ * "Sold" means an available item on a paid order — the same definition the
+ * sales report counts notes by — and a note belongs to the day its order was
+ * paid for, so the ledger and the revenue figures always add up to each other.
+ *
+ * The serial search is a substring match so a partial number off a photograph
+ * still finds the note. It is applied inside the range like every other
+ * filter; searching all of time is the "All time" preset.
+ */
+export async function getSoldNotesReport(
+  range: ReportRange,
+  options: SoldNotesOptions = {}
+): Promise<SoldNotesReport> {
+  const serial = (options.serial ?? '').trim();
+  // MySQL's prepared-statement protocol rejects placeholders in LIMIT/OFFSET,
+  // so both are clamped to integers here and interpolated — same as
+  // listOrders in lib/orders.ts.
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50), 1), 10_000);
+  const offset = Math.max(Math.trunc(options.offset ?? 0), 0);
+
+  // Built once and shared by the page query and the totals, so the count can
+  // never describe a different set of rows than the table shows.
+  const where = [
+    "i.availability = 'available'",
+    'o.paid_at >= ?',
+    'o.paid_at < ?',
+    // The escape character is spelled out: a serial containing % or _ must
+    // match itself, not act as a wildcard.
+    ...(serial ? ["i.note_serial LIKE ? ESCAPE '\\\\'"] : []),
+  ].join(' AND ');
+  const params: unknown[] = [range.from, range.toExclusive];
+  if (serial) params.push(likeContains(serial));
+
+  const [rows, totals] = await Promise.all([
+    query<
+      (RowDataPacket & {
+        id: number;
+        reference: string;
+        note_serial: string | null;
+        display_date: string;
+        note_date: string;
+        note_denomination: string | null;
+        note_condition: string | null;
+        note_country: string | null;
+        customer_name: string;
+        customer_email: string;
+        paid_at: string | null;
+        status: OrderStatus;
+        price_paise: string | null;
+        currency: string;
+      })[]
+    >(
+      `SELECT i.id, o.reference, i.note_serial, i.display_date,
+              DATE_FORMAT(i.note_date, '%Y-%m-%d') AS note_date,
+              i.note_denomination, i.note_condition, i.note_country,
+              o.customer_name, o.customer_email, o.status, o.currency,
+              DATE_FORMAT(o.paid_at, '%Y-%m-%d %H:%i') AS paid_at,
+              i.price_paise
+         FROM order_items i
+         JOIN orders o ON o.id = i.order_id
+        WHERE ${where}
+        ORDER BY o.paid_at DESC, i.position ASC
+        LIMIT ${limit} OFFSET ${offset}`,
+      params
+    ),
+    query<
+      (RowDataPacket & {
+        total: number;
+        revenue: string;
+        missing_serial: number;
+        currency: string;
+      })[]
+    >(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(i.price_paise), 0) AS revenue,
+              SUM(i.note_serial IS NULL OR i.note_serial = '') AS missing_serial,
+              MIN(o.currency) AS currency
+         FROM order_items i
+         JOIN orders o ON o.id = i.order_id
+        WHERE ${where}`,
+      params
+    ),
+  ]);
+
+  const total = totals[0];
+  return {
+    notes: rows.map((row) => ({
+      itemId: Number(row.id),
+      reference: row.reference,
+      serial: row.note_serial || null,
+      displayDate: row.display_date,
+      noteDate: row.note_date,
+      denomination: row.note_denomination,
+      condition: row.note_condition,
+      country: row.note_country,
+      customerName: row.customer_name,
+      customerEmail: row.customer_email,
+      paidAt: row.paid_at,
+      status: row.status,
+      price: Number(row.price_paise ?? 0),
+      currency: row.currency ?? 'INR',
+    })),
+    total: Number(total?.total ?? 0),
+    revenue: Number(total?.revenue ?? 0),
+    missingSerial: Number(total?.missing_serial ?? 0),
+    currency: total?.currency ?? 'INR',
+    serial,
+    limit,
+    offset,
+  };
+}
+
 export interface AllReports {
   sales: SalesReport;
   demand: DemandReport;
   funnel: FunnelReport;
   speed: SpeedReport;
   customers: CustomersReport;
+  notes: SoldNotesReport;
 }
 
-export async function getAllReports(range: ReportRange): Promise<AllReports> {
-  const [sales, demand, funnel, speed, customers] = await Promise.all([
+export async function getAllReports(
+  range: ReportRange,
+  notes: SoldNotesOptions = {}
+): Promise<AllReports> {
+  const [sales, demand, funnel, speed, customers, soldNotes] = await Promise.all([
     getSalesReport(range),
     getDemandReport(range),
     getFunnelReport(range),
     getSpeedReport(range),
     getCustomersReport(range),
+    getSoldNotesReport(range, notes),
   ]);
-  return { sales, demand, funnel, speed, customers };
+  return { sales, demand, funnel, speed, customers, notes: soldNotes };
 }

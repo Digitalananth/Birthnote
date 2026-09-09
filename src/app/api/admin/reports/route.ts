@@ -6,6 +6,7 @@ import {
   getFunnelReport,
   getSpeedReport,
   getCustomersReport,
+  getSoldNotesReport,
   REPORT_KEYS,
   type ReportKey,
 } from '@/lib/admin-reports';
@@ -136,6 +137,41 @@ export async function GET(request: Request) {
       body = csv(
         ['Name', 'Email', 'Paid orders', 'Revenue'],
         data.topCustomers.map((c) => [c.name, c.email, c.orders, money(c.revenue)])
+      );
+      break;
+    }
+    case 'notes': {
+      // The whole matching ledger, not the page the screen shows: an export
+      // that silently stopped at fifty rows would be worse than none.
+      const data = await getSoldNotesReport(range, {
+        serial: url.searchParams.get('serial') ?? undefined,
+        limit: 10_000,
+      });
+      body = csv(
+        [
+          'Serial number',
+          'Date on note',
+          'Denomination',
+          'Condition',
+          'Country',
+          'Order',
+          'Customer',
+          'Email',
+          'Paid at',
+          `Price (${data.currency})`,
+        ],
+        data.notes.map((note) => [
+          note.serial ?? '',
+          note.displayDate,
+          note.denomination ?? '',
+          note.condition ?? '',
+          note.country ?? '',
+          note.reference,
+          note.customerName,
+          note.customerEmail,
+          note.paidAt ?? '',
+          money(note.price),
+        ])
       );
       break;
     }
