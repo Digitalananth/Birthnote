@@ -130,11 +130,11 @@ function Table({
 /**
  * Presets as links, plus a custom from/to that works without client JS.
  *
- * A serial being searched for rides along in both, so changing the date range
- * narrows the same search rather than silently dropping it.
+ * Whatever the notes ledger is searching for rides along in both, so changing
+ * the date range narrows the same search rather than silently dropping it.
  */
-function RangeControl({ range, serial }: { range: ReportRange; serial: string }) {
-  const carry = serial ? `&serial=${encodeURIComponent(serial)}` : '';
+function RangeControl({ range, search }: { range: ReportRange; search: string }) {
+  const carry = search ? `&${search}` : '';
   return (
     <div className="flex flex-col gap-3 mb-8">
       <div className="flex flex-wrap gap-2">
@@ -153,7 +153,10 @@ function RangeControl({ range, serial }: { range: ReportRange; serial: string })
         ))}
       </div>
       <form action="/admin/reports" method="get" className="flex flex-wrap items-end gap-2">
-        {serial && <input type="hidden" name="serial" value={serial} />}
+        {/* One hidden field per active notes filter, so a range change keeps them. */}
+        {Array.from(new URLSearchParams(search).entries()).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-muted-foreground">From</span>
           <input
@@ -197,6 +200,7 @@ export default async function AdminReportsPage({
     from?: string;
     to?: string;
     serial?: string;
+    noteDate?: string;
     page?: string;
   }>;
 }) {
@@ -205,20 +209,28 @@ export default async function AdminReportsPage({
   const range = resolveRange(params);
 
   const serial = (params.serial ?? '').trim().slice(0, 60);
+  const noteDate = (params.noteDate ?? '').trim().slice(0, 10);
+  // The notes ledger's filters as a query string, shared by every link and
+  // form on the page that must not lose them.
+  const notesFilters = new URLSearchParams();
+  if (serial) notesFilters.set('serial', serial);
+  if (noteDate) notesFilters.set('noteDate', noteDate);
+  const notesSearch = notesFilters.toString();
   // A page number out of a query string is whatever someone typed; anything
   // that is not a positive integer is page one.
   const page = Math.max(Math.trunc(Number(params.page)) || 1, 1);
   const { sales, demand, funnel, speed, customers, notes } = await getAllReports(range, {
     serial,
+    noteDate,
     limit: NOTES_PER_PAGE,
     offset: (page - 1) * NOTES_PER_PAGE,
   });
 
   const csv = (report: string) => `/api/admin/reports?report=${report}&${rangeQuery(range)}`;
   const notesQuery = (next: number) =>
-    `/admin/reports?${rangeQuery(range)}${
-      serial ? `&serial=${encodeURIComponent(serial)}` : ''
-    }${next > 1 ? `&page=${next}` : ''}#notes`;
+    `/admin/reports?${rangeQuery(range)}${notesSearch ? `&${notesSearch}` : ''}${
+      next > 1 ? `&page=${next}` : ''
+    }#notes`;
   const lastPage = Math.max(Math.ceil(notes.total / NOTES_PER_PAGE), 1);
   const price = (paise: number) => formatPrice(paise, sales.currency);
 
@@ -237,7 +249,7 @@ export default async function AdminReportsPage({
           </p>
         </div>
 
-        <RangeControl range={range} serial={serial} />
+        <RangeControl range={range} search={notesSearch} />
 
         {/* 1 — Sales */}
         <Section
@@ -445,8 +457,8 @@ export default async function AdminReportsPage({
         {/* 6 — Sold notes, by serial number */}
         <Section
           title="Notes sold"
-          description="Every banknote that went out on a paid order in this range — serial number, what it was, and who bought it. Search finds any part of a serial."
-          csv={`${csv('notes')}${serial ? `&serial=${encodeURIComponent(serial)}` : ''}`}
+          description="Every banknote that went out on a paid order in this range — serial number, what it was, and who bought it. Both searches match any part of what you type."
+          csv={`${csv('notes')}${notesSearch ? `&${notesSearch}` : ''}`}
         >
           <div id="notes" className="scroll-mt-6">
             <form
@@ -475,13 +487,27 @@ export default async function AdminReportsPage({
                   className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-56 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-muted-foreground">Date on note</span>
+                <input
+                  type="search"
+                  name="noteDate"
+                  defaultValue={noteDate}
+                  maxLength={10}
+                  placeholder="15/08/1947 or 1947"
+                  className="px-3 py-2 rounded-xl border border-border bg-background text-sm font-mono w-44 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  The date printed on the note, not when it sold
+                </span>
+              </label>
               <button
                 type="submit"
                 className="px-5 py-2 rounded-xl bg-foreground text-background text-sm font-semibold"
               >
                 Search
               </button>
-              {serial && (
+              {notesSearch && (
                 <Link
                   href={`/admin/reports?${rangeQuery(range)}#notes`}
                   className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground"
@@ -493,9 +519,16 @@ export default async function AdminReportsPage({
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <Figure
-                label={serial ? 'Notes matching' : 'Notes sold'}
+                label={notesSearch ? 'Notes matching' : 'Notes sold'}
                 value={String(notes.total)}
-                hint={serial ? `serial contains "${serial}"` : undefined}
+                hint={
+                  [
+                    serial ? `serial contains "${serial}"` : null,
+                    noteDate ? `note dated "${noteDate}"` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || undefined
+                }
               />
               <Figure label="Value" value={formatPrice(notes.revenue, notes.currency)} />
               <Figure
@@ -514,8 +547,8 @@ export default async function AdminReportsPage({
               headers={['Serial', 'Note', 'Order', 'Customer', 'Paid', 'Price']}
               align={['left', 'left', 'left', 'left', 'left', 'right']}
               empty={
-                serial
-                  ? 'No sold note in this range has that serial number.'
+                notesSearch
+                  ? 'No note sold in this range matches that search. Try the All time preset — the range above is when a note sold, not the date on it.'
                   : 'No notes were sold in this range.'
               }
               rows={notes.notes.map((note) => [

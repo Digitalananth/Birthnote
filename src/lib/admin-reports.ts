@@ -568,6 +568,7 @@ export interface SoldNotesReport {
   currency: string;
   /** Echoed back so the page and the CSV agree on what was searched. */
   serial: string;
+  noteDate: string;
   limit: number;
   offset: number;
 }
@@ -575,6 +576,11 @@ export interface SoldNotesReport {
 export interface SoldNotesOptions {
   /** Substring of the serial number. Empty means no serial filter. */
   serial?: string;
+  /**
+   * Substring of the date printed on the note, as the customer typed it
+   * (dd/mm/yyyy). Partial is the point: "1947" is a year, "15/08" a day.
+   */
+  noteDate?: string;
   limit?: number;
   offset?: number;
 }
@@ -592,15 +598,21 @@ function likeContains(term: string): string {
  * sales report counts notes by — and a note belongs to the day its order was
  * paid for, so the ledger and the revenue figures always add up to each other.
  *
- * The serial search is a substring match so a partial number off a photograph
- * still finds the note. It is applied inside the range like every other
- * filter; searching all of time is the "All time" preset.
+ * Two searches, and they mean different dates. The range at the top of the
+ * page is when the note was *sold*; `noteDate` is the date printed on the
+ * note, which is the thing the customer actually bought. An admin asking
+ * "did we ever sell a 1947 note, and which serial was it" needs the second
+ * one, over All time.
+ *
+ * Both searches are substring matches — a serial is usually being read off a
+ * photograph, and a date is usually remembered as a year or a day and month.
  */
 export async function getSoldNotesReport(
   range: ReportRange,
   options: SoldNotesOptions = {}
 ): Promise<SoldNotesReport> {
   const serial = (options.serial ?? '').trim();
+  const noteDate = (options.noteDate ?? '').trim();
   // MySQL's prepared-statement protocol rejects placeholders in LIMIT/OFFSET,
   // so both are clamped to integers here and interpolated — same as
   // listOrders in lib/orders.ts.
@@ -694,6 +706,7 @@ export async function getSoldNotesReport(
     missingSerial: Number(total?.missing_serial ?? 0),
     currency: total?.currency ?? 'INR',
     serial,
+    noteDate,
     limit,
     offset,
   };

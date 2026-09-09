@@ -145,6 +145,7 @@ export async function GET(request: Request) {
       // that silently stopped at fifty rows would be worse than none.
       const data = await getSoldNotesReport(range, {
         serial: url.searchParams.get('serial') ?? undefined,
+        noteDate: url.searchParams.get('noteDate') ?? undefined,
         limit: 10_000,
       });
       body = csv(
