@@ -65,8 +65,11 @@ export async function POST(_request: Request, { params }: Context) {
   if (!order) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
 
   // Booking a courier for an order nobody has paid for would be a real parcel
-  // sent for real money on the strength of a misclick.
-  if (order.status !== 'paid') {
+  // sent for real money on the strength of a misclick. A `shipped` order that
+  // was already pushed to Shiprocket may still be finishing its steps — "Mark
+  // dispatched" can be pressed before the AWB exists — so it may resume.
+  const resumable = order.status === 'shipped' && Boolean(order.shiprocketShipmentId);
+  if (order.status !== 'paid' && !resumable) {
     return NextResponse.json(
       { error: 'Only a paid order can be booked with a courier.' },
       { status: 409 }
@@ -105,7 +108,11 @@ export async function POST(_request: Request, { params }: Context) {
     order = await getOrderByReference(reference);
   });
 
-  await run('awb', Boolean(order?.trackingNumber), async () => {
+  // A tracking number equal to the shipment ID was copied from the wrong field
+  // by hand; it is not an AWB, so this step still has to run and replace it.
+  const hasAwb =
+    Boolean(order?.trackingNumber) && order?.trackingNumber !== order?.shiprocketShipmentId;
+  await run('awb', hasAwb, async () => {
     const assigned = await assignAwb(order!.shiprocketShipmentId as string);
     await saveShipmentFields(order!.id, {
       trackingNumber: assigned.awb,

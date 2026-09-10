@@ -116,13 +116,30 @@ export async function PATCH(request: Request, { params }: Context) {
   // /items/:id — this route only moves the order as a whole.
   const str = (key: string) => (body[key] == null ? null : String(body[key]).trim() || null);
 
+  // The Shiprocket shipment ID sits beside the AWB in the courier panel and
+  // looks just like one, but no courier can track it. Sending it to the
+  // customer as their tracking number is a dead end for them.
+  const trackingNumber = str('trackingNumber');
+  if (trackingNumber) {
+    const current = await getOrderByReference(reference);
+    if (current?.shiprocketShipmentId && trackingNumber === current.shiprocketShipmentId) {
+      return NextResponse.json(
+        {
+          error:
+            'That is the Shiprocket shipment ID, not a tracking number. Use the AWB — it appears once Shiprocket assigns a courier.',
+        },
+        { status: 422 }
+      );
+    }
+  }
+
   const updated = await updateOrderStatus(reference, {
     status,
     // The timeline names whoever made the change, now that there is more than
     // one person who could have.
     actor: admin.email,
     note: str('note'),
-    trackingNumber: str('trackingNumber'),
+    trackingNumber,
   });
 
   if (!updated) {
