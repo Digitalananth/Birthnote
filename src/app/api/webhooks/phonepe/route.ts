@@ -108,10 +108,9 @@ export async function POST(request: Request) {
         /*
          * Keyed on the order, not the payment.
          *
-         * Razorpay's refund event named the payment it reversed, so the order
-         * was found through `gateway_payment_id`. PhonePe names the original
-         * *order* instead — which is the id we always hold, whereas the
-         * transaction id is only there if a status call ever returned one.
+         * PhonePe's refund event names the original *order*, not the payment
+         * it reversed — which suits us, since the order id is the one we
+         * always hold, whereas the transaction id is only there if a status call ever returned one.
          */
         const originalOrderId = body.payload?.originalMerchantOrderId;
         if (originalOrderId) {

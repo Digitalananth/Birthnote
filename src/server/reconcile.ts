@@ -38,7 +38,7 @@ interface UnpaidRow {
 export async function reconcilePayments(): Promise<ReconcileResult> {
   /*
    * `gateway = 'phonepe'` is not decoration. Orders that predate the
-   * migrations hold Razorpay and Stripe identifiers in the same column, and
+   * migrations hold earlier processors' identifiers in the same column, and
    * one of those fetched from PhonePe is at best a 404 for every sweep from
    * now until the row is archived.
    */
@@ -55,7 +55,7 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
   const recovered: string[] = [];
   for (const row of rows) {
     try {
-      // One call, unlike the two Razorpay needed: PhonePe returns the order's
+      // One call is enough: PhonePe returns the order's
       // state and the attempt that carried it together. 'PENDING' is still in
       // play or expired unpaid, 'FAILED' is decided against us. Only
       // 'COMPLETED' means the money moved.

@@ -105,10 +105,10 @@ export default async function AdminOrderPage({ params }: PageProps) {
               ['Total charged', formatPrice(order.totalPaise, order.currency)],
               ['Paid at', order.paidAt ? formatDateTime(order.paidAt) : null],
               // Named by the processor that issued them, because the id
-              // spaces are not interchangeable: an order paid before the
-              // PhonePe migration is looked up in Razorpay's dashboard, and one
-              // before that in Stripe's. Read from the row rather than assumed,
-              // so a fourth processor needs no edit here.
+              // spaces are not interchangeable: an order paid through an
+              // earlier processor is looked up in that processor's dashboard.
+              // Read from the row rather than assumed, so a new processor
+              // needs no edit here.
               [`${gatewayLabel} order`, order.gatewayOrderId],
               [`${gatewayLabel} payment`, order.gatewayPaymentId],
             ]

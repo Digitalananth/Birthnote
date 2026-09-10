@@ -59,7 +59,7 @@ export async function settleOrder(
  */
 export async function confirmPendingPayment(order: Order): Promise<Order> {
   if (order.status !== 'confirmed') return order;
-  // Never ask PhonePe about an id that belongs to Razorpay or Stripe.
+  // Never ask PhonePe about an id that belongs to an earlier processor.
   if (order.gateway !== 'phonepe' || !order.gatewayOrderId) return order;
 
   try {

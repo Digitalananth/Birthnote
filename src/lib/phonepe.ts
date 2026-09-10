@@ -163,7 +163,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 /**
  * The id PhonePe will know this attempt by.
  *
- * Unlike Razorpay, which issued the id, PhonePe takes ours — and takes it as
+ * PhonePe does not issue the id; it takes ours — and takes it as
  * the key of the whole order, so it must be new on every attempt. A customer
  * whose card is declined and who tries again needs a second PhonePe order;
  * reusing the reference would land on the first, failed one.
@@ -195,7 +195,7 @@ export interface PaymentOrder {
  *
  * Card and UPI details are entered on PhonePe's own page, so no payment
  * credentials touch this server. That is what keeps the site out of PCI-DSS
- * scope, exactly as the Razorpay modal and the Stripe redirect before it did.
+ * scope.
  */
 export async function createPaymentOrder(order: Order): Promise<PaymentOrder> {
   const payable = availableItems(order).filter((item) => (item.pricePaise ?? 0) > 0);
@@ -265,8 +265,8 @@ export interface OrderStatus {
  * Asks PhonePe what actually happened to an order.
  *
  * The single source of truth on the return leg, and the backstop for a webhook
- * that never arrived. One call answers both questions the old Razorpay path
- * needed two for: the state, and the id of the attempt that carried it.
+ * that never arrived. One call answers both questions: the state, and the id
+ * of the attempt that carried it.
  */
 export async function fetchOrderStatus(merchantOrderId: string): Promise<OrderStatus> {
   const body = await call<{

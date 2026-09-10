@@ -48,10 +48,8 @@ export const env = {
   /**
    * PhonePe, which takes the money.
    *
-   * All five values are secret, which is the first difference from the
-   * gateway this replaced: Razorpay's key id went to the browser to open a
-   * modal, but PhonePe hosts the payment page itself and the browser is only
-   * ever handed a URL. Nothing here is `NEXT_PUBLIC_` and nothing here should
+   * All five values are secret: PhonePe hosts the payment page itself and the
+   * browser is only ever handed a URL. Nothing here is `NEXT_PUBLIC_` and nothing here should
    * ever become so.
    *
    * `clientVersion` is not a version of ours. PhonePe issues it alongside the
@@ -77,9 +75,8 @@ export const env = {
     /**
      * Which PhonePe the site is talking to.
      *
-     * Sandbox payments look perfect and settle nothing, and unlike Razorpay —
-     * whose test keys were prefixed `rzp_test_` and so gave themselves away —
-     * PhonePe credentials carry no mark saying which environment they belong
+     * Sandbox payments look perfect and settle nothing, and PhonePe
+     * credentials carry no mark saying which environment they belong
      * to. Nothing in the app can tell the difference at runtime: a sandbox
      * payment succeeds. So it is stated explicitly rather than inferred, and
      * published on /api/health beside the MSG91 template-id check, which
