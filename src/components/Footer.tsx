@@ -49,7 +49,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center" aria-label="My Lucky Dates — home">
-              <AppLogo size={34} />
+              <AppLogo size={48} />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">
               Original banknotes printed on the dates that matter — found, verified and gift-boxed.

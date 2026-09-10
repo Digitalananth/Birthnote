@@ -69,7 +69,7 @@ export default function Header() {
               second "My Lucky Dates" beside it would just say it twice.
             */}
             <AppLogo
-              size={40}
+              size={56}
               className="transition-transform duration-300 group-hover:scale-105"
             />
           </Link>
