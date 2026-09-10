@@ -69,7 +69,9 @@ export default function Header() {
               second "My Lucky Dates" beside it would just say it twice.
             */}
             <AppLogo
-              size={56}
+              // Bigger on phones, where the logo only shares the bar with the menu button.
+              size={68}
+              heightClassName="h-[68px] md:h-14"
               className="transition-transform duration-300 group-hover:scale-105"
             />
           </Link>

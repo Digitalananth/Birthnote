@@ -9,6 +9,7 @@ interface AppLogoProps {
   iconName?: string; // Icon name when no image
   size?: number; // Size for icon/image
   className?: string; // Additional classes
+  heightClassName?: string; // Responsive height classes; replaces the fixed `size` height
   onClick?: () => void; // Click handler
 }
 
@@ -17,6 +18,7 @@ const AppLogo = memo(function AppLogo({
   iconName = 'SparklesIcon',
   size = 64,
   className = '',
+  heightClassName,
   onClick,
 }: AppLogoProps) {
   // Memoize className calculation
@@ -42,8 +44,10 @@ const AppLogo = memo(function AppLogo({
           // The artwork is a wide wordmark, not a square. `size` is the height
           // it should occupy; letting the width follow the aspect ratio keeps
           // it from being squeezed into a box it was never drawn for.
-          className="flex-shrink-0 w-auto"
-          style={{ height: size }}
+          // With heightClassName, `size` should be the largest height it takes,
+          // so the served file is sharp at every breakpoint.
+          className={`flex-shrink-0 w-auto ${heightClassName ?? ''}`}
+          style={heightClassName ? undefined : { height: size }}
           priority={true}
           unoptimized={src.endsWith('.svg')}
         />
