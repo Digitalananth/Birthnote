@@ -56,7 +56,10 @@
   }
 
   .text-hero-xl {
-    font-size: clamp(3rem, 10vw, 8rem);
+    /* Width alone used to size this, so on a wide-but-short screen the three
+       lines grew past the fold and pushed the card off-screen. Height now caps
+       it too: the headline can never claim more than ~3 x 9vh of the viewport. */
+    font-size: clamp(2.25rem, min(8vw, 9vh), 7rem);
     line-height: 0.88;
     letter-spacing: -0.04em;
   }

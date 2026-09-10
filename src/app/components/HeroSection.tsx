@@ -9,8 +9,12 @@ export default function HeroSection() {
   // those 5rem off its height, keeps the photograph whole and still fills
   // exactly one screen — the section used to begin at the very top of the page
   // with its first 5rem hidden behind the header.
+  //
+  // The height is fixed rather than a minimum: with min-h the headline and the
+  // card grew the section past the fold, so the bottom of the card sat below
+  // the screen. Everything inside now scales to fit one screen instead.
   return (
-    <section className="relative mt-20 w-full min-h-[calc(100vh-5rem)] overflow-hidden flex flex-col justify-end pb-12 md:pb-20">
+    <section className="relative mt-20 w-full h-[calc(100svh-5rem)] min-h-[34rem] overflow-hidden flex flex-col justify-end pb-6 md:pb-10">
       {/* Background image layer — cinematic entrance */}
       <div className="absolute inset-0 z-0 bg-foreground">
         <AppImage
@@ -42,13 +46,13 @@ export default function HeroSection() {
         </div>
       </div>
       {/* Hero content grid */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-end">
 
         {/* Left: Primary headline */}
         <div className="md:col-span-7">
           {/* Eyebrow */}
           <div
-            className="flex items-center gap-3 mb-6 animate-slide-up opacity-0"
+            className="flex items-center gap-3 mb-3 lg:mb-5 animate-slide-up opacity-0"
             style={{ animationDelay: '1.0s', animationFillMode: 'forwards' }}>
             
             <span className="h-px w-8 bg-accent/80" />
@@ -69,7 +73,7 @@ export default function HeroSection() {
           </h1>
 
           <p
-            className="mt-6 text-base md:text-lg text-primary-foreground/70 font-light max-w-md leading-relaxed animate-slide-up opacity-0"
+            className="mt-4 lg:mt-6 text-sm md:text-base lg:text-lg text-primary-foreground/70 font-light max-w-md leading-relaxed animate-slide-up opacity-0"
             style={{ animationDelay: '1.45s', animationFillMode: 'forwards' }}>
             
             A real banknote from the exact date of your most memorable moment — authenticated, preserved, and given with love.
@@ -81,7 +85,7 @@ export default function HeroSection() {
           className="md:col-span-5 animate-slide-up opacity-0"
           style={{ animationDelay: '1.7s', animationFillMode: 'forwards' }}>
           
-          <div className="relative overflow-hidden glass-warm rounded-2xl p-8 shadow-2xl">
+          <div className="relative overflow-hidden glass-warm rounded-2xl p-5 lg:p-7 shadow-2xl">
             {/* Shimmer */}
             <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-accent/8 to-transparent pointer-events-none animate-shimmer" />
 
@@ -89,12 +93,12 @@ export default function HeroSection() {
               <p className="text-sm font-medium text-foreground/60 uppercase tracking-widest mb-1">
                 Find your date
               </p>
-              <p className="text-foreground font-serif font-medium text-xl mb-6 leading-snug">
+              <p className="text-foreground font-serif font-medium text-lg lg:text-xl mb-4 lg:mb-5 leading-snug">
                 Enter a memorable date to see if a matching Indian banknote exists.
               </p>
 
               {/* Mini date preview */}
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 bg-secondary/60 rounded-xl px-4 py-3 border border-border">
                   <p className="text-xs text-muted-foreground mb-0.5 uppercase tracking-wide">Memorable Date</p>
                   <p className="text-foreground font-mono font-semibold text-lg tracking-widest">DD / MM / YY</p>
@@ -106,7 +110,7 @@ export default function HeroSection() {
               </div>
 
               {/* Denominations */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Available Denominations</p>
                 <div className="flex flex-wrap gap-1.5">
                   {['₹1', '₹2', '₹5', '₹10', '₹20', '₹50', '₹100', '₹200', '₹500']?.map((d) => (
@@ -119,13 +123,13 @@ export default function HeroSection() {
 
               <Link
                 href="/request-a-banknote"
-                className="group w-full flex items-center justify-between px-6 py-4 bg-primary text-primary-foreground rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-300">
+                className="group w-full flex items-center justify-between px-6 py-3.5 bg-primary text-primary-foreground rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-300">
                 
                 <span>Check Availability</span>
                 <Icon name="ArrowRightIcon" size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
 
-              <div className="mt-5 flex items-center justify-between text-xs text-foreground/40 font-medium">
+              <div className="mt-4 flex items-center justify-between text-xs text-foreground/40 font-medium">
                 <span>Free to request</span>
                 <span>·</span>
                 <span>No commitment</span>
@@ -138,11 +142,11 @@ export default function HeroSection() {
       </div>
       {/* Scroll indicator */}
       <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-slide-up opacity-0"
+        className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-slide-up opacity-0"
         style={{ animationDelay: '2.2s', animationFillMode: 'forwards' }}>
         
         <span className="text-xs uppercase tracking-widest text-primary-foreground/40 font-mono">Scroll</span>
-        <div className="w-px h-10 bg-gradient-to-b from-accent/60 to-transparent" />
+        <div className="w-px h-6 bg-gradient-to-b from-accent/60 to-transparent" />
       </div>
     </section>
   );
