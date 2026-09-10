@@ -30,9 +30,11 @@ export default function WhatYouReceiveSection() {
 
   return (
     <section id="what-you-receive" className="bg-foreground text-primary-foreground py-20 md:py-28 relative overflow-hidden">
-      {/* Section vol number */}
+      {/* Section vol number — bottom-right, under the photo, where nothing else
+          sits. Bottom-left put it straight across the price block; on one
+          column there is no empty corner, so it only shows from md up. */}
       <div
-        className="absolute bottom-8 left-6 md:left-12 pointer-events-none select-none font-sans font-extrabold text-primary-foreground/5"
+        className="hidden md:block absolute bottom-4 right-6 md:right-12 pointer-events-none select-none font-sans font-extrabold text-primary-foreground/5"
         style={{ fontSize: 'clamp(5rem, 14vw, 12rem)', lineHeight: 1 }}>
         
         02
