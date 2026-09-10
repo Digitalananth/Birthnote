@@ -1,3 +1,10 @@
+// The palette lives in CSS variables as hex. Tailwind can only honour an
+// opacity modifier (text-primary-foreground/5, bg-foreground/50 …) when the
+// colour carries an <alpha-value> slot; a bare var() silently drops every such
+// class. color-mix gives each token that slot without changing the variables.
+const token = (name) =>
+  `color-mix(in srgb, var(--${name}) calc(<alpha-value> * 100%), transparent)`;
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
@@ -9,31 +16,31 @@ module.exports = {
     },
     extend: {
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+        background: token('background'),
+        foreground: token('foreground'),
         primary: {
-          DEFAULT: 'var(--primary)',
-          foreground: 'var(--primary-foreground)',
+          DEFAULT: token('primary'),
+          foreground: token('primary-foreground'),
         },
         secondary: {
-          DEFAULT: 'var(--secondary)',
-          foreground: 'var(--secondary-foreground)',
+          DEFAULT: token('secondary'),
+          foreground: token('secondary-foreground'),
         },
         accent: {
-          DEFAULT: 'var(--accent)',
-          foreground: 'var(--accent-foreground)',
+          DEFAULT: token('accent'),
+          foreground: token('accent-foreground'),
         },
         muted: {
-          DEFAULT: 'var(--muted)',
-          foreground: 'var(--muted-foreground)',
+          DEFAULT: token('muted'),
+          foreground: token('muted-foreground'),
         },
         card: {
-          DEFAULT: 'var(--card)',
-          foreground: 'var(--card-foreground)',
+          DEFAULT: token('card'),
+          foreground: token('card-foreground'),
         },
-        border: 'var(--border)',
-        input: 'var(--input)',
-        ring: 'var(--ring)',
+        border: token('border'),
+        input: token('input'),
+        ring: token('ring'),
       },
       borderRadius: {
         DEFAULT: 'var(--radius)',
