@@ -12,7 +12,7 @@ import { reconcilePayments } from '@/server/reconcile';
  * requests that were happening anyway — the same trick `pruneExpiredSessions`
  * already plays on OTP verification.
  *
- * That is enough because of what the job is. Asking PhonePe about a payment
+ * That is enough because of what the job is. Asking PayU about a payment
  * it completed and never told us about is not time-critical: an hour late costs
  * nothing, and a site with no visitors has no payments to reconcile either.
  * A hold running out is time-critical, which is exactly why chasing one is an
@@ -28,8 +28,8 @@ const INTERVAL_MS = 15 * 60 * 1000;
 const globalForBackground = globalThis as unknown as { myLuckyDatesSweepClaimedAt?: number };
 
 export function maybeSweep(): void {
-  // Nothing to reconcile against without PhonePe configured.
-  if (!env.phonepe.configured()) return;
+  // Nothing to reconcile against without PayU configured.
+  if (!env.payu.configured()) return;
 
   const now = Date.now();
   const claimedAt = globalForBackground.myLuckyDatesSweepClaimedAt ?? 0;
@@ -39,7 +39,7 @@ export function maybeSweep(): void {
    * The slot is claimed *before* any awaiting, not after the run finishes.
    *
    * Node handles requests concurrently: if the claim were written at the end,
-   * every request arriving during a slow PhonePe round trip would pass the
+   * every request arriving during a slow PayU round trip would pass the
    * check and start its own run. Writing it first means the second request
    * sees the claim and leaves. Several worker processes each keep their own
    * clock and so may each run once per window — harmless, because
@@ -53,7 +53,7 @@ export function maybeSweep(): void {
       recordSweep();
     } catch (error) {
       recordError('background-sweep', error);
-      // Leave the claim in place: a failing PhonePe should be retried on the
+      // Leave the claim in place: a failing PayU should be retried on the
       // next window, not on the very next page view.
     }
   })();

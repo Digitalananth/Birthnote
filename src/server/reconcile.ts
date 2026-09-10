@@ -3,17 +3,16 @@ import type { ResultSetHeader } from 'mysql2';
 import { query } from '@/lib/db';
 import { recordError } from '@/server/errors';
 import { getOrderByReference } from '@/lib/orders';
-import { fetchOrderStatus } from '@/lib/phonepe';
 import { sendMail, checkoutAbandonedEmail } from '@/lib/mail';
-import { settleOrder } from '@/server/settle';
+import { settleIfPaid } from '@/server/settle';
 
 /**
- * Payments PhonePe completed but never told us about.
+ * Payments PayU completed but never told us about.
  *
  * The webhook and the success page are both quick and both skippable — a
  * delivery that never arrives, a customer who closes the tab on the return
  * leg — and either way someone who has paid is left looking unpaid. This asks
- * PhonePe directly about anything still unpaid an hour after it was last
+ * PayU directly about anything still unpaid an hour after it was last
  * touched.
  *
  * The hour of delay keeps it off checkouts a customer is still in the middle
@@ -37,15 +36,15 @@ interface UnpaidRow {
 
 export async function reconcilePayments(): Promise<ReconcileResult> {
   /*
-   * `gateway = 'phonepe'` is not decoration. Orders that predate the
+   * `gateway = 'payu'` is not decoration. Orders that predate the
    * migrations hold earlier processors' identifiers in the same column, and
-   * one of those fetched from PhonePe is at best a 404 for every sweep from
+   * one of those fetched from PayU is at best a 404 for every sweep from
    * now until the row is archived.
    */
   const rows = await query<UnpaidRow[]>(
     `SELECT reference, gateway_order_id FROM orders
       WHERE status = 'confirmed'
-        AND gateway = 'phonepe'
+        AND gateway = 'payu'
         AND gateway_order_id IS NOT NULL
         AND updated_at < UTC_TIMESTAMP() - INTERVAL 1 HOUR
       ORDER BY updated_at ASC
@@ -55,18 +54,11 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
   const recovered: string[] = [];
   for (const row of rows) {
     try {
-      // One call is enough: PhonePe returns the order's
-      // state and the attempt that carried it together. 'PENDING' is still in
-      // play or expired unpaid, 'FAILED' is decided against us. Only
-      // 'COMPLETED' means the money moved.
-      const status = await fetchOrderStatus(row.gateway_order_id);
-      if (status.state !== 'COMPLETED') continue;
-
       // A payment recovered here is as real as one the webhook delivered, so
-      // it gets its invoice and its receipt the same way — and through the
-      // same call, so whichever of the three routes arrives first is the only
-      // one that emails.
-      const settled = await settleOrder(row.gateway_order_id, status.transactionId, 'reconcile');
+      // it goes through the same gate — PayU's word and the amount — and the
+      // same idempotent settle, so whichever route arrives first is the only
+      // one that emails. 'pending' is left for the next sweep.
+      const settled = await settleIfPaid(row.gateway_order_id, 'reconcile');
       if (settled) recovered.push(row.reference);
     } catch (error) {
       // One unreadable order must not stop the rest of the run.
@@ -82,8 +74,8 @@ export async function reconcilePayments(): Promise<ReconcileResult> {
  * Reminds customers who opened a checkout a day ago and never came back.
  *
  * Stripe announced this as an event — a session expired, and the expiry was
- * the news. A PhonePe order does expire, half an hour after it is created, but
- * nothing announces that either, so the question still has to be asked: which
+ * the news. An abandoned PayU checkout is not announced
+ * either, so the question still has to be asked: which
  * confirmed orders have had a checkout opened against them, long enough ago
  * that the customer is not still in it?
  *
@@ -100,7 +92,7 @@ async function nudgeAbandonedCheckouts(): Promise<string[]> {
   const rows = await query<{ reference: string }[]>(
     `SELECT reference FROM orders
       WHERE status = 'confirmed'
-        AND gateway = 'phonepe'
+        AND gateway = 'payu'
         AND gateway_order_id IS NOT NULL
         AND checkout_reminder_at IS NULL
         AND updated_at < UTC_TIMESTAMP() - INTERVAL 24 HOUR

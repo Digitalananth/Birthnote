@@ -4,32 +4,35 @@ import React, { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 
 /**
- * Sends the customer to PhonePe to pay.
+ * Sends the customer to PayU to pay.
  *
  * Deliberately the *only* client component on the payment page that touches
  * money, and it touches very little of it: no card fields exist anywhere in
- * this codebase, and unlike the modal this replaced there is no gateway script
- * on the page either. PhonePe hosts the payment page on its own origin — card
- * numbers and UPI ids are typed there, not here, which is what keeps the site
- * out of PCI-DSS scope.
+ * this codebase and there is no gateway script on the page. The server hands
+ * back a signed form and this submits it — PayU hosts the payment page on its
+ * own origin, and card numbers and UPI ids are typed there, not here, which is
+ * what keeps the site out of PCI-DSS scope.
  *
  * The order summary above already prints the breakup — notes, delivery, GST —
- * because PhonePe is handed one amount and shows only that total. The customer
- * sees what it is made of before this button is pressed.
+ * because PayU is handed one amount and shows only that total.
  *
- * Nothing comes back on the return leg: PhonePe redirects to the success page
- * with no status and no signature. That page asks PhonePe directly, and the
- * webhook is the other half. Neither is this component's business.
+ * PayU posts the customer back to /api/payments/payu/return, which confirms
+ * with PayU and redirects. None of that is this component's business.
  */
 export default function CheckoutButton({
   reference,
   amountLabel,
+  failed = false,
 }: {
   reference: string;
   amountLabel: string;
+  /** The customer is back from a payment PayU reported as failed. */
+  failed?: boolean;
 }) {
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(
+    failed ? 'Your payment did not go through and you have not been charged. Please try again.' : ''
+  );
 
   const startCheckout = async () => {
     setPending(true);
@@ -41,10 +44,11 @@ export default function CheckoutButton({
         body: JSON.stringify({ reference }),
       });
       const session = (await response.json().catch(() => ({}))) as {
-        redirectUrl?: string;
+        action?: string;
+        fields?: Record<string, string>;
         error?: string;
       };
-      if (!response.ok || !session.redirectUrl) {
+      if (!response.ok || !session.action || !session.fields) {
         throw new Error(session.error || 'Could not start the payment. Please try again.');
       }
 
@@ -53,10 +57,21 @@ export default function CheckoutButton({
        *
        * The navigation that follows takes a moment, and a button that springs
        * back to "Pay ₹x" in that moment invites a second press — which would
-       * mint a second PhonePe order for the same money. It stays spinning
+       * mint a second PayU transaction for the same money. It stays spinning
        * until the page is gone.
        */
-      window.location.href = session.redirectUrl;
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = session.action;
+      for (const [name, value] of Object.entries(session.fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not start the payment.');
       setPending(false);
@@ -74,7 +89,7 @@ export default function CheckoutButton({
         {pending ? (
           <>
             <span className="w-4 h-4 border-2 border-primary-foreground/40 border-t-primary-foreground rounded-full animate-spin" />
-            Taking you to PhonePe…
+            Taking you to PayU…
           </>
         ) : (
           <>
@@ -96,9 +111,9 @@ export default function CheckoutButton({
       )}
 
       <p className="text-xs text-muted-foreground text-center leading-relaxed">
-        Payment is handled by PhonePe — UPI, cards, netbanking and wallets. You will be taken to
-        PhonePe&apos;s secure page to pay and brought straight back here. Your card and UPI details
-        are entered on PhonePe&apos;s page and are never sent to or stored by My Lucky Dates.
+        Payment is handled by PayU — UPI, cards, netbanking and wallets. You will be taken to
+        PayU&apos;s secure page to pay and brought straight back here. Your card and UPI details
+        are entered on PayU&apos;s page and are never sent to or stored by My Lucky Dates.
       </p>
     </div>
   );

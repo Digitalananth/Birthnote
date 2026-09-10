@@ -214,7 +214,7 @@ export default function StatusActions({ order }: { order: Order }) {
         {undecided.length > 0 && !locked
           ? `${undecided.length} of ${order.items.length} notes still to check. `
           : ''}
-        Payment status is set automatically by the PhonePe webhook — it cannot be set by hand.
+        Payment status is set automatically by the PayU payment confirmation — it cannot be set by hand.
       </p>
 
       {message && (

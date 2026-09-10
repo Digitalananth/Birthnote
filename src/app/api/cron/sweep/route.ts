@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   let reconciled: ReconcileResult = { recovered: [], checked: 0, nudged: [] };
-  if (env.phonepe.configured()) {
+  if (env.payu.configured()) {
     try {
       reconciled = await reconcilePayments();
     } catch (error) {

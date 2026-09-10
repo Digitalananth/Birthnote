@@ -50,7 +50,7 @@ You can follow every step at any time on the [order tracking page](/track-order)
 Only after we confirm your date is available and you choose to go ahead. Submitting a request costs nothing.
 
 ### How do I pay?
-Through PhonePe — UPI, card, netbanking or wallet. We never see or store your payment details.
+Through PayU — UPI, card, netbanking or wallet. We never see or store your payment details.
 
 ### Do I need an account?
 No. You can order as a guest and track your order with its reference number. Creating an account simply keeps your orders in one place.

@@ -107,7 +107,7 @@ export interface Order {
   cgstPaise: number;
   sgstPaise: number;
   igstPaise: number;
-  /** What the customer pays: notes + delivery + tax. The amount PhonePe charges. */
+  /** What the customer pays: notes + delivery + tax. The amount PayU charges. */
   totalPaise: number;
   /**
    * The rates this order was charged at, frozen when it was priced, so a rate
@@ -121,10 +121,10 @@ export interface Order {
   buyerGstin: string | null;
   currency: string;
   /**
-   * Which processor took the money. 'phonepe' for everything current;
-   * 'razorpay' and 'stripe' on orders that predate their migrations, whose
-   * gateway ids belong to different id spaces and must never be sent to
-   * PhonePe — it would answer "no such order" for each of them, and the
+   * Which processor took the money. 'payu' for everything current;
+   * 'phonepe', 'razorpay' and 'stripe' on orders that predate their
+   * migrations, whose gateway ids belong to different id spaces and must never
+   * be sent to PayU — it would answer "not found" for each of them, and the
    * reconcile sweep would ask again every quarter of an hour for ever.
    */
   gateway: string;

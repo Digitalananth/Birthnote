@@ -1,7 +1,7 @@
 # My Lucky Dates
 
 A genuine banknote printed on your most memorable date. Next.js 15 (App
-Router, React 19), MySQL, PhonePe Standard Checkout, Shiprocket and SMTP email —
+Router, React 19), MySQL, PayU Hosted Checkout, Shiprocket and SMTP email —
 built to run on a Hostinger Web App.
 
 ## How an order actually works
@@ -17,10 +17,10 @@ You open /admin
     or "Mark unavailable"         status: unavailable, emails the bad news
 
 Customer opens /payment/[reference]
-  → POST /api/checkout            creates a PhonePe order, returns its URL
-  → pays on PhonePe's page         UPI, card, netbanking, wallet
-  → redirected back to /success    asks PhonePe directly; settles if paid
-  → POST /api/webhooks/phonepe    the same, whichever arrives first
+  → POST /api/checkout            signs a PayU form; the browser submits it
+  → pays on PayU's page            UPI, card, netbanking, wallet
+  → POST /api/payments/payu/return checks the hash, asks PayU; → /success
+  → POST /api/webhooks/payu        the same, whichever arrives first
 
 You open the order and "Create shipment"
   → Shiprocket: order → AWB → pickup booked → label to print
@@ -62,7 +62,7 @@ Order BN-140387-WTXF3V  (3 notes)
 - **`orders.price_paise` is derived, never typed.** It is recomputed from the
   available items' prices on every item change (`recomputeTotal`), and both
   the breakup printed on the payment page and the single amount sent to
-  PhonePe come from those same rows — so the total, the breakdown and the
+  PayU come from those same rows — so the total, the breakdown and the
   amount charged cannot disagree.
 - **Two order statuses are checked against the items, server-side.**
   `confirmed` needs at least one note found _and_ priced, or the customer gets
@@ -146,7 +146,7 @@ Admins are different and still use email and password — see below. The scrypt
 helpers moved to `src/lib/password.ts`, which now serves them alone.
 
 **No card data ever reaches this server.** Card and UPI details are entered
-on PhonePe's own payment page, which the customer is redirected to — that is
+on PayU's own payment page, which the customer is sent to — that is
 what keeps the site out of PCI-DSS scope. Do not add card fields to this
 codebase.
 
@@ -317,8 +317,8 @@ cp .env.example .env      # then fill it in — see below
 npm run dev               # http://localhost:4028 — creates the tables on start
 ```
 
-`GET /api/health` reports whether the database, PhonePe, Shiprocket, mail and
-WhatsApp are wired up — including whether PhonePe is pointed at sandbox or
+`GET /api/health` reports whether the database, PayU, Shiprocket, mail and
+WhatsApp are wired up — including whether PayU is pointed at test or
 production and whether a Shiprocket pickup location has been set.
 
 ### Environment
@@ -330,16 +330,17 @@ list. The ones that matter:
   hPanel → Databases → Management. The tables are created, and later schema
   changes applied, automatically when the app starts — see "Database
   migrations" below.
-- **PhonePe** — `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`,
-  `PHONEPE_CLIENT_VERSION`, `PHONEPE_ENV` (`sandbox` or `production`), and the
-  separate `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD`. Add a
-  webhook endpoint at `https://your-domain/api/webhooks/phonepe` subscribed to
-  `checkout.order.completed`, `checkout.order.failed`, `pg.refund.completed`
-  and `pg.refund.failed`. Checkout runs in **INR** only; the delivery address
-  is collected on our own page before payment, because the state decides the
-  GST split. The order id PhonePe knows a payment by is **ours**, minted per
-  attempt as `REFERENCE-<timestamp>` — a retried payment gets a new one, so
-  `orders.gateway_order_id` always names the attempt in play.
+- **PayU** — `PAYU_KEY`, `PAYU_SALT` (the "Salt (Version 2)" value) and
+  `PAYU_ENV` (`test` or `production`). The customer's browser POSTs a signed
+  form to PayU and PayU POSTs back to `/api/payments/payu/return`, which
+  confirms with PayU's Verify Payment API before settling. Add a webhook at
+  `https://your-domain/api/webhooks/payu` for the Payments events Successful,
+  Failed and Refund. Checkout runs in **INR** only; the delivery address is
+  collected on our own page before payment, because the state decides the GST
+  split. The txnid PayU knows a payment by is **ours**, minted per attempt as
+  the reference without hyphens plus a timestamp (at most 25 characters) — a
+  retried payment gets a new one, so `orders.gateway_order_id` always names the
+  attempt in play.
 - **Shiprocket** — `SHIPROCKET_EMAIL`, `SHIPROCKET_PASSWORD` and
   `SHIPROCKET_WEBHOOK_TOKEN`. There are no API keys: the app trades the login
   for a ~10-day bearer token and caches it in `app_settings`, because repeated
@@ -400,17 +401,15 @@ dependency. Keep it that way.
    it creates the tables and, on an empty `admin_users`, seeds the first owner
    from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`. There is no manual
    migrate step.
-5. **PhonePe webhook** — point it at
-   `https://your-domain/api/webhooks/phonepe`, subscribe the four events
-   above, and copy the username and password you typed there into
-   `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD` (they are *not* the
-   client credentials). PhonePe hashes them into a constant `Authorization`
-   header — it does not sign the body, which is why the handler re-asks the
-   Order Status API before believing a payment. Without the webhook, orders
-   still settle when the customer lands back on the success page; a customer
-   who closes the tab waits for the reconcile sweep an hour later. Check
-   `/api/health` says `phonepe.mode: "production"` before announcing the
-   site.
+5. **PayU webhook** — in the PayU dashboard → Developers → Webhooks, add
+   `https://your-domain/api/webhooks/payu` for the Payments events Successful,
+   Failed and Refund. Payment webhooks carry the same reverse hash as the
+   return leg and are checked with the salt; refund webhooks carry no hash, so
+   each is confirmed with PayU's Check Action Status API before the order is
+   marked refunded. Without the webhook, orders still settle when the customer
+   lands back on the site; a customer who closes the tab waits for the
+   reconcile sweep an hour later. Check `/api/health` says
+   `payu.mode: "production"` before announcing the site.
 
 6. **Shiprocket webhook** — Settings → API → Webhooks, pointed at
    `https://your-domain/api/webhooks/courier`, with the token copied into
@@ -465,7 +464,7 @@ only; nothing the running app prints is reachable from outside, which is why
   }, // what THIS boot did
   "drift": { "missingTables": [], "missingColumns": {} }, // code vs information_schema
   "recentErrors": [], // last 5 rows of app_errors: scope, code, redacted message
-  "phonepe": { "configured": true, "mode": "production" },
+  "payu": { "configured": true, "mode": "production" },
   "shiprocket": { "configured": true, "pickupLocation": true, "pickupPincode": true },
   "mail": true,
   "whatsapp": false
@@ -612,7 +611,7 @@ src/
 ├── app/
 │   ├── api/                    route handlers (requests, checkout, webhook, admin)
 │   ├── admin/                  order queue, fulfilment and admin management (SSR)
-│   ├── payment/[reference]/    order summary → PhonePe Checkout (SSR)
+│   ├── payment/[reference]/    order summary → PayU Checkout (SSR)
 │   ├── track-order/[reference] customer-facing status and timeline (SSR)
 │   ├── request-a-banknote/     the request form (SSR)
 │   └── page.tsx                landing page (ISR)
@@ -623,7 +622,7 @@ src/
 │   ├── db.ts                   MySQL pool + transaction helper
 │   ├── orders.ts               all order reads/writes
 │   ├── mail.ts                 SMTP transport + email templates
-│   ├── phonepe.ts              OAuth token, order creation, status, webhook auth
+│   ├── payu.ts                 signed checkout form, reverse hash, verify, refund status
 │   ├── shiprocket.ts           token cache, shipments, AWBs, serviceability
 │   ├── auth.ts                 admin sessions and role guards
 │   ├── order-types.ts          order shapes + helpers (client-safe)

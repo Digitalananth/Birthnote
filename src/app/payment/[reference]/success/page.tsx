@@ -12,16 +12,15 @@ import { isValidReference, formatPrice } from '@/lib/validation';
 /**
  * Rendering strategy: SSR (force-dynamic).
  *
- * PhonePe sends the customer here after payment, and sends them here whatever
- * happened: the return URL carries no status, no transaction id and no
- * signature, and can be reached by anyone who types it. So nothing on the
- * redirect is believed. What the page does instead is *ask* PhonePe about the
- * order before rendering, and settle it if the answer is that the money moved.
+ * The PayU return route sends the customer here after payment, and this URL
+ * can be reached by anyone who types it. So nothing about arriving here is
+ * believed. What the page does instead is *ask* PayU about the order before
+ * rendering, and settle it if the answer is that the money moved.
  *
- * That is not the same as trusting the browser. The question goes to PhonePe
+ * That is not the same as trusting the browser. The question goes to PayU
  * over an authenticated call about an id the server already holds, and the
  * answer runs through the same idempotent `settleOrder` the webhook uses, so
- * whichever arrives first wins and the customer is emailed once. If PhonePe is
+ * whichever arrives first wins and the customer is emailed once. If PayU is
  * slow or the payment genuinely is still pending, the page says "confirming"
  * and the webhook resolves it a moment later.
  */
@@ -96,7 +95,7 @@ export default async function PaymentSuccessPage({ params }: PageProps) {
             <p className="text-sm text-muted-foreground mb-10 leading-relaxed">
               {settled
                 ? `We've charged ${formatPrice(order.totalPaise, order.currency)} and emailed your receipt to ${order.customerEmail}.`
-                : 'PhonePe is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
+                : 'PayU is still confirming with your bank. This usually takes a few seconds — refresh this page shortly, and we will email you either way.'}
             </p>
 
             <div className="bg-secondary/50 rounded-2xl p-6 text-left mb-8">

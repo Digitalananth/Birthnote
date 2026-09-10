@@ -45,11 +45,11 @@ export default async function AdminOrderPage({ params }: PageProps) {
   const order = await getOrderByReference(reference);
   if (!order) notFound();
 
-  // 'phonepe' → 'Phonepe' is not quite the brand's capitalisation, so the two
+  // 'payu' → 'Payu' is not quite the brand's capitalisation, so the
   // names in use are spelled out and anything else falls back to the raw value
   // rather than to a wrong guess.
   const gatewayLabel =
-    { phonepe: 'PhonePe', razorpay: 'Razorpay', stripe: 'Stripe' }[order.gateway] ?? order.gateway;
+    { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', stripe: 'Stripe' }[order.gateway] ?? order.gateway;
 
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);

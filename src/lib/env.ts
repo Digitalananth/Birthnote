@@ -3,7 +3,7 @@
  *
  * Every server module reads config through here so a missing variable fails
  * loudly at the call site instead of producing a confusing runtime error
- * deep inside mysql2 / nodemailer / the PhonePe client.
+ * deep inside mysql2 / nodemailer / the PayU client.
  */
 
 function optional(name: string, fallback = ''): string {
@@ -46,48 +46,33 @@ export const env = {
   },
 
   /**
-   * PhonePe, which takes the money.
+   * PayU, which takes the money.
    *
-   * All five values are secret: PhonePe hosts the payment page itself and the
-   * browser is only ever handed a URL. Nothing here is `NEXT_PUBLIC_` and nothing here should
-   * ever become so.
+   * Both values are secret. The key does travel to the browser, inside the
+   * signed checkout form, but only on the one request that opens a checkout
+   * and only beside a hash it cannot alter; the salt never leaves this server,
+   * and it is what every hash in either direction is keyed with. Nothing here
+   * is `NEXT_PUBLIC_` and nothing here should ever become so.
    *
-   * `clientVersion` is not a version of ours. PhonePe issues it alongside the
-   * id and secret, and sending the wrong one fails the token request rather
-   * than falling back to a default — so it is `required`, not optional with a
-   * guess of `1`.
-   *
-   * The webhook credentials are a *different* pair from the client ones: they
-   * are whatever was typed into the dashboard when the webhook endpoint was
-   * registered. PhonePe hashes them into a constant Authorization header.
-   * Using the client secret for either verifies nothing and fails closed,
-   * which is the good case; the bad case is assuming they are the same and
-   * never testing it.
+   * Use the salt PayU's dashboard labels "Salt (Version 2)".
    */
-  phonepe: {
-    clientId: () => required('PHONEPE_CLIENT_ID'),
-    clientSecret: () => required('PHONEPE_CLIENT_SECRET'),
-    clientVersion: () => required('PHONEPE_CLIENT_VERSION'),
-    webhookUsername: () => required('PHONEPE_WEBHOOK_USERNAME'),
-    webhookPassword: () => required('PHONEPE_WEBHOOK_PASSWORD'),
-    configured: () =>
-      Boolean(optional('PHONEPE_CLIENT_ID')) && Boolean(optional('PHONEPE_CLIENT_SECRET')),
+  payu: {
+    key: () => required('PAYU_KEY'),
+    salt: () => required('PAYU_SALT'),
+    configured: () => Boolean(optional('PAYU_KEY')) && Boolean(optional('PAYU_SALT')),
     /**
-     * Which PhonePe the site is talking to.
+     * Which PayU the site is talking to.
      *
-     * Sandbox payments look perfect and settle nothing, and PhonePe
-     * credentials carry no mark saying which environment they belong
-     * to. Nothing in the app can tell the difference at runtime: a sandbox
-     * payment succeeds. So it is stated explicitly rather than inferred, and
-     * published on /api/health beside the MSG91 template-id check, which
-     * exists for the same reason.
+     * Test payments look perfect and settle nothing, and nothing in the app
+     * can tell the difference at runtime: a test payment succeeds. So it is
+     * stated explicitly rather than inferred, and published on /api/health.
      *
-     * Defaulting to sandbox is the safe direction of the two: a live site
-     * left unconfigured refuses money it cannot settle, rather than accepting
-     * money that was never real.
+     * Defaulting to test is the safe direction of the two: a live site left
+     * unconfigured refuses money it cannot settle, rather than accepting money
+     * that was never real.
      */
-    mode: (): 'production' | 'sandbox' =>
-      optional('PHONEPE_ENV', 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox',
+    mode: (): 'production' | 'test' =>
+      optional('PAYU_ENV', 'test').toLowerCase() === 'production' ? 'production' : 'test',
   },
 
   smtp: {

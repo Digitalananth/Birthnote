@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOrderByReference, attachGatewayOrder } from '@/lib/orders';
-import { createPaymentOrder, NotPayableError } from '@/lib/phonepe';
+import { createPaymentForm, NotPayableError } from '@/lib/payu';
 import { isValidReference } from '@/lib/validation';
 import { env } from '@/lib/env';
 
@@ -8,16 +8,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/checkout — public: open a PhonePe checkout for a confirmed order.
+ * POST /api/checkout — public: open a PayU checkout for a confirmed order.
  *
- * Answers with one thing: the URL to send the browser to. PhonePe hosts the
- * payment page on its own origin, so unlike the modal this replaced there is
- * no key, no amount and no prefill for the client to be trusted with — the
- * amount is fixed on PhonePe's order server-side and a browser that alters
- * anything in this response changes nothing about what is charged.
+ * Answers with a signed form for the browser to POST to PayU. The amount, the
+ * txnid and the return URLs are all inside the hash, and the salt that keys it
+ * never leaves this server, so a browser that alters anything in this response
+ * is refused by PayU rather than charged a different sum.
  */
 export async function POST(request: Request) {
-  if (!env.phonepe.configured()) {
+  if (!env.payu.configured()) {
     return NextResponse.json(
       { error: 'Payments are not configured yet. Please contact us to complete your order.' },
       { status: 503 }
@@ -63,13 +62,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payment = await createPaymentOrder(order);
-    // Written before the browser is sent anywhere. PhonePe's webhook can
-    // arrive while the customer is still on their page, and it looks the
-    // order up by exactly this id — a redirect that raced the write would be
-    // a paid order nobody could find.
-    await attachGatewayOrder(order.id, payment.merchantOrderId);
-    return NextResponse.json({ redirectUrl: payment.redirectUrl });
+    const payment = createPaymentForm(order);
+    // Written before the browser is sent anywhere. PayU's return and webhook
+    // look the order up by exactly this txnid — a form submitted before the
+    // write would be a paid order nobody could find.
+    await attachGatewayOrder(order.id, payment.txnId);
+    return NextResponse.json({ action: payment.action, fields: payment.fields });
   } catch (error) {
     // A NotPayableError is a fact about the order, not a gateway failure, and
     // the customer can act on it. Everything else is ours to fix and theirs
@@ -77,7 +75,7 @@ export async function POST(request: Request) {
     if (error instanceof NotPayableError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
-    console.error('[api/checkout] phonepe order failed', error);
+    console.error('[api/checkout] payu checkout failed', error);
     return NextResponse.json({ error: 'Could not start the payment.' }, { status: 502 });
   }
 }

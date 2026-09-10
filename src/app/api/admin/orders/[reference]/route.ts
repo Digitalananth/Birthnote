@@ -56,10 +56,10 @@ export async function PATCH(request: Request, { params }: Context) {
       { status: 422 }
     );
   }
-  // Payment state is owned by the PhonePe webhook, never by a human click.
+  // Payment state is owned by the PayU confirmation, never by a human click.
   if (status === 'paid') {
     return NextResponse.json(
-      { error: 'Paid status is set by the PhonePe webhook, not manually.' },
+      { error: 'Paid status is set by the PayU payment confirmation, not manually.' },
       { status: 409 }
     );
   }

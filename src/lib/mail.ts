@@ -445,8 +445,8 @@ Reference: ${order.reference}
  * closed the window. So this reassures rather than explains, and does not
  * imply their card was refused.
  *
- * It does not claim anything expired. A PhonePe checkout does expire, half an
- * hour after it is opened, but that is not worth saying to someone a day later
+ * It does not claim anything expired. A PayU checkout does go stale once it is
+ * abandoned, but that is not worth saying to someone a day later
  * — pressing the button again simply makes a new one. The reservation on the
  * note is the deadline that matters, so the hold date carries the urgency and
  * the email carries none.

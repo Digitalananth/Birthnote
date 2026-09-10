@@ -25,6 +25,7 @@ export const revalidate = 0;
 
 interface PageProps {
   params: Promise<{ reference: string }>;
+  searchParams: Promise<{ payment?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -35,13 +36,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function PaymentPage({ params }: PageProps) {
+export default async function PaymentPage({ params, searchParams }: PageProps) {
   // Someone returning to the payment page may be returning *because* a payment
   // did not register. Reconciling before this renders is exactly when it is
   // worth doing.
   maybeSweep();
 
   const { reference } = await params;
+  // Set by the PayU return route on a failed payment; only ever shown, never trusted.
+  const failed = (await searchParams).payment === 'failed';
 
   if (!isValidReference(reference)) notFound();
   const order = await getOrderByReference(reference);
@@ -148,7 +151,11 @@ export default async function PaymentPage({ params }: PageProps) {
             />
 
             {order.shipping ? (
-              <CheckoutButton reference={order.reference} amountLabel={amountLabel} />
+              <CheckoutButton
+                reference={order.reference}
+                amountLabel={amountLabel}
+                failed={failed}
+              />
             ) : (
               <p className="text-center text-sm text-muted-foreground">
                 Enter your delivery address above to continue to payment.

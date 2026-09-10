@@ -17,7 +17,7 @@ import {
  * Issuing and reading tax invoices.
  *
  * An invoice is raised once, when the money arrives, and never again: the
- * database holds a unique key on `order_id`, so a redelivered PhonePe webhook
+ * database holds a unique key on `order_id`, so a redelivered PayU webhook
  * cannot produce a second document for the same sale. That matters more than
  * it sounds — two invoices for one supply is a GST return that does not
  * reconcile.
