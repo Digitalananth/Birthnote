@@ -14,6 +14,7 @@ import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/
 import { groupOrderItems } from '@/lib/order-types';
 import { getInvoiceForOrder } from '@/lib/invoices';
 import { refreshIfStale } from '@/lib/tracking';
+import RefreshTrackingButton from '../components/RefreshTrackingButton';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -225,6 +226,16 @@ export default async function TrackedOrderPage({ params }: PageProps) {
                     </div>
                   ))}
               </dl>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <RefreshTrackingButton reference={order.reference} />
+                {order.trackingSyncedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last checked {scanDay(order.trackingSyncedAt)},{' '}
+                    {scanTime(order.trackingSyncedAt)}
+                  </p>
+                )}
+              </div>
+
               {/* Every courier scan, newest first */}
               {scans.length > 0 ? (
                 <ol className="mt-6 pt-6 border-t border-border flex flex-col">

@@ -196,6 +196,25 @@ export async function refreshIfStale(order: Order): Promise<Order> {
   return (await getOrderByReference(order.reference)) ?? order;
 }
 
+/** The shortest gap between two customer-requested reads of one order. */
+const CUSTOMER_MIN_GAP_MS = 2 * 60 * 1000;
+
+/**
+ * The customer's "Refresh" button. Reads Shiprocket unless the order was read
+ * in the last two minutes, in which case what is saved is already current and
+ * the page just reloads. The gap is what keeps a public button — anyone with
+ * the reference can press it — from spending Shiprocket's rate limit.
+ * Returns whether Shiprocket was actually asked.
+ */
+export async function refreshForCustomer(order: Order): Promise<boolean> {
+  if (!order.trackingNumber || !env.shiprocket.configured()) return false;
+  if (order.status !== 'shipped' && order.status !== 'delivered') return false;
+  const last = order.trackingSyncedAt ? new Date(order.trackingSyncedAt).getTime() : 0;
+  if (Date.now() - last < CUSTOMER_MIN_GAP_MS) return false;
+  await syncTrackingQuietly(order);
+  return true;
+}
+
 /* ------------------------------------------------------------------------- */
 
 export type DeliveryOutcome =
