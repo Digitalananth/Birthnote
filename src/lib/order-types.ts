@@ -152,6 +152,12 @@ export interface Order {
   labelUrl: string | null;
   /** Shiprocket's latest wording for where the parcel is. Never mapped. */
   shipmentStatus: string | null;
+  /** The courier's own tracking page, as Shiprocket reported it. */
+  trackUrl: string | null;
+  /** Estimated delivery, in Shiprocket's wording. */
+  courierEtd: string | null;
+  /** When Shiprocket's tracking API was last read for this order. */
+  trackingSyncedAt: string | null;
   deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;

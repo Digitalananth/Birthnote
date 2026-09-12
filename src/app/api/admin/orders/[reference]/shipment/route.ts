@@ -8,6 +8,7 @@ import {
   generateLabel,
   ShiprocketError,
 } from '@/lib/shiprocket';
+import { syncTrackingQuietly } from '@/lib/tracking';
 import { isValidReference } from '@/lib/validation';
 import { recordError } from '@/server/errors';
 import { env } from '@/lib/env';
@@ -133,6 +134,13 @@ export async function POST(_request: Request, { params }: Context) {
     await saveShipmentFields(order!.id, { labelUrl });
     order = await getOrderByReference(reference);
   });
+
+  // A shipped order that just got its AWB may already have scans Shiprocket
+  // sent while nothing here matched them. Waited for, so the page the admin
+  // is refreshed to shows them.
+  if (order?.status === 'shipped' && steps.some((r) => r.step === 'awb' && r.state === 'done')) {
+    await syncTrackingQuietly(order);
+  }
 
   const failed = steps.find((result) => result.state === 'failed');
   return NextResponse.json(

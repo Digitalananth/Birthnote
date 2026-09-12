@@ -8,6 +8,7 @@ import {
   type OrderStatus,
 } from '@/lib/orders';
 import { startHold, clearHold } from '@/lib/holds';
+import { syncTrackingQuietly } from '@/lib/tracking';
 import { isValidReference } from '@/lib/validation';
 import { sendMail, availabilityConfirmedEmail, unavailableEmail, shippedEmail } from '@/lib/mail';
 import {
@@ -170,6 +171,10 @@ export async function PATCH(request: Request, { params }: Context) {
       if (whatsAppRecipient(order)) messaged = await sendWhatsApp(orderShippedWhatsApp(order));
     }
   }
+
+  // Scans that happened before dispatch was recorded — pickup, usually — are
+  // fetched now rather than left for the next webhook. Never fails the change.
+  if (status === 'shipped') await syncTrackingQuietly(order);
 
   return NextResponse.json({ order, emailed, messaged });
 }

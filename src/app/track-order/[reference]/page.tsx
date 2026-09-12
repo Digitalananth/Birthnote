@@ -13,6 +13,7 @@ import { maybeSweep } from '@/server/background-sweep';
 import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/lib/order-status';
 import { groupOrderItems } from '@/lib/order-types';
 import { getInvoiceForOrder } from '@/lib/invoices';
+import { refreshIfStale } from '@/lib/tracking';
 
 /**
  * Rendering strategy: SSR (force-dynamic).
@@ -48,8 +49,14 @@ export default async function TrackedOrderPage({ params }: PageProps) {
   const { reference } = await params;
   if (!isValidReference(reference)) notFound();
 
-  const order = await getOrderByReference(reference);
-  if (!order) notFound();
+  const found = await getOrderByReference(reference);
+  if (!found) notFound();
+  // A shipped order whose tracking is over half an hour old is re-read from
+  // Shiprocket first, waiting a few seconds at most — so the courier card and
+  // the history below are current even when a webhook was missed.
+  const order = await refreshIfStale(found);
+  const showCourier =
+    (order.status === 'shipped' || order.status === 'delivered') && Boolean(order.trackingNumber);
 
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
@@ -147,6 +154,53 @@ export default async function TrackedOrderPage({ params }: PageProps) {
               </div>
             )}
           </div>
+
+          {/* Where the parcel is, in the courier's words */}
+          {showCourier && (
+            <div className="card-warm p-6 mb-8">
+              <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
+                Delivery
+              </h2>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                {[
+                  ['Latest update', order.shipmentStatus],
+                  ['Courier', order.courierName],
+                  ['Tracking number (AWB)', order.trackingNumber],
+                  [
+                    order.status === 'delivered' ? 'Delivered on' : 'Expected by',
+                    order.status === 'delivered'
+                      ? order.deliveredAt
+                        ? formatDateTime(order.deliveredAt)
+                        : null
+                      : order.courierEtd,
+                  ],
+                ]
+                  .filter(([, value]) => Boolean(value))
+                  .map(([label, value]) => (
+                    <div key={label as string}>
+                      <dt className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {label}
+                      </dt>
+                      <dd className="text-foreground font-medium break-words">{value}</dd>
+                    </div>
+                  ))}
+              </dl>
+              {order.trackUrl && (
+                <a
+                  href={order.trackUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-secondary transition-colors"
+                >
+                  <Icon name="ArrowTopRightOnSquareIcon" size={15} />
+                  Live tracking
+                </a>
+              )}
+              <p className="text-xs text-muted-foreground mt-4">
+                Every scan by the courier appears under History below.
+              </p>
+            </div>
+          )}
 
           {/* Payment call to action */}
           {order.status === 'confirmed' && (

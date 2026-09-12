@@ -16,6 +16,7 @@ import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
 import ShipmentPanel from '@/app/admin/components/ShipmentPanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
+import { listWebhookDeliveries, lastWebhookDelivery } from '@/lib/tracking';
 import { listOptions } from '@/lib/master-options';
 import { stateName } from '@/lib/india-gst';
 import { getSettings } from '@/lib/settings';
@@ -54,6 +55,8 @@ export default async function AdminOrderPage({ params }: PageProps) {
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
   const settings = await getSettings();
+  const deliveries = await listWebhookDeliveries(order);
+  const lastAnyDelivery = await lastWebhookDelivery();
   // The grades this shop uses, so every note is described the same way.
   const conditions = (await listOptions('note_condition'))
     .filter((option) => option.isActive)
@@ -284,6 +287,54 @@ export default async function AdminOrderPage({ params }: PageProps) {
             pickupLocationSet={Boolean(settings.shiprocket_pickup_location.trim())}
           />
         </div>
+
+        {/*
+          Every call Shiprocket's webhook made about this parcel, refused and
+          unmatched ones included — so "did the webhook arrive?" is read here
+          rather than guessed at.
+        */}
+        {order.trackingNumber && (
+          <div className="card-warm p-8">
+            <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-2">
+              Courier webhook
+            </h2>
+            <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+              {lastAnyDelivery
+                ? `Last call from Shiprocket for any order: ${formatDateTime(lastAnyDelivery.receivedAt)} (${lastAnyDelivery.outcome}).`
+                : 'Shiprocket has not called the webhook for any order since this log began.'}
+            </p>
+            {deliveries.length ? (
+              <ol className="flex flex-col gap-3">
+                {deliveries.map((delivery, index) => (
+                  <li key={`${delivery.receivedAt}-${index}`} className="text-sm">
+                    <span
+                      className={`font-semibold ${
+                        delivery.outcome === 'accepted' ? 'text-green-700' : 'text-red-600'
+                      }`}
+                    >
+                      {delivery.outcome}
+                    </span>
+                    {delivery.courierStatus && (
+                      <span className="text-foreground"> · {delivery.courierStatus}</span>
+                    )}
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {delivery.scanCount} scan{delivery.scanCount === 1 ? '' : 's'} ·{' '}
+                      {formatDateTime(delivery.receivedAt)}
+                    </span>
+                    {delivery.detail && (
+                      <p className="text-xs text-muted-foreground">{delivery.detail}</p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No webhook calls for AWB {order.trackingNumber} yet.
+              </p>
+            )}
+          </div>
+        )}
 
         {/*
           The hold, shown only while there is one. A hold belongs to a

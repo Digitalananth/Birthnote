@@ -83,6 +83,9 @@ interface OrderRow extends RowDataPacket {
   courier_name: string | null;
   label_url: string | null;
   shipment_status: string | null;
+  track_url: string | null;
+  courier_etd: string | null;
+  tracking_synced_at: Date | null;
   delivered_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -177,6 +180,9 @@ function mapOrder(row: OrderRow, items: OrderItem[]): Order {
     courierName: row.courier_name,
     labelUrl: row.label_url,
     shipmentStatus: row.shipment_status,
+    trackUrl: row.track_url ?? null,
+    courierEtd: row.courier_etd ?? null,
+    trackingSyncedAt: row.tracking_synced_at ? row.tracking_synced_at.toISOString() : null,
     deliveredAt: row.delivered_at ? row.delivered_at.toISOString() : null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),

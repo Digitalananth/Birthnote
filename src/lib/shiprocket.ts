@@ -305,6 +305,88 @@ export async function generateLabel(shipmentId: string): Promise<string> {
   return response.label_url;
 }
 
+export interface TrackingScan {
+  /** Shiprocket's `YYYY-MM-DD HH:MM:SS`, IST, unparsed. */
+  date: string;
+  activity: string;
+  location: string;
+}
+
+export interface Tracking {
+  /** Shiprocket's current status wording, e.g. "IN TRANSIT". */
+  currentStatus: string;
+  courierName: string;
+  trackUrl: string;
+  etd: string;
+  scans: TrackingScan[];
+}
+
+type TrackingData = {
+  error?: string;
+  track_url?: string;
+  etd?: string;
+  shipment_track?: {
+    current_status?: string;
+    courier_name?: string;
+    edd?: string;
+  }[];
+  shipment_track_activities?: {
+    date?: string;
+    activity?: string;
+    location?: string;
+    'sr-status-label'?: string;
+  }[];
+};
+
+/**
+ * Where the parcel is, asked of Shiprocket rather than waited for.
+ *
+ * GET /courier/track/awb/{awb}. The body is `{ tracking_data: {...} }`, but the
+ * same data has also been seen keyed by the AWB (`{ "<awb>": { tracking_data } }`,
+ * sometimes inside an array) — the shape their multi-AWB endpoint uses — so
+ * both are read rather than one assumed. A shipment the courier has not yet
+ * scanned comes back 200 with `tracking_data.error` and no activities; that is
+ * reported as an error, not as an empty history.
+ */
+export async function trackAwb(awb: string): Promise<Tracking> {
+  const payload = await call<unknown>(`/courier/track/awb/${encodeURIComponent(awb)}`);
+
+  const find = (value: unknown): TrackingData | undefined => {
+    if (!value || typeof value !== 'object') return undefined;
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const found = find(entry);
+        if (found) return found;
+      }
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    if (record.tracking_data && typeof record.tracking_data === 'object') {
+      return record.tracking_data as TrackingData;
+    }
+    return find(record[awb]);
+  };
+
+  const data = find(payload);
+  if (!data) throw new ShiprocketError('Shiprocket returned no tracking data.', 0);
+
+  const activities = data.shipment_track_activities ?? [];
+  if (data.error && !activities.length) throw new ShiprocketError(String(data.error), 0);
+
+  const track = data.shipment_track?.[0] ?? {};
+  return {
+    currentStatus: String(track.current_status ?? '').trim(),
+    courierName: String(track.courier_name ?? '').trim(),
+    trackUrl: String(data.track_url ?? '').trim(),
+    etd: String(data.etd || track.edd || '').trim(),
+    scans: activities.map((scan) => ({
+      date: String(scan.date ?? ''),
+      activity: String(scan.activity ?? scan['sr-status-label'] ?? '').trim(),
+      location: String(scan.location ?? '').trim(),
+    })),
+  };
+}
+
 export interface PickupLocation {
   /** The nickname, which is what every other call refers to it by. */
   nickname: string;

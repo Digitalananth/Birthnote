@@ -34,8 +34,11 @@ const expected: Record<string, string[]> = {
     'whatsapp_opt_in', 'message', 'status', 'price_paise', 'currency', 'gateway',
     'admin_notes', 'gateway_order_id', 'gateway_payment_id', 'checkout_reminder_at', 'paid_at',
     'tracking_number', 'shiprocket_order_id', 'shiprocket_shipment_id', 'courier_name',
-    'label_url', 'shipment_status', 'delivered_at',
-    'created_at', 'updated_at',
+    'label_url', 'shipment_status', 'track_url', 'courier_etd', 'tracking_synced_at',
+    'delivered_at', 'created_at', 'updated_at',
+  ],
+  courier_webhook_deliveries: [
+    'id', 'received_at', 'outcome', 'awb', 'order_id', 'courier_status', 'scan_count', 'detail',
   ],
   order_items: [
     'id', 'order_id', 'position', 'note_date', 'display_date', 'requested_denomination',

@@ -88,6 +88,35 @@ export default function ShipmentPanel({
           ? 'Only a paid order can be booked with a courier.'
           : null;
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+
+  // Reads the full scan history from Shiprocket's tracking API — what the
+  // webhook never sent, or sent before the AWB was saved.
+  const refreshTracking = async () => {
+    setSyncing(true);
+    setSyncMessage('');
+    try {
+      const response = await fetch(`/api/admin/orders/${order.reference}/tracking`, {
+        method: 'POST',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        added?: number;
+        error?: string;
+      };
+      setSyncMessage(
+        response.ok
+          ? `${payload.added ?? 0} new scan${payload.added === 1 ? '' : 's'} added.`
+          : payload.error || 'Could not refresh tracking.'
+      );
+      startTransition(() => router.refresh());
+    } catch {
+      setSyncMessage('Could not reach the server.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const booked = Boolean(order.shiprocketShipmentId);
 
   return (
@@ -108,6 +137,13 @@ export default function ShipmentPanel({
             ['Courier', order.courierName],
             ['Shipment', order.shiprocketShipmentId],
             ['Latest scan', order.shipmentStatus],
+            ['Expected by', order.courierEtd],
+            [
+              'Tracking read',
+              order.trackingSyncedAt
+                ? new Date(order.trackingSyncedAt).toLocaleString('en-IN')
+                : null,
+            ],
           ]
             .filter(([, value]) => Boolean(value))
             .map(([label, value]) => (
@@ -148,7 +184,33 @@ export default function ShipmentPanel({
             Print label
           </a>
         )}
+
+        {order.trackingNumber && configured && (
+          <button
+            type="button"
+            onClick={refreshTracking}
+            disabled={syncing || isPending}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+          >
+            <Icon name="ArrowPathIcon" size={16} />
+            {syncing ? 'Refreshing…' : 'Refresh tracking'}
+          </button>
+        )}
+
+        {order.trackUrl && (
+          <a
+            href={order.trackUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border text-foreground hover:bg-secondary transition-colors"
+          >
+            <Icon name="ArrowTopRightOnSquareIcon" size={16} />
+            Courier tracking
+          </a>
+        )}
       </div>
+
+      {syncMessage && <p className="text-xs text-muted-foreground">{syncMessage}</p>}
 
       {blocked && <p className="text-xs text-muted-foreground">{blocked}</p>}
 
