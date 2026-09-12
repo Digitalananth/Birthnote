@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 import Icon from '@/components/ui/AppIcon';
 import OrderNotes from '@/components/OrderNotes';
 import OrderTotals from '@/components/OrderTotals';
-import { getOrderByReference, getOrderEvents, summariseOrder } from '@/lib/orders';
+import { getOrderByReference, getOrderEvents, summariseOrder, type OrderEvent } from '@/lib/orders';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { maybeSweep } from '@/server/background-sweep';
 import { STATUS_CONFIG, PROGRESS_STEPS, progressIndex, formatDateTime } from '@/lib/order-status';
@@ -40,6 +40,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+/** A scan written by the courier sync, as opposed to a step in our pipeline. */
+function isScan(event: OrderEvent): boolean {
+  return event.actor === 'shiprocket' && event.status === 'shipped';
+}
+
+/** "11 Sep" and "07:05 PM", in India time whatever the server's zone. */
+function scanDay(iso: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Kolkata',
+  }).format(new Date(iso));
+}
+function scanTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
+  })
+    .format(new Date(iso))
+    .toUpperCase();
+}
+
 export default async function TrackedOrderPage({ params }: PageProps) {
   // A customer checking their order is the likeliest person to be affected by
   // a payment we never heard about. Fire-and-forget: it does not delay this
@@ -58,7 +82,23 @@ export default async function TrackedOrderPage({ params }: PageProps) {
   const showCourier =
     (order.status === 'shipped' || order.status === 'delivered') && Boolean(order.trackingNumber);
 
-  const events = await getOrderEvents(order.id);
+  const allEvents = await getOrderEvents(order.id);
+  // Courier scans get their own timeline in the Delivery card; History keeps
+  // the order's own steps, so nothing is listed twice.
+  const events = allEvents.filter((event) => !isScan(event));
+  const scans = allEvents
+    .filter(isScan)
+    .map((event) => {
+      // Stored as "ACTIVITY — LOCATION"; the location is after the last dash.
+      const note = event.note ?? '';
+      const cut = note.lastIndexOf(' — ');
+      return {
+        activity: cut >= 0 ? note.slice(0, cut) : note,
+        location: cut >= 0 ? note.slice(cut + 3) : '',
+        at: event.createdAt,
+      };
+    })
+    .reverse();
   const invoice = await getInvoiceForOrder(order.id);
   const status = STATUS_CONFIG[order.status];
   const currentStep = progressIndex(order.status);
@@ -163,9 +203,9 @@ export default async function TrackedOrderPage({ params }: PageProps) {
               </h2>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 {[
-                  ['Latest update', order.shipmentStatus],
                   ['Courier', order.courierName],
-                  ['Tracking number (AWB)', order.trackingNumber],
+                  ['Tracking ID', order.trackingNumber],
+                  ['Latest update', order.shipmentStatus],
                   [
                     order.status === 'delivered' ? 'Delivered on' : 'Expected by',
                     order.status === 'delivered'
@@ -185,20 +225,43 @@ export default async function TrackedOrderPage({ params }: PageProps) {
                     </div>
                   ))}
               </dl>
-              {order.trackUrl && (
-                <a
-                  href={order.trackUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-secondary transition-colors"
-                >
-                  <Icon name="ArrowTopRightOnSquareIcon" size={15} />
-                  Live tracking
-                </a>
+              {/* Every courier scan, newest first */}
+              {scans.length > 0 ? (
+                <ol className="mt-6 pt-6 border-t border-border flex flex-col">
+                  {scans.map((scan, index) => (
+                    <li key={`${scan.at}-${index}`} className="flex gap-4">
+                      <div className="w-16 shrink-0 text-right">
+                        <p className="text-sm font-semibold text-foreground">{scanDay(scan.at)}</p>
+                        <p className="text-xs text-muted-foreground">{scanTime(scan.at)}</p>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span
+                          className={`w-3 h-3 rounded-full mt-1 shrink-0 ${
+                            index === 0 ? 'bg-primary' : 'bg-border'
+                          }`}
+                        />
+                        {index < scans.length - 1 && <span className="w-px flex-1 bg-border" />}
+                      </div>
+                      <div className="pb-6 min-w-0">
+                        <p className="text-sm text-foreground">
+                          <span className="text-muted-foreground">Activity: </span>
+                          <span className="font-semibold">{scan.activity}</span>
+                        </p>
+                        {scan.location && (
+                          <p className="text-sm text-foreground">
+                            <span className="text-muted-foreground">Location: </span>
+                            {scan.location}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-4">
+                  The courier&apos;s scans will appear here as the parcel moves.
+                </p>
               )}
-              <p className="text-xs text-muted-foreground mt-4">
-                Every scan by the courier appears under History below.
-              </p>
             </div>
           )}
 
