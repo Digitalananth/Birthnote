@@ -260,12 +260,24 @@ export interface AssignedAwb {
 
 /** Assigns the cheapest serviceable courier and returns its AWB. */
 export async function assignAwb(shipmentId: string): Promise<AssignedAwb> {
-  const response = await call<{
-    response?: { data?: { awb_code?: string; courier_name?: string } };
-  }>('/courier/assign/awb', {
-    method: 'POST',
-    body: { shipment_id: Number(shipmentId) },
-  });
+  let response: { response?: { data?: { awb_code?: string; courier_name?: string } } };
+  try {
+    response = await call('/courier/assign/awb', {
+      method: 'POST',
+      body: { shipment_id: Number(shipmentId) },
+    });
+  } catch (error) {
+    // An AWB assigned earlier — from their dashboard, or by a run whose save
+    // never landed — is refused with "AWB is already assigned with awb - N".
+    // That AWB is the answer this call exists to get, so it is taken, not
+    // reported as a failure the admin cannot get past.
+    const existing =
+      error instanceof ShiprocketError && /already assigned/i.test(error.message)
+        ? error.message.match(/awb\s*-\s*([A-Za-z0-9]+)/i)?.[1]
+        : undefined;
+    if (existing) return { awb: existing, courierName: '' };
+    throw error;
+  }
   const data = response.response?.data;
   if (!data?.awb_code) {
     throw new ShiprocketError('Shiprocket assigned no AWB. No courier may serve this route.', 0);

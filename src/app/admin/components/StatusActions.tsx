@@ -60,7 +60,7 @@ export default function StatusActions({ order }: { order: Order }) {
     note: '',
   });
 
-  const submit = async (status: OrderStatus) => {
+  const submit = async (status: OrderStatus, notify = true) => {
     setError('');
     setMessage('');
     setActive(status);
@@ -68,14 +68,16 @@ export default function StatusActions({ order }: { order: Order }) {
       const response = await fetch(`/api/admin/orders/${order.reference}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, ...fields }),
+        body: JSON.stringify({ status, ...fields, notify }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Update failed.');
       setMessage(
-        payload.emailed
-          ? 'Updated and the customer has been emailed.'
-          : 'Updated. No email was sent (mail is disabled or failed — check the server log).'
+        !notify
+          ? 'Tracking number saved. No email was sent.'
+          : payload.emailed
+            ? 'Updated and the customer has been emailed.'
+            : 'Updated. No email was sent (mail is disabled or failed — check the server log).'
       );
       startTransition(() => router.refresh());
     } catch (caught) {
@@ -187,6 +189,26 @@ export default function StatusActions({ order }: { order: Order }) {
                   {active === action.status ? 'Working…' : action.label}
                 </button>
               ))}
+              {/*
+                A dispatched order cannot be dispatched again, which left no way
+                to correct its tracking number. This saves it without moving
+                the order or re-sending the "dispatched" email.
+              */}
+              {order.status === 'shipped' && (
+                <button
+                  type="button"
+                  disabled={
+                    isPending ||
+                    active !== null ||
+                    !fields.trackingNumber.trim() ||
+                    fields.trackingNumber.trim() === (order.trackingNumber ?? '')
+                  }
+                  onClick={() => submit('shipped', false)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-secondary text-foreground hover:bg-secondary/80 border border-border"
+                >
+                  {active === 'shipped' ? 'Working…' : 'Save tracking number'}
+                </button>
+              )}
             </div>
 
             {/*

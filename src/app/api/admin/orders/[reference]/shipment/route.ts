@@ -114,9 +114,10 @@ export async function POST(_request: Request, { params }: Context) {
     Boolean(order?.trackingNumber) && order?.trackingNumber !== order?.shiprocketShipmentId;
   await run('awb', hasAwb, async () => {
     const assigned = await assignAwb(order!.shiprocketShipmentId as string);
+    // A recovered AWB comes without a courier name; keep the one already saved.
     await saveShipmentFields(order!.id, {
       trackingNumber: assigned.awb,
-      courierName: assigned.courierName,
+      courierName: assigned.courierName || order!.courierName,
     });
     order = await getOrderByReference(reference);
   });
