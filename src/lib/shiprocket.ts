@@ -144,16 +144,34 @@ async function call<T>(path: string, options: CallOptions = {}): Promise<T> {
 
   const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
-    const message =
+    const base =
       (typeof payload.message === 'string' && payload.message) ||
       (typeof payload.error === 'string' && payload.error) ||
       `Shiprocket returned ${response.status}.`;
+    // A 422 says only "Oops! Invalid Data."; which fields they rejected, and
+    // why, is in `errors` ({ field: [reason] }). Without it the log is useless.
+    const fields =
+      payload.errors && typeof payload.errors === 'object'
+        ? Object.entries(payload.errors as Record<string, unknown>)
+            .map(([field, reasons]) => `${field}: ${[reasons].flat().join(', ')}`)
+            .join('; ')
+        : '';
+    const message = fields ? `${base} ${fields}` : base;
     // Their duplicate-order response is a 4xx with this wording, and the
     // caller has a real recovery for it — see createShipment.
     const duplicate = /already exists|duplicate/i.test(message);
     throw new ShiprocketError(message, response.status, duplicate);
   }
   return payload as T;
+}
+
+/**
+ * Shiprocket accepts only a bare 10-digit Indian mobile. We store numbers as
+ * entered or with the 91 country code (the WhatsApp field), so strip to digits
+ * and keep the last ten.
+ */
+function tenDigitPhone(phone: string | null | undefined): string {
+  return (phone ?? '').replace(/\D/g, '').slice(-10);
 }
 
 /** The parcel's physical shape, as the owner set it in /admin/settings. */
@@ -227,7 +245,7 @@ export async function createShipment(order: Order): Promise<CreatedShipment> {
         billing_state: stateName(address.stateCode),
         billing_country: 'India',
         billing_email: order.customerEmail,
-        billing_phone: address.phone ?? order.whatsapp ?? '',
+        billing_phone: tenDigitPhone(address.phone || order.whatsapp),
         shipping_is_billing: true,
         order_items: items.map((item, index) => ({
           name: `Banknote from ${item.displayDate}`,
