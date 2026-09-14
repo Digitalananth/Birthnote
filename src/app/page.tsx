@@ -14,17 +14,18 @@ import FinalCtaSection from '@/app/components/FinalCtaSection';
 /**
  * Rendering strategy: ISR.
  *
- * The landing page is fully static HTML, so it is prerendered at build time
- * and served from disk — no database, no React rendering per request. The
- * hourly revalidate means copy or imagery changes go live without a rebuild:
+ * The landing page is prerendered at build time and served from the cache;
  * the first visitor after the window gets the cached page instantly while
  * Next.js regenerates it in the background.
  *
- * BlogSection reads the database, so it is rendered into that same cached
- * HTML; publishing a post revalidates `/` from the admin API rather than
- * waiting the hour out.
+ * TestimonialsSection and BlogSection read the database, so they are rendered
+ * into that same cached HTML; admin saves revalidate `/` immediately. The
+ * window is short because the build runs *before* boot-time migrations: when
+ * a deploy adds a table a section reads, the build-time copy is rendered
+ * without it (the section hides itself), and a long window would keep that
+ * copy live for an hour. One regeneration a minute costs next to nothing.
  */
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
