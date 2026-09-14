@@ -52,6 +52,18 @@ export default async function BlogSection() {
         <div className="grid gap-6 md:grid-cols-3">
           {posts.map((post) => (
             <article key={post.id} className="card-warm p-6 md:p-7 flex flex-col">
+              {/* Plain <img>: see /blog/[slug] — cover URLs can be on any host. */}
+              {post.coverImageUrl && (
+                <Link href={`/blog/${post.slug}`} className="block mb-5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.coverImageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="w-full aspect-[16/9] object-cover rounded-xl"
+                  />
+                </Link>
+              )}
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 {post.categoryName && (
                   <span className="px-3 py-1 rounded-full bg-accent/15 border border-accent/25 text-xs font-semibold text-accent-foreground">

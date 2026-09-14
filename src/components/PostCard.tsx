@@ -16,6 +16,18 @@ export function formatPublished(iso: string | null): string {
 export default function PostCard({ post }: { post: BlogPost }) {
   return (
     <article className="card-warm p-6 md:p-8">
+      {/* Plain <img>: see /blog/[slug] — cover URLs can be on any host. */}
+      {post.coverImageUrl && (
+        <Link href={`/blog/${post.slug}`} className="block mb-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.coverImageUrl}
+            alt=""
+            loading="lazy"
+            className="w-full aspect-[16/9] object-cover rounded-xl"
+          />
+        </Link>
+      )}
       <div className="flex flex-wrap items-center gap-3 mb-3">
         {post.categoryName && post.categorySlug && (
           <Link
