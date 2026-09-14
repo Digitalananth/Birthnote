@@ -176,6 +176,57 @@ export function validatePost(values: Partial<PostInput>): {
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
+export interface Testimonial {
+  id: number;
+  quote: string;
+  name: string;
+  role: string | null;
+  location: string | null;
+  imageUrl: string | null;
+  dateLabel: string | null;
+  sortOrder: number;
+  status: ContentStatus;
+}
+
+export interface TestimonialInput {
+  quote: string;
+  name: string;
+  role?: string | null;
+  location?: string | null;
+  imageUrl?: string | null;
+  dateLabel?: string | null;
+  sortOrder?: number;
+  status: ContentStatus;
+}
+
+export type TestimonialErrors = Partial<Record<keyof TestimonialInput, string>>;
+
+export function validateTestimonial(values: Partial<TestimonialInput>): {
+  valid: boolean;
+  errors: TestimonialErrors;
+} {
+  const errors: TestimonialErrors = {};
+  const quote = (values.quote ?? '').trim();
+  const name = (values.name ?? '').trim();
+
+  if (!quote) errors.quote = 'Enter the quote';
+  else if (quote.length > 2000) errors.quote = 'Keep this under 2000 characters';
+  if (!name) errors.name = 'Enter a name';
+  else if (name.length > 120) errors.name = 'That name is too long';
+  if ((values.role ?? '').length > 160) errors.role = 'Keep this under 160 characters';
+  if ((values.location ?? '').length > 120) errors.location = 'Keep this under 120 characters';
+  if ((values.imageUrl ?? '').length > 500) errors.imageUrl = 'That URL is too long';
+  if ((values.dateLabel ?? '').length > 20) errors.dateLabel = 'Keep this under 20 characters';
+  if (values.sortOrder !== undefined && !Number.isInteger(values.sortOrder)) {
+    errors.sortOrder = 'Use a whole number';
+  }
+  if (!values.status || !CONTENT_STATUSES.includes(values.status)) {
+    errors.status = 'Choose draft or published';
+  }
+
+  return { valid: Object.keys(errors).length === 0, errors };
+}
+
 export function validateCategory(values: { name?: string; slug?: string; description?: string }): {
   valid: boolean;
   errors: ContentErrors;

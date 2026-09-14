@@ -64,6 +64,10 @@ const expected: Record<string, string[]> = {
     'meta_title', 'meta_description', 'status', 'published_at', 'author_name',
   ],
   media: ['id', 'content_type', 'byte_size', 'sha256', 'data', 'uploaded_by', 'created_at'],
+  testimonials: [
+    'id', 'quote', 'name', 'role', 'location', 'image_url', 'date_label', 'sort_order',
+    'status', 'updated_by',
+  ],
   master_options: ['id', 'list_key', 'value', 'label', 'position', 'is_active'],
   schema_migrations: ['version', 'name', 'applied_at'],
 };

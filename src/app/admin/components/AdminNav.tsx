@@ -21,6 +21,7 @@ type NavKey =
   | 'reports'
   | 'pages'
   | 'blog'
+  | 'testimonials'
   | 'master-data'
   | 'settings'
   | 'users';
@@ -44,6 +45,12 @@ const ITEMS: { key: NavKey; href: string; label: string; icon: string; ownerOnly
   },
   { key: 'pages', href: '/admin/pages', label: 'Pages', icon: 'DocumentTextIcon' },
   { key: 'blog', href: '/admin/blog', label: 'Blog', icon: 'EnvelopeOpenIcon' },
+  {
+    key: 'testimonials',
+    href: '/admin/testimonials',
+    label: 'Stories',
+    icon: 'StarIcon',
+  },
   {
     key: 'master-data',
     href: '/admin/master-data',
