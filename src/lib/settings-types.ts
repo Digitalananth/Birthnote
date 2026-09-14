@@ -233,6 +233,11 @@ export function validateSetting(key: SettingKey, raw: string): { value?: string;
       if (!Number.isFinite(amount) || amount <= 0) {
         return { error: 'Enter a number greater than zero.' };
       }
+      // Shiprocket refuses any side under 0.5 cm ("The breadth must be greater
+      // than or equal to 0.5"), so a value it would reject cannot be saved.
+      if (key.endsWith('_cm') && amount < 0.5) {
+        return { error: 'Shiprocket needs every side to be at least 0.5 cm.' };
+      }
       // Couriers quote to two places; more is false precision on a parcel.
       return { value: (Math.round(amount * 100) / 100).toString() };
     }
