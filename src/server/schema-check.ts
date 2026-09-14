@@ -63,6 +63,7 @@ const expected: Record<string, string[]> = {
     'id', 'slug', 'title', 'excerpt', 'body_markdown', 'category_id', 'cover_image_url',
     'meta_title', 'meta_description', 'status', 'published_at', 'author_name',
   ],
+  media: ['id', 'content_type', 'byte_size', 'sha256', 'data', 'uploaded_by', 'created_at'],
   master_options: ['id', 'list_key', 'value', 'label', 'position', 'is_active'],
   schema_migrations: ['version', 'name', 'applied_at'],
 };

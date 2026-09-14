@@ -16,6 +16,7 @@ import {
   type ContentStatus,
   type Page,
 } from '@/lib/content-types';
+import { PHOTO_ACCEPT, PHOTO_MAX_BYTES } from '@/lib/order-photo-types';
 
 type Kind = 'page' | 'post';
 
@@ -54,6 +55,7 @@ export default function ContentEditor({
   const [failure, setFailure] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   /** Only true until the author edits the slug themselves. */
   const [slugTracksTitle, setSlugTracksTitle] = useState(!record);
 
@@ -118,6 +120,37 @@ export default function ContentEditor({
       setFailure('We could not reach the server. Try again.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Uploads the picked file and puts its URL in the cover field. */
+  const handleCoverUpload = async (file: File) => {
+    setErrors((prev) => ({ ...prev, coverImageUrl: undefined }));
+    if (file.size > PHOTO_MAX_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        coverImageUrl: `Images must be under ${Math.round(PHOTO_MAX_BYTES / (1024 * 1024))}MB.`,
+      }));
+      return;
+    }
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const response = await fetch('/api/admin/media', { method: 'POST', body });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setErrors((prev) => ({
+          ...prev,
+          coverImageUrl: result.error || 'We could not upload that image.',
+        }));
+        return;
+      }
+      setValues((p) => ({ ...p, coverImageUrl: result.url }));
+    } catch {
+      setErrors((prev) => ({ ...prev, coverImageUrl: 'We could not reach the server. Try again.' }));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -219,20 +252,62 @@ export default function ContentEditor({
                 </select>
               </label>
 
-              <label className="block">
-                {label('Cover image URL', 'Used for social previews')}
-                <input
-                  value={values.coverImageUrl}
-                  onChange={(event) =>
-                    setValues((p) => ({ ...p, coverImageUrl: event.target.value }))
-                  }
-                  className={input}
-                />
+              <div className="block">
+                <label htmlFor="cover-image-url">
+                  {label(
+                    'Cover image',
+                    'Upload a JPEG, PNG or WebP (under 5MB, landscape ~1600×900 works best), or paste a direct image link'
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="cover-image-url"
+                    value={values.coverImageUrl}
+                    placeholder="https://… or upload"
+                    onChange={(event) =>
+                      setValues((p) => ({ ...p, coverImageUrl: event.target.value }))
+                    }
+                    className={input}
+                  />
+                  <label
+                    className={`shrink-0 inline-flex items-center px-4 rounded-xl border border-border text-xs font-semibold text-foreground cursor-pointer hover:bg-secondary/50 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+                  >
+                    {uploading ? 'Uploading…' : 'Upload'}
+                    <input
+                      type="file"
+                      accept={PHOTO_ACCEPT}
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = '';
+                        if (file) handleCoverUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
                 {errors.coverImageUrl && (
                   <p className="text-xs text-red-500 mt-1">{errors.coverImageUrl}</p>
                 )}
-              </label>
+              </div>
             </div>
+
+            {values.coverImageUrl.trim() && (
+              <div className="flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={values.coverImageUrl.trim()}
+                  alt="Cover preview"
+                  className="w-48 aspect-[16/9] object-cover rounded-xl border border-border bg-secondary/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => setValues((p) => ({ ...p, coverImageUrl: '' }))}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
           </>
         )}
 
