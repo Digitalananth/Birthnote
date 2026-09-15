@@ -248,7 +248,7 @@ export async function createShipment(order: Order): Promise<CreatedShipment> {
         billing_phone: tenDigitPhone(address.phone || order.whatsapp),
         shipping_is_billing: true,
         order_items: items.map((item, index) => ({
-          name: `Banknote from ${item.displayDate}`,
+          name: `MLD ${item.displayDate}`,
           sku: `${order.reference}-${index + 1}`,
           units: 1,
           selling_price: (item.pricePaise ?? 0) / 100,
