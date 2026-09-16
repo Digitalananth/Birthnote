@@ -100,7 +100,7 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFDF9;border:1px solid #E8DFD2;border-radius:16px;overflow:hidden;">
         <tr><td style="height:4px;background:${BRAND};"></td></tr>
         <tr><td style="padding:36px 36px 28px;">
-          <p style="margin:0 0 20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${BRAND};font-weight:700;">My Lucky Dates</p>
+          <p style="margin:0 0 24px;"><img src="${env.siteUrl}/assets/images/email-logo.png" width="176" height="64" alt="My Lucky Dates" style="display:block;border:0;height:64px;width:auto;" /></p>
           <h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;font-weight:800;">${escapeHtml(heading)}</h1>
           ${bodyHtml}
           ${

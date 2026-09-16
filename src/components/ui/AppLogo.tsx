@@ -37,9 +37,9 @@ const AppLogo = memo(function AppLogo({
           src={src}
           alt="My Lucky Dates"
           // Next sizes the served file from these, so they must carry the real
-          // aspect ratio (614x220) — a square width here made it serve a ~40px
+          // aspect ratio (1097x400) — a square width here made it serve a ~40px
           // wide file stretched to ~110px, which is why the logo looked blurry.
-          width={Math.round(size * (614 / 220))}
+          width={Math.round(size * (1097 / 400))}
           height={size}
           // The artwork is a wide wordmark, not a square. `size` is the height
           // it should occupy; letting the width follow the aspect ratio keeps
