@@ -5,85 +5,25 @@ import Icon from '@/components/ui/AppIcon';
 
 export default function HeroSection() {
 
-  // The header is fixed and 5rem tall. Starting the hero below it, and taking
-  // those 5rem off its height, keeps the photograph whole and still fills
-  // exactly one screen — the section used to begin at the very top of the page
-  // with its first 5rem hidden behind the header.
-  //
-  // The height is fixed rather than a minimum: with min-h the headline and the
-  // card grew the section past the fold, so the bottom of the card sat below
-  // the screen. Everything inside now scales to fit one screen instead.
+  // The banner is a finished design with its own headline and logo, so it is
+  // shown whole at its own 12:5 shape — no cropping, scrim or text on top —
+  // and the date finder sits beneath it. mt-20 clears the fixed header.
   return (
-    <section className="relative mt-20 w-full h-[calc(100svh-5rem)] min-h-[34rem] overflow-hidden flex flex-col justify-end pb-6 md:pb-10">
-      {/* Background image layer — cinematic entrance */}
-      <div className="absolute inset-0 z-0 bg-foreground">
+    <section className="relative mt-20 w-full">
+      <div className="relative w-full aspect-[12/5] bg-secondary">
         <AppImage
           src="/assets/images/hero-banner.jpg"
-          alt="My Lucky Dates banner"
+          alt="My Lucky Dates — Gift Memories. Gift Luck. Genuine Indian banknotes with serial-number patterns matching meaningful dates."
           fill
           priority
-          className="object-cover animate-cinematic opacity-0"
+          className="object-contain"
           sizes="100vw" />
-        
-        {/* Warm gradient scrim — dark at bottom for white text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/30 to-transparent" />
-        {/* Subtle warm tone overlay */}
-        <div className="absolute inset-0 bg-primary/10 mix-blend-multiply" />
-        {/* Grain texture */}
-        <div className="absolute inset-0 grain-overlay opacity-60" />
       </div>
-      {/* Floating status badge */}
-      {/* top-8, not top-28: the 28 was clearing the fixed header, which the
-          section itself now sits below. */}
-      <div
-        className="absolute top-8 right-6 md:right-12 z-20 badge-delayed-in">
-        
-        <div className="px-4 py-2.5 rounded-xl bg-foreground/50 backdrop-blur-md border border-accent/30 flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-          <span className="text-xs font-mono tracking-wider uppercase text-primary-foreground/90">
-            Indian Banknotes Available
-          </span>
-        </div>
-      </div>
-      {/* Hero content grid */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-end">
-
-        {/* Left: Primary headline */}
-        <div className="md:col-span-7">
-          {/* Eyebrow */}
-          <div
-            className="flex items-center gap-3 mb-3 lg:mb-5 animate-slide-up opacity-0"
-            style={{ animationDelay: '1.0s', animationFillMode: 'forwards' }}>
-            
-            <span className="h-px w-8 bg-accent/80" />
-            <span className="text-xs font-mono uppercase tracking-widest text-primary-foreground/70">
-              Genuine dated banknotes
-            </span>
-          </div>
-
-          <h1
-            className="text-hero-xl font-sans font-extrabold text-primary-foreground leading-none tracking-tight animate-slide-up opacity-0"
-            style={{ animationDelay: '1.2s', animationFillMode: 'forwards' }}>
-            
-            The day that
-            <br />
-            <span className="font-serif font-light italic text-accent">mattered most,</span>
-            <br />
-            was printed.
-          </h1>
-
-          <p
-            className="mt-4 lg:mt-6 text-sm md:text-base lg:text-lg text-primary-foreground/70 font-light max-w-md leading-relaxed animate-slide-up opacity-0"
-            style={{ animationDelay: '1.45s', animationFillMode: 'forwards' }}>
-            
-            A real banknote from the exact date of your most memorable moment — authenticated, preserved, and given with love.
-          </p>
-        </div>
-
+      <div className="w-full px-6 md:px-12 py-8 md:py-12">
         {/* Right: Glassmorphism CTA card */}
         <div
-          className="md:col-span-5 animate-slide-up opacity-0"
-          style={{ animationDelay: '1.7s', animationFillMode: 'forwards' }}>
+          className="w-full max-w-xl mx-auto"
+          >
           
           <div className="relative overflow-hidden glass-warm rounded-2xl p-5 lg:p-7 shadow-2xl">
             {/* Shimmer */}
@@ -139,14 +79,6 @@ export default function HeroSection() {
             </div>
           </div>
         </div>
-      </div>
-      {/* Scroll indicator */}
-      <div
-        className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-slide-up opacity-0"
-        style={{ animationDelay: '2.2s', animationFillMode: 'forwards' }}>
-        
-        <span className="text-xs uppercase tracking-widest text-primary-foreground/40 font-mono">Scroll</span>
-        <div className="w-px h-6 bg-gradient-to-b from-accent/60 to-transparent" />
       </div>
     </section>
   );
