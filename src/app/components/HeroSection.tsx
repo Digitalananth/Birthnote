@@ -47,7 +47,7 @@ export default function HeroSection() {
                   <p className="text-foreground font-mono font-semibold text-lg tracking-widest">DD / MM / YY</p>
                 </div>
                 <p className="mt-1.5 px-1 text-xs text-muted-foreground">
-                  e.g. <span className="font-mono text-sm text-foreground/70">14/03/87</span>
+                  e.g. <span className="text-sm text-foreground/70">7th July 1981</span>
                 </p>
               </div>
 
