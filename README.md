@@ -262,7 +262,7 @@ the emails:
   templates and their placeholders are listed in
   `docs/phase-5-pwa-whatsapp.md`; create them before switching this on.
 - **Failures are logged and swallowed**, exactly as with email. Leave
-  `WHATSAPP_ACCESS_TOKEN` blank to log messages instead of sending them.
+  `WHATSAPP_INTEGRATED_NUMBER` blank to log messages instead of sending them.
 
 `GET /api/health` reports whether WhatsApp is wired up.
 

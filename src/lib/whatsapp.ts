@@ -4,13 +4,13 @@ import { availableItems, summariseOrder, type Order } from '@/lib/orders';
 import { formatPrice } from '@/lib/validation';
 
 /**
- * Order updates over WhatsApp, via the Meta Cloud API.
+ * Order updates over WhatsApp, sent through MSG91.
  *
  * Three things about this API shape the code:
  *
  * 1. **Business-initiated messages must use a template Meta has approved in
- *    advance.** Nothing here can send free text; the wording lives in Meta's
- *    dashboard and this file supplies only the placeholder values. Template
+ *    advance.** Nothing here can send free text; the wording lives in the
+ *    MSG91 dashboard and this file supplies only the placeholder values. Template
  *    names come from `.env` so the two can be kept in step without a deploy.
  * 2. **Body parameters may not contain newlines, tabs, or four or more
  *    consecutive spaces.** Meta rejects the whole message if they do, so
@@ -63,7 +63,7 @@ function param(value: string): string {
 /**
  * Sends a template message. Never throws.
  *
- * Returns true only when Meta accepted the message.
+ * Returns true only when MSG91 accepted the message.
  */
 export async function sendWhatsApp(message: WhatsAppTemplate): Promise<boolean> {
   const to = normaliseWhatsAppNumber(message.to);
@@ -72,28 +72,29 @@ export async function sendWhatsApp(message: WhatsAppTemplate): Promise<boolean> 
     return false;
   }
 
+  // MSG91's outbound shape: variables are keyed body_1, body_2, … in the
+  // order of the template's {{1}}, {{2}}, … placeholders.
+  const components = Object.fromEntries(
+    message.params.map((text, i) => [`body_${i + 1}`, { type: 'text', value: param(text) }])
+  );
   const body = {
-    messaging_product: 'whatsapp',
-    to,
-    type: 'template',
-    template: {
-      name: message.template,
-      language: { code: env.whatsapp.languageCode },
-      components: message.params.length
-        ? [
-            {
-              type: 'body',
-              parameters: message.params.map((text) => ({ type: 'text', text: param(text) })),
-            },
-          ]
-        : [],
+    content_type: 'template',
+    payload: {
+      messaging_product: 'whatsapp',
+      type: 'template',
+      template: {
+        name: message.template,
+        language: { code: env.whatsapp.languageCode, policy: 'deterministic' },
+        ...(env.whatsapp.namespace ? { namespace: env.whatsapp.namespace } : {}),
+        to_and_components: [{ to: [to], components }],
+      },
     },
   };
 
   if (!env.whatsapp.enabled()) {
     console.info(
       `[whatsapp:disabled] To: ${to}\nTemplate: ${message.template}\nParams: ${JSON.stringify(
-        body.template.components
+        components
       )}\n`
     );
     return false;
@@ -101,21 +102,23 @@ export async function sendWhatsApp(message: WhatsAppTemplate): Promise<boolean> 
 
   try {
     const response = await fetch(
-      `${env.whatsapp.apiBase}/${env.whatsapp.apiVersion}/${env.whatsapp.phoneNumberId()}/messages`,
+      `${env.whatsapp.apiBase}/api/v5/whatsapp/whatsapp-outbound-message/bulk/`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${env.whatsapp.accessToken()}`,
+          authkey: env.msg91.authKey(),
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-        body: JSON.stringify(body),
-        // Without this a hung Meta request would hold an order route open.
+        body: JSON.stringify({ integrated_number: env.whatsapp.integratedNumber(), ...body }),
+        // Without this a hung MSG91 request would hold an order route open.
         signal: AbortSignal.timeout(10_000),
       }
     );
 
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
+    // MSG91 can answer 200 with {"status":"fail"}, so read the body as well.
+    const detail = await response.text().catch(() => '');
+    if (!response.ok || /"(status|type)"\s*:\s*"(fail|error)"/i.test(detail)) {
       console.error(
         `[whatsapp:failed] ${message.template} to ${to} — ${response.status} ${detail.slice(0, 500)}`
       );
@@ -144,7 +147,7 @@ function firstName(order: Order): string {
 }
 
 /*
- * The templates below must exist in Meta's dashboard with matching names and
+ * The templates below must exist in the MSG91 dashboard with matching names and
  * the same number of body placeholders, in the same order. Suggested wording
  * is in docs/phase-5-pwa-whatsapp.md.
  */

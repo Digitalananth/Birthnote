@@ -121,23 +121,24 @@ export const env = {
   },
 
   /**
-   * WhatsApp via the Meta Cloud API.
+   * WhatsApp via MSG91's WhatsApp API.
    *
    * Business-initiated messages must use templates approved by Meta in
    * advance, so the template *names* live here: the wording is edited in
-   * Meta's dashboard, and this code only supplies the placeholder values.
-   * Leave WHATSAPP_ACCESS_TOKEN blank to log messages instead of sending
-   * them, exactly as MAIL_ENABLED does for email.
+   * the MSG91 dashboard, and this code only supplies the placeholder values.
+   * Leave WHATSAPP_INTEGRATED_NUMBER blank to log messages instead of
+   * sending them, exactly as MAIL_ENABLED does for email.
    */
   whatsapp: {
     /**
-     * Overridable so the integration can be pointed at a local stub in tests
-     * or at an outbound proxy, without touching the sending code.
+     * Sent through MSG91, reusing MSG91_AUTH_KEY. Overridable so the
+     * integration can be pointed at a local stub or an outbound proxy.
      */
-    apiBase: optional('WHATSAPP_API_BASE', 'https://graph.facebook.com').replace(/\/+$/, ''),
-    apiVersion: optional('WHATSAPP_API_VERSION', 'v21.0'),
-    phoneNumberId: () => required('WHATSAPP_PHONE_NUMBER_ID'),
-    accessToken: () => required('WHATSAPP_ACCESS_TOKEN'),
+    apiBase: optional('WHATSAPP_API_BASE', 'https://api.msg91.com').replace(/\/+$/, ''),
+    /** The WhatsApp number connected in MSG91, digits with country code. */
+    integratedNumber: () => required('WHATSAPP_INTEGRATED_NUMBER'),
+    /** Shown on each template in MSG91; sent only when set. */
+    namespace: optional('WHATSAPP_NAMESPACE'),
     languageCode: optional('WHATSAPP_LANGUAGE', 'en'),
     /** Most numbers here are Indian, so a bare 10-digit number gets +91. */
     defaultCountryCode: optional('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
@@ -150,8 +151,8 @@ export const env = {
     },
     enabled: () =>
       bool('WHATSAPP_ENABLED', true) &&
-      Boolean(optional('WHATSAPP_ACCESS_TOKEN')) &&
-      Boolean(optional('WHATSAPP_PHONE_NUMBER_ID')),
+      Boolean(optional('MSG91_AUTH_KEY')) &&
+      Boolean(optional('WHATSAPP_INTEGRATED_NUMBER')),
   },
 
   /**

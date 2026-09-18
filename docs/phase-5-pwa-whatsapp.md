@@ -94,7 +94,7 @@ a debugging trap rather than a feature.
 
 ## WhatsApp order updates
 
-Via the Meta Cloud API, sent alongside the existing emails at every step:
+Sent through MSG91's WhatsApp API, alongside the existing emails at every step:
 request received, confirmed, unavailable, paid, dispatched.
 
 ### Consent
@@ -114,8 +114,7 @@ Business-initiated messages must use a template Meta approved in advance.
 Nothing in this codebase can send free text: the wording lives in Meta's
 dashboard, and `src/lib/whatsapp.ts` supplies only the placeholder values.
 
-Create these in **business.facebook.com → WhatsApp Manager → Message
-templates**. Names are configurable in `.env`; the placeholder *order* is not.
+Create these in **control.msg91.com → WhatsApp → Templates**. Names are configurable in `.env`; the placeholder *order* is not.
 
 | Template | Placeholders | Suggested body |
 | --- | --- | --- |
@@ -140,7 +139,7 @@ Two API details the code works around:
 ### Failure handling
 
 Identical to email: logged and swallowed. A Meta outage must never roll back
-an order or fail a customer's request. Leave `WHATSAPP_ACCESS_TOKEN` blank to
+an order or fail a customer's request. Leave `WHATSAPP_INTEGRATED_NUMBER` blank to
 log messages instead of sending them, exactly as `MAIL_ENABLED` does.
 
 `WHATSAPP_API_BASE` exists so the integration can be pointed at a stub or an
