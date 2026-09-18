@@ -18,8 +18,8 @@ export default function HeroSection() {
       {/* Background image layer — cinematic entrance */}
       <div className="absolute inset-0 z-0 bg-foreground">
         <AppImage
-          src="https://images.unsplash.com/photo-1700394474173-6428c2ea061c"
-          alt="Aged vintage banknotes and currency spread on warm wooden surface, warm amber light, soft shadows, nostalgic atmosphere"
+          src="/assets/images/hero-banner.jpg"
+          alt="My Lucky Dates banner"
           fill
           priority
           className="object-cover animate-cinematic opacity-0"
