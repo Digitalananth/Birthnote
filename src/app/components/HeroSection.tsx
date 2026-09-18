@@ -41,15 +41,14 @@ export default function HeroSection() {
               </p>
 
               {/* Mini date preview */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 bg-secondary/60 rounded-xl px-4 py-3 border border-border">
+              <div className="mb-4">
+                <div className="bg-secondary/60 rounded-xl px-4 py-3 border border-border">
                   <p className="text-xs text-muted-foreground mb-0.5 uppercase tracking-wide">Memorable Date</p>
                   <p className="text-foreground font-mono font-semibold text-lg tracking-widest">DD / MM / YY</p>
                 </div>
-                <div className="flex flex-col gap-1 text-right">
-                  <span className="text-xs text-muted-foreground">e.g.</span>
-                  <span className="text-sm font-mono text-foreground/70">14/03/87</span>
-                </div>
+                <p className="mt-1.5 px-1 text-xs text-muted-foreground">
+                  e.g. <span className="font-mono text-sm text-foreground/70">14/03/87</span>
+                </p>
               </div>
 
               {/* Denominations */}
