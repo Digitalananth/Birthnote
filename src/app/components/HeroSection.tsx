@@ -44,7 +44,7 @@ export default function HeroSection() {
               <div className="mb-4">
                 <div className="bg-secondary/60 rounded-xl px-4 py-3 border border-border">
                   <p className="text-xs text-muted-foreground mb-0.5 uppercase tracking-wide">Memorable Date</p>
-                  <p className="text-foreground font-mono font-semibold text-lg tracking-widest">DD / MM / YY</p>
+                  <p className="text-foreground font-mono font-semibold text-lg tracking-widest">07 / 07 / 81</p>
                 </div>
                 <p className="mt-1.5 px-1 text-xs text-muted-foreground">
                   e.g. <span className="text-sm text-foreground/70">7th July 1981</span>
