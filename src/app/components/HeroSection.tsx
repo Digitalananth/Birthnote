@@ -54,9 +54,9 @@ export default function HeroSection() {
               {/* Denominations */}
               <div className="mb-4">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Available Denominations</p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-nowrap gap-1">
                   {['₹1', '₹2', '₹5', '₹10', '₹20', '₹50', '₹100', '₹200', '₹500']?.map((d) => (
-                    <span key={d} className="px-2 py-0.5 rounded-md bg-accent/15 border border-accent/25 text-xs font-mono font-semibold text-foreground/80">
+                    <span key={d} className="flex-1 min-w-0 text-center px-0.5 py-0.5 rounded-md bg-accent/15 border border-accent/25 text-[11px] sm:text-xs font-mono whitespace-nowrap font-semibold text-foreground/80">
                       {d}
                     </span>
                   ))}
