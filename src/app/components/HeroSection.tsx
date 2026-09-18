@@ -7,7 +7,9 @@ export default function HeroSection() {
 
   // The banner is a finished design with its own headline and logo, so it is
   // shown whole at its own 12:5 shape — no cropping, scrim or text on top —
-  // and the date finder sits beneath it. mt-20 clears the fixed header.
+  // and the date finder sits on its bottom-right corner as before. Below xl the
+  // banner is too short to hold the card, so it drops beneath the banner.
+  // mt-20 clears the fixed header.
   return (
     <section className="relative mt-20 w-full">
       <div className="relative w-full aspect-[12/5] bg-secondary">
@@ -19,10 +21,10 @@ export default function HeroSection() {
           className="object-contain"
           sizes="100vw" />
       </div>
-      <div className="w-full px-6 md:px-12 py-8 md:py-12">
+      <div className="w-full px-6 md:px-12 py-8 md:py-12 xl:absolute xl:bottom-10 xl:right-12 xl:w-auto xl:p-0 xl:z-10">
         {/* Right: Glassmorphism CTA card */}
         <div
-          className="w-full max-w-xl mx-auto"
+          className="w-full max-w-xl mx-auto xl:w-[26rem] xl:max-w-none"
           >
           
           <div className="relative overflow-hidden glass-warm rounded-2xl p-5 lg:p-7 shadow-2xl">
