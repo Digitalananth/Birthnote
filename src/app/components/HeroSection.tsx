@@ -7,7 +7,8 @@ export default function HeroSection() {
 
   // The banner is a finished design with its own headline and logo, so it is
   // shown whole at its own 12:5 shape — no cropping, scrim or text on top —
-  // and the date finder sits on its bottom-right corner as before. Below xl the
+  // and the date finder sits bottom-right, raised 16% to clear the banner's
+  // "Trusted by" strip (the bottom ~13.5% of the image). Below xl the
   // banner is too short to hold the card, so it drops beneath the banner.
   // mt-20 clears the fixed header.
   return (
@@ -21,7 +22,7 @@ export default function HeroSection() {
           className="object-contain"
           sizes="100vw" />
       </div>
-      <div className="w-full px-6 md:px-12 py-8 md:py-12 xl:absolute xl:bottom-10 xl:right-12 xl:w-auto xl:p-0 xl:z-10">
+      <div className="w-full px-6 md:px-12 py-8 md:py-12 xl:absolute xl:bottom-[16%] xl:right-12 xl:w-auto xl:p-0 xl:z-10">
         {/* Right: Glassmorphism CTA card */}
         <div
           className="w-full max-w-xl mx-auto xl:w-[26rem] xl:max-w-none"
