@@ -784,14 +784,19 @@ export default function RequestFormSection({ user = null, options }: Props) {
                       <input
                         id="whatsapp"
                         type="tel"
-                        placeholder="+91 98765 43210"
+                        placeholder="98765 43210"
                         value={formData.whatsapp}
                         onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))}
                         className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
                       />
                     </div>
-                    {errors.whatsapp && (
+                    {errors.whatsapp ? (
                       <p className="text-xs text-red-500 mt-1">{errors.whatsapp}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        10-digit mobile number — we&apos;ll add +91. Outside India, include your
+                        country code.
+                      </p>
                     )}
                   </div>
                 )}
