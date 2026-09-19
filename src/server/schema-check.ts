@@ -50,6 +50,10 @@ const expected: Record<string, string[]> = {
     'position', 'uploaded_by', 'created_at',
   ],
   order_events: ['id', 'order_id', 'status', 'note', 'actor', 'created_at'],
+  order_payment_attempts: ['id', 'order_id', 'txn_id', 'created_at'],
+  payu_callbacks: [
+    'id', 'received_at', 'source', 'outcome', 'txn_id', 'order_id', 'payu_status', 'detail',
+  ],
   rate_limits: ['bucket', 'hits', 'window_start'],
   admin_users: [
     'id', 'name', 'email', 'password_hash', 'role', 'is_active', 'last_login_at',

@@ -4,6 +4,7 @@ import { getOrderByGatewayOrder } from '@/lib/orders';
 import { isValidReference } from '@/lib/validation';
 import { settleIfPaid } from '@/server/settle';
 import { recordError } from '@/server/errors';
+import { recordPayuCallback, type CallbackOutcome } from '@/server/payu-callbacks';
 import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -21,6 +22,9 @@ export const dynamic = 'force-dynamic';
  * the cue to ask PayU directly through `settleIfPaid`; an invalid one is not an
  * error worth showing the customer, who is sent on to the success page, which
  * asks PayU itself and says "confirming" until the answer is yes.
+ *
+ * Every call is logged to `payu_callbacks`, whatever became of it, so whether
+ * the customer made it back here is read from the order page, not guessed.
  */
 export async function POST(request: Request) {
   let fields: Record<string, string> = {};
@@ -36,19 +40,33 @@ export async function POST(request: Request) {
   const txnId = fields.txnid ?? '';
   const order = txnId ? await getOrderByGatewayOrder(txnId).catch(() => null) : null;
   const reference = order?.reference ?? (isValidReference(fields.udf1 ?? '') ? fields.udf1 : null);
-  if (!reference) return NextResponse.redirect(`${env.siteUrl}/`, 303);
+  const log = (outcome: CallbackOutcome, detail?: string) =>
+    recordPayuCallback({
+      source: 'return',
+      outcome,
+      txnId,
+      orderId: order?.id,
+      payuStatus: fields.status,
+      detail,
+    });
 
   const signed = verifyResponseHash(fields);
-  if (!signed) console.error(`[payu-return] hash mismatch for ${txnId}`);
-
-  if (signed && fields.status === 'success') {
+  if (!signed) {
+    console.error(`[payu-return] hash mismatch for ${txnId}`);
+    await log('bad_hash');
+  } else if (fields.status === 'success') {
     try {
-      await settleIfPaid(txnId, 'payu-return');
+      await log(await settleIfPaid(txnId, 'payu-return'));
     } catch (error) {
       // The success page asks again, and the webhook and sweep are behind it.
-      recordError('payu-return', error, reference);
+      recordError('payu-return', error, reference ?? txnId);
+      await log('failed', error instanceof Error ? error.message : String(error));
     }
+  } else {
+    await log(order ? 'failure' : 'unmatched');
   }
+
+  if (!reference) return NextResponse.redirect(`${env.siteUrl}/`, 303);
 
   // A signed failure goes back to the payment page to try again. Anything
   // else — success, pending, or a form we could not verify — goes to the

@@ -23,6 +23,7 @@ import { migration as m0021 } from './0021_courier_tracking';
 import { migration as m0022 } from './0022_seed_pages';
 import { migration as m0023 } from './0023_media';
 import { migration as m0024 } from './0024_testimonials';
+import { migration as m0025 } from './0025_payment_attempts';
 
 /**
  * Every migration, oldest first. Listed by hand rather than read from the
@@ -58,4 +59,5 @@ export const migrations: readonly Migration[] = [
   m0022,
   m0023,
   m0024,
+  m0025,
 ];

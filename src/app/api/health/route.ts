@@ -6,6 +6,7 @@ import { getSettings } from '@/lib/settings';
 import { getMigrationStatus } from '@/server/migration-status';
 import { checkSchema, type SchemaDrift } from '@/server/schema-check';
 import { recentErrors } from '@/server/errors';
+import { lastPayuCallback } from '@/server/payu-callbacks';
 import { lastSweepAt } from '@/server/sweep-state';
 import { maybeSweep } from '@/server/background-sweep';
 
@@ -87,7 +88,15 @@ export async function GET() {
       // site left on test credentials takes payments that look perfect to
       // everyone involved and settle nothing, and no request can tell. This
       // reports what PAYU_ENV was set to and is only as true as that variable.
-      payu: { configured: env.payu.configured(), mode: env.payu.mode() },
+      //
+      // `lastCallback` is the last time PayU called us at all, return leg or
+      // webhook. Null long after a sale means the callbacks are not arriving
+      // and every payment is being found by the sweep.
+      payu: {
+        configured: env.payu.configured(),
+        mode: env.payu.mode(),
+        lastCallback: database ? await lastPayuCallback().catch(() => null) : null,
+      },
       mail: env.smtp.enabled(),
       // False means MAIL_FROM is on a different domain from SMTP_USER, so
       // Gmail's DKIM signature does not align with the From header and DMARC

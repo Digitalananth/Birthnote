@@ -8,13 +8,15 @@ import HoldActions from '@/app/admin/components/HoldActions';
 import ItemActions from '@/app/admin/components/ItemActions';
 import RequestFields from '@/components/RequestFields';
 import { requireAdmin } from '@/lib/auth';
-import { getOrderByReference, getOrderEvents } from '@/lib/orders';
+import { getOrderByReference, getOrderEvents, listPaymentAttempts } from '@/lib/orders';
+import { listPayuCallbacks, lastPayuCallback } from '@/server/payu-callbacks';
 import { isValidReference, formatPrice } from '@/lib/validation';
 import { STATUS_CONFIG, formatDateTime } from '@/lib/order-status';
 import { groupOrderItems } from '@/lib/order-types';
 import OrderTotals from '@/components/OrderTotals';
 import InvoicePanel from '@/app/admin/components/InvoicePanel';
 import ShipmentPanel from '@/app/admin/components/ShipmentPanel';
+import PaymentCheckPanel from '@/app/admin/components/PaymentCheckPanel';
 import { getInvoiceForOrder } from '@/lib/invoices';
 import { listWebhookDeliveries, lastWebhookDelivery } from '@/lib/tracking';
 import { listOptions } from '@/lib/master-options';
@@ -50,13 +52,17 @@ export default async function AdminOrderPage({ params }: PageProps) {
   // names in use are spelled out and anything else falls back to the raw value
   // rather than to a wrong guess.
   const gatewayLabel =
-    { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', stripe: 'Stripe' }[order.gateway] ?? order.gateway;
+    { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', stripe: 'Stripe' }[order.gateway] ??
+    order.gateway;
 
   const events = await getOrderEvents(order.id);
   const invoice = await getInvoiceForOrder(order.id);
   const settings = await getSettings();
   const deliveries = await listWebhookDeliveries(order);
   const lastAnyDelivery = await lastWebhookDelivery();
+  const attempts = order.gateway === 'payu' ? await listPaymentAttempts(order.id) : [];
+  const callbacks = await listPayuCallbacks(order);
+  const lastAnyCallback = await lastPayuCallback();
   // The grades this shop uses, so every note is described the same way.
   const conditions = (await listOptions('note_condition'))
     .filter((option) => option.isActive)
@@ -335,6 +341,84 @@ export default async function AdminOrderPage({ params }: PageProps) {
             )}
           </div>
         )}
+
+        {/*
+          Every checkout the customer opened and every call PayU made about
+          them — so "did the callback arrive?" is read here rather than guessed
+          at — and, while the order is unpaid, the means to ask PayU directly.
+        */}
+        {(attempts.length > 0 || callbacks.length > 0 || order.status === 'confirmed') &&
+          order.gateway === 'payu' && (
+            <div className="card-warm p-8">
+              <h2 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-2">
+                PayU payment
+              </h2>
+              <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+                {lastAnyCallback
+                  ? `Last call from PayU for any order: ${formatDateTime(lastAnyCallback.receivedAt)} (${lastAnyCallback.source}, ${lastAnyCallback.outcome}).`
+                  : 'PayU has not called back for any order since this log began.'}
+              </p>
+
+              <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                Checkout attempts
+              </h3>
+              {attempts.length ? (
+                <ul className="flex flex-col gap-1 mb-5">
+                  {attempts.map((txnId) => (
+                    <li key={txnId} className="font-mono text-xs text-foreground">
+                      {txnId}
+                      {order.paidAt && txnId === order.gatewayOrderId && (
+                        <span className="font-sans font-semibold text-green-700"> · paid</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-5">None on record.</p>
+              )}
+
+              <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                Callbacks received
+              </h3>
+              {callbacks.length ? (
+                <ol className="flex flex-col gap-3 mb-5">
+                  {callbacks.map((callback, index) => (
+                    <li key={`${callback.receivedAt}-${index}`} className="text-sm">
+                      <span
+                        className={`font-semibold ${
+                          callback.outcome === 'settled' || callback.outcome === 'already_paid'
+                            ? 'text-green-700'
+                            : callback.outcome === 'failure' || callback.outcome === 'not_paid'
+                              ? 'text-foreground'
+                              : 'text-red-600'
+                        }`}
+                      >
+                        {callback.outcome}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {callback.source}
+                        {callback.payuStatus ? ` · PayU said ${callback.payuStatus}` : ''} ·{' '}
+                        {formatDateTime(callback.receivedAt)}
+                      </span>
+                      {callback.txnId && (
+                        <p className="font-mono text-xs text-muted-foreground">{callback.txnId}</p>
+                      )}
+                      {callback.detail && (
+                        <p className="text-xs text-muted-foreground">{callback.detail}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-5">
+                  No call from PayU about this order yet.
+                </p>
+              )}
+
+              {order.status === 'confirmed' && <PaymentCheckPanel order={order} />}
+            </div>
+          )}
 
         {/*
           The hold, shown only while there is one. A hold belongs to a

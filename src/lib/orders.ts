@@ -425,11 +425,47 @@ export async function getUserOrderByReference(
   return rows.length ? (await withItems(rows))[0] : null;
 }
 
+/**
+ * The order a PayU txnid belongs to — any txnid it was ever given, not only
+ * the latest. A customer who opens the checkout twice can pay on either
+ * attempt, and the confirmation arrives under whichever they used.
+ *
+ * The `gateway_order_id` arm is for ids that predate the attempts table's
+ * processor: an earlier gateway's order is still found by the column it holds.
+ */
+const ORDER_ID_BY_TXN_ID = `SELECT order_id AS id FROM order_payment_attempts WHERE txn_id = ?
+   UNION
+  SELECT id FROM orders WHERE gateway_order_id = ?
+   LIMIT 1`;
+
 export async function getOrderByGatewayOrder(gatewayOrderId: string): Promise<Order | null> {
-  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE gateway_order_id = ? LIMIT 1`, [
+  const ids = await query<(RowDataPacket & { id: number })[]>(ORDER_ID_BY_TXN_ID, [
+    gatewayOrderId,
     gatewayOrderId,
   ]);
+  if (!ids.length) return null;
+  const rows = await query<OrderRow[]>(`${SELECT_ORDER} WHERE id = ?`, [ids[0].id]);
   return rows.length ? (await withItems(rows))[0] : null;
+}
+
+/**
+ * Adds a txnid to an order's attempts without making it the latest — for an
+ * admin re-attaching one found in the PayU dashboard.
+ */
+export async function addPaymentAttempt(orderId: number, txnId: string) {
+  await query('INSERT IGNORE INTO order_payment_attempts (order_id, txn_id) VALUES (?, ?)', [
+    orderId,
+    txnId,
+  ]);
+}
+
+/** Every PayU txnid minted for an order, newest first. */
+export async function listPaymentAttempts(orderId: number): Promise<string[]> {
+  const rows = await query<(RowDataPacket & { txn_id: string })[]>(
+    'SELECT txn_id FROM order_payment_attempts WHERE order_id = ? ORDER BY created_at DESC, id DESC',
+    [orderId]
+  );
+  return rows.map((row) => row.txn_id);
 }
 
 export async function getOrderEvents(orderId: number): Promise<OrderEvent[]> {
@@ -759,18 +795,20 @@ export async function saveShippingAddress(
 }
 
 /**
- * Records which PayU transaction this order of ours is being paid through.
+ * Records a PayU transaction this order of ours may be paid through.
  *
- * Overwrites any previous id rather than keeping a history: PayU keys a
- * transaction by a txnid we mint, and we mint a fresh one per attempt, so a
- * customer who opens the checkout, abandons it and opens it again has a second
- * txnid — and it is the latest one the confirmation will arrive for. The
- * abandoned one is never paid.
+ * PayU keys a transaction by a txnid we mint, and we mint a fresh one per
+ * attempt, so a customer who opens the checkout, goes back and opens it again
+ * has two — and can complete either. Every one is kept in
+ * `order_payment_attempts`, so the confirmation finds the order whichever it
+ * arrives for. `gateway_order_id` follows the latest, for the admin page.
  *
- * Losing the previous id costs nothing: it was never paid, and if it somehow
- * were, the reconcile sweep asks about the id the row holds.
+ * The attempt is written first: it is the row the lookups depend on. INSERT
+ * IGNORE because an admin re-attaching a txnid from the PayU dashboard may
+ * name one that is already here.
  */
 export async function attachGatewayOrder(orderId: number, gatewayOrderId: string) {
+  await addPaymentAttempt(orderId, gatewayOrderId);
   await query("UPDATE orders SET gateway_order_id = ?, gateway = 'payu' WHERE id = ?", [
     gatewayOrderId,
     orderId,
@@ -784,6 +822,10 @@ export async function attachGatewayOrder(orderId: number, gatewayOrderId: string
  * the update guarded on the order not already being paid, so the second arrival
  * appends no duplicate event and re-sends no receipt.
  *
+ * `gateway_order_id` is set to the txnid that was paid, which need not be the
+ * latest attempt. From here on it is the id the refund notification carries
+ * and the one to search PayU's dashboard for.
+ *
  * Returns the order only when this call is the one that flipped it to paid.
  */
 export async function markOrderPaid(
@@ -791,19 +833,26 @@ export async function markOrderPaid(
   gatewayPaymentId: string | null
 ): Promise<Order | null> {
   return transaction(async (conn) => {
-    const [rows] = await conn.execute<OrderRow[]>(
-      `${SELECT_ORDER} WHERE gateway_order_id = ? LIMIT 1 FOR UPDATE`,
-      [gatewayOrderId]
-    );
+    // Resolved to the primary key first, so the lock is taken on one row by
+    // its id rather than through a lookup that spans two tables.
+    const [ids] = await conn.execute<(RowDataPacket & { id: number })[]>(ORDER_ID_BY_TXN_ID, [
+      gatewayOrderId,
+      gatewayOrderId,
+    ]);
+    if (!ids.length) return null;
+    const [rows] = await conn.execute<OrderRow[]>(`${SELECT_ORDER} WHERE id = ? FOR UPDATE`, [
+      ids[0].id,
+    ]);
     if (!rows.length) return null;
     const order = rows[0];
     if (order.status === 'paid' || order.status === 'shipped') return null;
 
     await conn.execute(
       `UPDATE orders
-         SET status = 'paid', gateway_payment_id = ?, paid_at = UTC_TIMESTAMP()
+         SET status = 'paid', gateway_order_id = ?, gateway_payment_id = ?,
+             paid_at = UTC_TIMESTAMP()
        WHERE id = ?`,
-      [gatewayPaymentId, order.id]
+      [gatewayOrderId, gatewayPaymentId, order.id]
     );
     await conn.execute(
       `INSERT INTO order_events (order_id, status, note, actor)
