@@ -50,7 +50,7 @@ export default async function TestimonialsSection() {
           {testimonials.map((t, i) =>
           <div
             key={t.id}
-            className="reveal-warm card-warm p-8 flex flex-col justify-between gap-6 group hover:-translate-y-1 transition-transform duration-300 snap-start shrink-0 w-[80%] sm:w-[60%] md:w-[42%] lg:w-[36%]"
+            className="reveal-warm card-warm p-8 flex flex-col justify-between gap-6 group hover:-translate-y-1 transition-transform duration-300 snap-start shrink-0 w-[80%] sm:w-[60%] md:w-[42%] lg:w-[calc((100%-6rem)/3.3)]"
             style={{ transitionDelay: `${(i % 3) * 100}ms` }}>
 
               {/* Stars */}
