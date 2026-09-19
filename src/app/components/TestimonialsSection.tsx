@@ -44,12 +44,13 @@ export default async function TestimonialsSection() {
           </h2>
         </div>
 
-        {/* Testimonial cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        {/* Testimonial cards — a swipe row with the scrollbar hidden; card
+            widths leave the next card half in view so it reads as scrollable. */}
+        <div className="scrollbar-none -mx-6 md:-mx-12 px-6 md:px-12 py-2 flex gap-6 md:gap-8 overflow-x-auto snap-x snap-mandatory scroll-px-6 md:scroll-px-12">
           {testimonials.map((t, i) =>
           <div
             key={t.id}
-            className="reveal-warm card-warm p-8 flex flex-col justify-between gap-6 group hover:-translate-y-1 transition-transform duration-300"
+            className="reveal-warm card-warm p-8 flex flex-col justify-between gap-6 group hover:-translate-y-1 transition-transform duration-300 snap-start shrink-0 w-[80%] sm:w-[60%] md:w-[42%] lg:w-[36%]"
             style={{ transitionDelay: `${(i % 3) * 100}ms` }}>
 
               {/* Stars */}

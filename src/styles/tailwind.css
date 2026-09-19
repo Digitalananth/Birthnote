@@ -109,6 +109,15 @@
 
 @layer components {
   /* Scroll reveal */
+  /* Scrollable, but no visible scrollbar (swipe rows). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .reveal-warm {
     opacity: 0;
     transform: translateY(32px);
