@@ -34,6 +34,7 @@ export default function Header() {
     { label: 'How It Works', href: '/#how-it-works' },
     { label: 'What You Receive', href: '/#what-you-receive' },
     { label: 'Stories', href: '/#stories' },
+    { label: 'Gallery', href: '/gallery' },
     { label: 'Blog', href: '/blog' },
     { label: 'Track Order', href: '/track-order' },
     // Deliberately not personalised: showing the signed-in name here would

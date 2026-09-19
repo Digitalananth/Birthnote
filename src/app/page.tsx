@@ -8,6 +8,7 @@ import WhyItMattersSection from '@/app/components/WhyItMattersSection';
 import WhatYouReceiveSection from '@/app/components/WhatYouReceiveSection';
 import BanknotesDisplaySection from '@/app/components/BanknotesDisplaySection';
 import TestimonialsSection from '@/app/components/TestimonialsSection';
+import GallerySection from '@/app/components/GallerySection';
 import BlogSection from '@/app/components/BlogSection';
 import FinalCtaSection from '@/app/components/FinalCtaSection';
 
@@ -42,6 +43,7 @@ export default function HomePage() {
         <WhatYouReceiveSection />
         <BanknotesDisplaySection />
         <TestimonialsSection />
+        <GallerySection />
         <BlogSection />
         <FinalCtaSection />
       </main>

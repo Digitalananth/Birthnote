@@ -245,3 +245,34 @@ export function validateCategory(values: { name?: string; slug?: string; descrip
 
   return { valid: Object.keys(errors).length === 0, errors };
 }
+
+export interface GalleryPhoto {
+  id: number;
+  imageUrl: string;
+  caption: string | null;
+  status: ContentStatus;
+  createdAt: string;
+}
+
+export interface GalleryPhotoInput {
+  imageUrl: string;
+  caption?: string | null;
+  status: ContentStatus;
+}
+
+export type GalleryPhotoErrors = Partial<Record<keyof GalleryPhotoInput, string>>;
+
+export function validateGalleryPhoto(values: Partial<GalleryPhotoInput>): {
+  valid: boolean;
+  errors: GalleryPhotoErrors;
+} {
+  const errors: GalleryPhotoErrors = {};
+  const imageUrl = (values.imageUrl ?? '').trim();
+  if (!imageUrl) errors.imageUrl = 'Upload a photo';
+  else if (imageUrl.length > 500) errors.imageUrl = 'That URL is too long';
+  if ((values.caption ?? '').length > 200) errors.caption = 'Keep this under 200 characters';
+  if (!values.status || !CONTENT_STATUSES.includes(values.status)) {
+    errors.status = 'Choose draft or published';
+  }
+  return { valid: Object.keys(errors).length === 0, errors };
+}

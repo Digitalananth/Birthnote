@@ -72,6 +72,7 @@ const expected: Record<string, string[]> = {
     'id', 'quote', 'name', 'role', 'location', 'image_url', 'date_label', 'sort_order',
     'status', 'updated_by',
   ],
+  gallery_photos: ['id', 'image_url', 'caption', 'status', 'updated_by', 'created_at'],
   master_options: ['id', 'list_key', 'value', 'label', 'position', 'is_active'],
   schema_migrations: ['version', 'name', 'applied_at'],
 };
