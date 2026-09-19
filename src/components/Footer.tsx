@@ -17,6 +17,7 @@ const columns: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: 'Request a Date', href: '/request-a-banknote' },
       { label: 'How It Works', href: '/#how-it-works' },
       { label: 'What You Receive', href: '/#what-you-receive' },
+      { label: 'Gallery', href: '/gallery' },
     ],
   },
   {
