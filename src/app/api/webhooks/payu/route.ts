@@ -30,8 +30,8 @@ export const dynamic = 'force-dynamic';
  * hash and a txnid that matches no order included — so "is PayU calling us?"
  * is answered from the order page and /api/health.
  *
- * A missed delivery is covered separately: /api/cron/sweep asks PayU directly
- * about anything still unpaid an hour later.
+ * A missed delivery is covered separately: the admin's payment check on the
+ * order (/api/admin/orders/:reference/payment-check) asks PayU directly.
  */
 
 interface RefundBody {

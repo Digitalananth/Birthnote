@@ -18,7 +18,7 @@ import { issueInvoiceForOrder } from '@/lib/invoices';
  *
  * Shared rather than inlined into the webhook because four callers learn about
  * the same payment by different routes — the return leg, the webhook, the
- * success page and the reconcile sweep — and any of them may be first. They must all end in one invoice and one receipt.
+ * success page and the admin's payment check — and any of them may be first. They must all end in one invoice and one receipt.
  *
  * `markOrderPaid` is what makes that true. It locks the row and flips it only
  * from an unpaid state, returning the order to the single call that actually
@@ -152,7 +152,7 @@ export async function settleAnyAttempt(
  * Returns the order as it stands afterwards, refreshed when this call is what
  * settled it. A gateway that is slow or down must not break the page: the
  * customer still sees their order, saying "confirming", which is still true.
- * The webhook and the reconcile sweep are both still behind it.
+ * The webhook and the admin's payment check are both still behind it.
  */
 export async function confirmPendingPayment(order: Order): Promise<Order> {
   if (order.status !== 'confirmed' || order.gateway !== 'payu') return order;

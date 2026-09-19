@@ -817,7 +817,7 @@ export async function attachGatewayOrder(orderId: number, gatewayOrderId: string
 
 /**
  * Marks an order paid. Idempotent, and it has to be: the webhook, the success
- * page and the reconcile sweep all learn about the same payment independently,
+ * page and the admin's payment check all learn about the same payment independently,
  * and PayU retries a webhook until it is acknowledged. The row is locked and
  * the update guarded on the order not already being paid, so the second arrival
  * appends no duplicate event and re-sends no receipt.

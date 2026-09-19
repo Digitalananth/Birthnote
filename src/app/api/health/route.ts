@@ -91,7 +91,7 @@ export async function GET() {
       //
       // `lastCallback` is the last time PayU called us at all, return leg or
       // webhook. Null long after a sale means the callbacks are not arriving
-      // and every payment is being found by the sweep.
+      // and every payment is waiting on the admin's payment check.
       payu: {
         configured: env.payu.configured(),
         mode: env.payu.mode(),

@@ -16,7 +16,7 @@ import { availableItems, type Order } from '@/lib/orders';
  * the same way — PayU POSTs a signed form to our return route. That return is
  * signed, but it arrives through the customer's browser, so it is a hint. Only
  * the Verify Payment API is evidence, and every route that marks an order paid
- * — the return route, the webhook, the success page and the reconcile sweep —
+ * — the return route, the webhook, the success page and the admin's payment check —
  * asks it first and ends in the same `settle` path.
  *
  * Formulas are from docs.payu.in: "Generate Hash for Merchant Hosted",
@@ -245,7 +245,7 @@ export interface TransactionStatus {
  *
  * The single source of truth. Only 'success' means the money moved; PayU's own
  * guidance is that 'pending' must be treated as not paid until a later check
- * says otherwise, which the reconcile sweep provides.
+ * says otherwise: the webhook, the success page or the admin's payment check.
  */
 export async function verifyPayment(txnId: string): Promise<TransactionStatus> {
   const body = await command<{

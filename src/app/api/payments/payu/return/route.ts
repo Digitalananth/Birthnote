@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     try {
       await log(await settleIfPaid(txnId, 'payu-return'));
     } catch (error) {
-      // The success page asks again, and the webhook and sweep are behind it.
+      // The success page asks again, and the webhook and the admin's check are behind it.
       recordError('payu-return', error, reference ?? txnId);
       await log('failed', error instanceof Error ? error.message : String(error));
     }

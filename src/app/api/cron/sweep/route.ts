@@ -3,13 +3,13 @@ import { timingSafeEqual } from 'node:crypto';
 import { env } from '@/lib/env';
 import { recordError } from '@/server/errors';
 import { recordSweep } from '@/server/sweep-state';
-import { reconcilePayments, type ReconcileResult } from '@/server/reconcile';
+import { nudgeAbandonedCheckouts } from '@/server/checkout-reminders';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Reconciliation on demand, over HTTP.
+ * The abandoned-checkout reminder on demand, over HTTP.
  *
  * The same job normally runs off ordinary traffic — see
  * src/server/background-sweep.ts — so this endpoint is not required for the
@@ -17,12 +17,12 @@ export const dynamic = 'force-dynamic';
  * now, or to point a real cron at it if the site is ever too quiet to rely on
  * passing visitors.
  *
- * It deliberately sends nothing to a customer on its own initiative. Chasing
- * an unpaid hold is a judgement call an admin makes from the order queue — see
+ * It does not ask PayU about unpaid orders; that is the admin's per-order
+ * payment check. Chasing an unpaid hold is likewise an admin's call — see
  * src/lib/holds.ts.
  *
- * `markOrderPaid` is idempotent, so running twice, or two workers running at
- * once, cannot pay an order twice or email the customer twice.
+ * Each reminder is claimed before it is sent, so running twice, or two
+ * workers running at once, cannot email the customer twice.
  */
 
 /**
@@ -57,12 +57,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authorised.' }, { status: 401 });
   }
 
-  let reconciled: ReconcileResult = { recovered: [], checked: 0, nudged: [] };
+  let nudged: string[] = [];
   if (env.payu.configured()) {
     try {
-      reconciled = await reconcilePayments();
+      nudged = await nudgeAbandonedCheckouts();
     } catch (error) {
-      recordError('cron-reconcile', error);
+      recordError('cron-sweep', error);
     }
   }
 
@@ -71,9 +71,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     at,
-    recovered: reconciled.recovered,
-    ordersChecked: reconciled.checked,
-    nudged: reconciled.nudged,
+    nudged,
   });
 }
 

@@ -124,8 +124,7 @@ export interface Order {
    * Which processor took the money. 'payu' for everything current;
    * 'phonepe', 'razorpay' and 'stripe' on orders that predate their
    * migrations, whose gateway ids belong to different id spaces and must never
-   * be sent to PayU — it would answer "not found" for each of them, and the
-   * reconcile sweep would ask again every quarter of an hour for ever.
+   * be sent to PayU — it would answer "not found" for each of them.
    */
   gateway: string;
   adminNotes: string | null;
