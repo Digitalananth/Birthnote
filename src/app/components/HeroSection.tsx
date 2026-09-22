@@ -8,15 +8,15 @@ export default function HeroSection() {
   // The banner is a finished design with its own headline and logo, so it is
   // shown whole at its own 12:5 shape — no cropping, scrim or text on top —
   // and the date finder sits bottom-right, raised 16% to clear the banner's
-  // "Trusted by" strip (the bottom ~13.5% of the image). Below xl the
+  // maroon footer strip (the bottom ~13.5% of the image). Below xl the
   // banner is too short to hold the card, so it drops beneath the banner.
   // mt-20 clears the fixed header.
   return (
     <section className="relative mt-20 w-full">
       <div className="relative w-full aspect-[12/5] bg-secondary">
         <AppImage
-          src="/assets/images/hero-banner.jpg"
-          alt="My Lucky Dates — Gift Memories. Gift Luck. Genuine Indian banknotes with serial-number patterns matching meaningful dates."
+          src="/assets/images/hero-banner-v2.jpg"
+          alt="Gift Memories. Gift Luck. Genuine Indian banknotes with serial-number patterns matching meaningful dates. Currency is provided at face value."
           fill
           priority
           className="object-contain"
