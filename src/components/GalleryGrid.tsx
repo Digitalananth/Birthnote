@@ -10,7 +10,8 @@ export interface GalleryGridPhoto {
 }
 
 /**
- * A grid of gift-box photos; clicking one opens it full size. Arrow keys
+ * A masonry grid of gift-box photos, each shown whole at its own aspect
+ * ratio; clicking one opens it full size. Arrow keys
  * step through, Escape closes.
  */
 export default function GalleryGrid({ photos }: { photos: GalleryGridPhoto[] }) {
@@ -42,13 +43,13 @@ export default function GalleryGrid({ photos }: { photos: GalleryGridPhoto[] }) 
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-5">
+      <div className="columns-2 md:columns-3 gap-3 md:gap-5">
         {photos.map((photo, i) => (
           <button
             key={photo.id}
             type="button"
             onClick={() => setOpen(i)}
-            className="group relative block overflow-hidden rounded-2xl bg-secondary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="group relative mb-3 md:mb-5 block w-full break-inside-avoid overflow-hidden rounded-2xl bg-secondary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={photo.caption ? `View photo: ${photo.caption}` : 'View photo'}
           >
             {/* Plain <img>: uploads are served from /api/media. */}
@@ -57,7 +58,7 @@ export default function GalleryGrid({ photos }: { photos: GalleryGridPhoto[] }) 
               src={photo.imageUrl}
               alt={photo.caption ?? 'A My Lucky Dates gift box'}
               loading="lazy"
-              className="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-105"
+              className="block w-full h-auto transition-transform duration-500 group-hover:scale-105"
             />
             {photo.caption && (
               <span className="absolute inset-x-0 bottom-0 p-3 text-left text-xs md:text-sm font-medium text-white bg-gradient-to-t from-black/60 to-transparent">
