@@ -93,27 +93,39 @@ export default function Footer() {
               <span className="block mt-3 text-xs">GSTIN: {COMPANY.gstin}</span>
             </address>
 
-            {SOCIAL_PROFILES.some((profile) => profile.url) && (
-              <ul aria-label="Follow us" className="mt-6 flex items-center gap-3">
-                {SOCIAL_PROFILES.filter((profile) => profile.url).map((profile) => {
-                  const SocialIcon = SOCIAL_ICONS[profile.network];
-                  return (
-                    <li key={profile.network}>
+            <ul aria-label="Follow us" className="mt-6 flex items-center gap-3">
+              {SOCIAL_PROFILES.map((profile) => {
+                const SocialIcon = SOCIAL_ICONS[profile.network];
+                const circle =
+                  'w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground';
+                return (
+                  <li key={profile.network}>
+                    {profile.url ? (
                       <a
                         href={profile.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={profile.label}
                         title={profile.label}
-                        className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                        className={`${circle} hover:text-primary hover:border-primary transition-colors`}
                       >
                         <SocialIcon size={16} aria-hidden="true" />
                       </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                    ) : (
+                      // No profile link yet: shown, but not clickable, so it cannot lead nowhere.
+                      <span
+                        role="img"
+                        aria-label={profile.label}
+                        title={profile.label}
+                        className={circle}
+                      >
+                        <SocialIcon size={16} aria-hidden="true" />
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
           {columns.map((column) => (
