@@ -402,7 +402,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
                   <FormCard
                     key={row.key}
                     icon="CalendarDaysIcon"
-                    title={rows.length > 1 ? `Date ${index + 1}` : 'Your date'}
+                    title={rows.length > 1 ? `Date ${index + 1}` : 'Your Date'}
                     hint="The date, the note values, and who it is for."
                     action={
                       rows.length > 1 && (
@@ -672,7 +672,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
 
               <FormCard
                 icon="UserCircleIcon"
-                title="Your details"
+                title="Your Details"
                 hint="Where we send availability, price and updates."
               >
                 {/* Name */}
