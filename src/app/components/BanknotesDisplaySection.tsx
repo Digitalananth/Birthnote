@@ -1,4 +1,5 @@
 import React from 'react';
+import NoteThumbnail from '@/app/components/NoteThumbnail';
 
 interface Banknote {
   denomination: string;
@@ -9,7 +10,15 @@ interface Banknote {
   accentColor: string;
   series: string;
   motif: string;
+  /** Photo of a real note, shown as a thumbnail that opens full size. */
+  image: string;
 }
+
+/**
+ * Every note uses the ₹1 photo for now; each denomination gets its own once
+ * the client sends them — change the path on that note's entry.
+ */
+const PLACEHOLDER_NOTE_IMAGE = '/assets/notes/1-rupee.jpg';
 
 const banknotes: Banknote[] = [
   {
@@ -21,6 +30,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#c8b89a]/20',
     series: 'Government of India',
     motif: 'One Rupee Coin',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹2',
@@ -31,6 +41,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#b8c4a0]/20',
     series: 'Government of India',
     motif: 'Aryabhata Satellite',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹5',
@@ -41,6 +52,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4b896]/20',
     series: 'Reserve Bank of India',
     motif: 'Tractor & Farmer',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹10',
@@ -51,6 +63,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#c8a060]/20',
     series: 'Reserve Bank of India',
     motif: 'Sun Temple, Konark',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹20',
@@ -61,6 +74,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4c060]/20',
     series: 'Reserve Bank of India',
     motif: 'Ellora Caves',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹50',
@@ -71,6 +85,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#90b8d0]/20',
     series: 'Reserve Bank of India',
     motif: 'Hampi with Chariot',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹100',
@@ -81,6 +96,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#a0b8a0]/20',
     series: 'Reserve Bank of India',
     motif: 'Rani ki Vav',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹200',
@@ -91,6 +107,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4b060]/20',
     series: 'Reserve Bank of India',
     motif: 'Sanchi Stupa',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
   {
     denomination: '₹500',
@@ -101,6 +118,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#b8a8c8]/20',
     series: 'Reserve Bank of India',
     motif: 'Red Fort, Delhi',
+    image: PLACEHOLDER_NOTE_IMAGE,
   },
 ];
 
@@ -187,8 +205,8 @@ export default function BanknotesDisplaySection() {
                   </div>
 
                   {/* Denomination — large */}
-                  <div className="flex items-end justify-between">
-                    <div>
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="min-w-0">
                       <p
                         className={`font-sans font-extrabold ${note.textColor} leading-none`}
                         style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)' }}>
@@ -198,10 +216,8 @@ export default function BanknotesDisplaySection() {
                         {note.motif}
                       </p>
                     </div>
-                    {/* Corner denomination repeat */}
-                    <p className={`text-[10px] font-mono font-bold ${note.textColor} opacity-40 self-start`}>
-                      {note.denomination}
-                    </p>
+                    {/* Real note photo — click to view full size */}
+                    <NoteThumbnail src={note.image} label={`${note.denomination} ${note.motif}`} />
                   </div>
                 </div>
 
