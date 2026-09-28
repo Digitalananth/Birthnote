@@ -204,20 +204,20 @@ export default function BanknotesDisplaySection() {
                     </div>
                   </div>
 
-                  {/* Denomination — large */}
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="min-w-0">
+                  {/* Denomination — large, with the real note photo beside it */}
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
                       <p
                         className={`font-sans font-extrabold ${note.textColor} leading-none`}
                         style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)' }}>
                         {note.denomination}
                       </p>
-                      <p className="text-[9px] text-foreground/35 font-mono uppercase tracking-wider mt-0.5 leading-none">
-                        {note.motif}
-                      </p>
+                      {/* Click to view full size */}
+                      <NoteThumbnail src={note.image} label={`${note.denomination} ${note.motif}`} />
                     </div>
-                    {/* Real note photo — click to view full size */}
-                    <NoteThumbnail src={note.image} label={`${note.denomination} ${note.motif}`} />
+                    <p className="text-[9px] text-foreground/35 font-mono uppercase tracking-wider mt-1.5 leading-none truncate">
+                      {note.motif}
+                    </p>
                   </div>
                 </div>
 

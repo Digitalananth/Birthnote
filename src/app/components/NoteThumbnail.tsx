@@ -35,7 +35,7 @@ export default function NoteThumbnail({ src, label }: { src: string; label: stri
         onClick={() => setOpen(true)}
         title="View the real note"
         aria-label={`View a photo of the ${label} note`}
-        className="shrink-0 w-14 md:w-16 aspect-[1.6/1] rounded-md overflow-hidden border border-foreground/15 bg-background shadow-sm hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-zoom-in"
+        className="shrink-0 w-20 md:w-24 aspect-[1.6/1] rounded-md overflow-hidden border border-foreground/15 bg-background shadow-sm hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-zoom-in"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={`${label} note`} loading="lazy" className="w-full h-full object-cover" />
