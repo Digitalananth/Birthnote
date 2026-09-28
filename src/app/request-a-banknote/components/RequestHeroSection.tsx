@@ -11,7 +11,7 @@ export default function RequestHeroSection() {
         REQ
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 md:px-12 relative z-10">
+      <div className="max-w-6xl mx-auto px-6 md:px-12 relative z-10">
         <span className="text-xs uppercase tracking-widest text-accent font-semibold block mb-4">
           Step 1 of 3
         </span>

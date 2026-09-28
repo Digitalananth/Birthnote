@@ -227,8 +227,10 @@ export default function RequestFormSection({ user = null, options }: Props) {
     const digits = value.replace(/\D/g, '').slice(0, 2);
     setRow(index, { [part]: digits });
     if (digits.length === 2) {
-      const next = event.target.parentElement?.parentElement?.nextElementSibling;
-      next?.querySelector('input')?.focus();
+      const boxes = Array.from(
+        event.target.closest('[data-date-parts]')?.querySelectorAll('input') ?? []
+      );
+      boxes[boxes.indexOf(event.target) + 1]?.focus();
     }
   };
 
@@ -357,15 +359,26 @@ export default function RequestFormSection({ user = null, options }: Props) {
   /** Banknotes on the order as it stands — the number the cap applies to. */
   const total = noteCount(rows);
 
-  const underline = (bad?: string) =>
-    `border-b-2 transition-colors ${bad ? 'border-red-400' : 'border-border focus-within:border-accent'}`;
+  /**
+   * Every text field and dropdown shares one boxed style, so they line up at
+   * the same height whatever the control. The old underline style doubled up
+   * with `void-input-warm`'s own border and nudged the text on focus.
+   */
+  const box = (bad?: string) =>
+    `w-full h-12 rounded-xl border bg-background px-4 text-base font-medium text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+      bad ? 'border-red-400' : 'border-border'
+    }`;
+  const labelClass =
+    'block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2';
+  const errorText = (message?: string) =>
+    message ? <p className="text-xs text-red-500 mt-1.5">{message}</p> : null;
 
   return (
     <section className="bg-background py-12 md:py-20">
-      <div className="max-w-3xl mx-auto px-6 md:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-10 items-start">
-          <div className="md:col-span-3">
-            <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-8">
+      <div className="max-w-6xl mx-auto px-6 md:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+          <div className="lg:col-span-2">
+            <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
               {/*
                 Honeypot. Hidden from sighted users and screen readers alike;
                 anything that fills it in is a bot, and the API silently drops
@@ -382,19 +395,17 @@ export default function RequestFormSection({ user = null, options }: Props) {
                 className="absolute w-px h-px -left-[9999px] opacity-0"
               />
 
-              {/* One block per requested note */}
+              {/* One card per requested date */}
               {rows.map((row, index) => {
                 const rowErrors = errors.itemErrors?.[index] ?? {};
                 return (
-                  <div
+                  <FormCard
                     key={row.key}
-                    className={rows.length > 1 ? 'border border-border rounded-2xl p-5' : ''}
-                  >
-                    {rows.length > 1 && (
-                      <div className="flex items-center justify-between mb-4">
-                        <p className="text-xs uppercase tracking-widest text-accent font-bold">
-                          Date {index + 1}
-                        </p>
+                    icon="CalendarDaysIcon"
+                    title={rows.length > 1 ? `Date ${index + 1}` : 'Your date'}
+                    hint="The date, the note values, and who it is for."
+                    action={
+                      rows.length > 1 && (
                         <button
                           type="button"
                           onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
@@ -403,62 +414,58 @@ export default function RequestFormSection({ user = null, options }: Props) {
                           <Icon name="XMarkIcon" size={12} />
                           Remove
                         </button>
+                      )
+                    }
+                  >
+                    {/* Date */}
+                    <FormRow>
+                      <label className={labelClass}>
+                        Memorable Date <span className="text-accent">*</span>
+                      </label>
+                      <div data-date-parts className="flex items-start gap-2 sm:gap-3 max-w-sm">
+                        {(
+                          [
+                            ['day', 'DD', 'Day'],
+                            ['month', 'MM', 'Month'],
+                            ['year', 'YY', 'Year (2 digits)'],
+                          ] as const
+                        ).map(([part, placeholder, label], partIndex) => (
+                          <React.Fragment key={part}>
+                            {partIndex > 0 && (
+                              <span className="h-14 flex items-center text-xl font-mono text-muted-foreground">
+                                /
+                              </span>
+                            )}
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder={placeholder}
+                                value={row[part]}
+                                onChange={(e) => datePart(index, part, e.target.value, e)}
+                                className={`${box(rowErrors[part])} h-14 text-2xl font-mono font-bold text-center`}
+                                aria-label={label}
+                              />
+                              {errorText(rowErrors[part])}
+                            </div>
+                          </React.Fragment>
+                        ))}
                       </div>
-                    )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Format: DD / MM / YY — e.g. 14 / 03 / 87
+                      </p>
+                    </FormRow>
 
-                    <div className="flex flex-col gap-6">
-                      {/* Date */}
-                      <div>
-                        <label className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">
-                          Memorable Date <span className="text-accent">*</span>
-                        </label>
-                        <div className="flex items-start gap-3">
-                          {(
-                            [
-                              ['day', 'DD', 'Day'],
-                              ['month', 'MM', 'Month'],
-                              ['year', 'YY', 'Year (2 digits)'],
-                            ] as const
-                          ).map(([part, placeholder, label], partIndex) => (
-                            <React.Fragment key={part}>
-                              {partIndex > 0 && (
-                                <span className="text-2xl font-mono text-muted-foreground mt-3">
-                                  /
-                                </span>
-                              )}
-                              <div className="flex-1">
-                                <div className={underline(rowErrors[part])}>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    placeholder={placeholder}
-                                    value={row[part]}
-                                    onChange={(e) => datePart(index, part, e.target.value, e)}
-                                    className="void-input-warm w-full py-3 text-2xl font-mono font-bold text-foreground placeholder:text-muted/50 text-center"
-                                    aria-label={label}
-                                  />
-                                </div>
-                                {rowErrors[part] && (
-                                  <p className="text-xs text-red-500 mt-1">{rowErrors[part]}</p>
-                                )}
-                              </div>
-                            </React.Fragment>
-                          ))}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Format: DD / MM / YY — e.g. 14 / 03 / 87
-                        </p>
-                      </div>
-
-                      {/*
-                        Denominations — checkboxes, not a <select multiple>,
-                        which on a phone is a scroll trap and on a desktop
-                        needs a held modifier key to pick a second value. Each
-                        tick is one more banknote, so the count is spelled out
-                        rather than left to be inferred from the price later.
-                      */}
+                    {/*
+                      Denominations — checkboxes, not a <select multiple>,
+                      which on a phone is a scroll trap and on a desktop
+                      needs a held modifier key to pick a second value. Each
+                      tick is one more banknote, so the count is spelled out
+                      rather than left to be inferred from the price later.
+                    */}
+                    <FormRow>
                       <fieldset>
-                        <legend className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">
+                        <legend className={labelClass}>
                           Denominations <span className="text-accent">*</span>
                         </legend>
 
@@ -496,6 +503,9 @@ export default function RequestFormSection({ user = null, options }: Props) {
                                 );
                               })}
                             </div>
+                            <p className="text-xs text-muted-foreground mt-4 mb-2">
+                              Or pick single notes:
+                            </p>
                           </div>
                         )}
 
@@ -507,7 +517,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
                             return (
                               <label
                                 key={value}
-                                className={`relative inline-flex items-center rounded-full border px-4 py-2 text-base font-semibold transition-colors ${
+                                className={`relative inline-flex items-center justify-center min-w-[4rem] rounded-full border px-4 py-2 text-base font-semibold transition-colors ${
                                   picked
                                     ? 'border-accent bg-accent/10 text-foreground'
                                     : blocked
@@ -534,110 +544,89 @@ export default function RequestFormSection({ user = null, options }: Props) {
                               ? 'One note for this date.'
                               : `${row.denominations.length} notes for this date.`}
                         </p>
-                        {rowErrors.denominations && (
-                          <p className="text-xs text-red-500 mt-1">{rowErrors.denominations}</p>
-                        )}
+                        {errorText(rowErrors.denominations)}
                       </fieldset>
+                    </FormRow>
 
-                      {/* Who it is for.
+                    {/* Who it is for.
 
-                          Three fields, all required: the relationship, the
-                          person's name, and the occasion. They used to be two
-                          optional ones, which meant a note could arrive with
-                          nobody's name on it — and the name was competing with
-                          "Dad's 60th" for the same box. */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        Three fields, all required: the relationship, the
+                        person's name, and the occasion. They used to be two
+                        optional ones, which meant a note could arrive with
+                        nobody's name on it — and the name was competing with
+                        "Dad's 60th" for the same box. */}
+                    <FormRow>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                         <div>
-                          <label
-                            htmlFor={`relationship-${row.key}`}
-                            className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                          >
+                          <label htmlFor={`relationship-${row.key}`} className={labelClass}>
                             Who is it for
                           </label>
-                          <div className={underline(rowErrors.giftRelationship)}>
-                            <select
-                              id={`relationship-${row.key}`}
-                              value={row.giftRelationship}
-                              onChange={(e) => setRow(index, { giftRelationship: e.target.value })}
-                              className="void-input-warm w-full py-3 text-base font-medium text-foreground bg-transparent"
-                            >
-                              <option value="">Select…</option>
-                              {relationships.map((value) => (
-                                <option key={value} value={value}>
-                                  {value}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          {rowErrors.giftRelationship && (
-                            <p className="text-xs text-red-500 mt-1">
-                              {rowErrors.giftRelationship}
-                            </p>
-                          )}
+                          <select
+                            id={`relationship-${row.key}`}
+                            value={row.giftRelationship}
+                            onChange={(e) => setRow(index, { giftRelationship: e.target.value })}
+                            className={`${box(rowErrors.giftRelationship)} cursor-pointer ${
+                              row.giftRelationship ? '' : 'text-muted-foreground/70'
+                            }`}
+                          >
+                            <option value="">Select…</option>
+                            {relationships.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                          {errorText(rowErrors.giftRelationship)}
                         </div>
 
                         <div>
-                          <label
-                            htmlFor={`giftName-${row.key}`}
-                            className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                          >
-                            Name
+                          <label htmlFor={`giftName-${row.key}`} className={labelClass}>
+                            Their Name
                           </label>
-                          <div className={underline(rowErrors.giftName)}>
-                            <input
-                              id={`giftName-${row.key}`}
-                              type="text"
-                              autoComplete="off"
-                              placeholder="Anita"
-                              value={row.giftName}
-                              onChange={(e) => setRow(index, { giftName: e.target.value })}
-                              className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
-                            />
-                          </div>
-                          {rowErrors.giftName && (
-                            <p className="text-xs text-red-500 mt-1">{rowErrors.giftName}</p>
-                          )}
+                          <input
+                            id={`giftName-${row.key}`}
+                            type="text"
+                            autoComplete="off"
+                            placeholder="Anita"
+                            value={row.giftName}
+                            onChange={(e) => setRow(index, { giftName: e.target.value })}
+                            className={box(rowErrors.giftName)}
+                          />
+                          {errorText(rowErrors.giftName)}
                         </div>
 
-                        <div>
-                          <label
-                            htmlFor={`giftFor-${row.key}`}
-                            className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                          >
+                        <div className="sm:col-span-2">
+                          <label htmlFor={`giftFor-${row.key}`} className={labelClass}>
                             Occasion
                           </label>
-                          <div className={underline(rowErrors.giftFor)}>
-                            {/*
-                              A datalist, not a <select>: the admin's occasions
-                              are offered, and anything else can still be typed.
-                              This field carries "Dad's 60th" as often as it
-                              carries "Birthday", and a dropdown would have
-                              thrown those away.
-                            */}
-                            <input
-                              id={`giftFor-${row.key}`}
-                              type="text"
-                              list={occasions.length ? `occasions-${row.key}` : undefined}
-                              placeholder="60th birthday"
-                              value={row.giftFor}
-                              onChange={(e) => setRow(index, { giftFor: e.target.value })}
-                              className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
-                            />
-                            {occasions.length > 0 && (
-                              <datalist id={`occasions-${row.key}`}>
-                                {occasions.map((value) => (
-                                  <option key={value} value={value} />
-                                ))}
-                              </datalist>
-                            )}
-                          </div>
-                          {rowErrors.giftFor && (
-                            <p className="text-xs text-red-500 mt-1">{rowErrors.giftFor}</p>
+                          {/*
+                            A datalist, not a <select>: the admin's occasions
+                            are offered, and anything else can still be typed.
+                            This field carries "Dad's 60th" as often as it
+                            carries "Birthday", and a dropdown would have
+                            thrown those away.
+                          */}
+                          <input
+                            id={`giftFor-${row.key}`}
+                            type="text"
+                            list={occasions.length ? `occasions-${row.key}` : undefined}
+                            placeholder="60th birthday"
+                            value={row.giftFor}
+                            onChange={(e) => setRow(index, { giftFor: e.target.value })}
+                            className={box(rowErrors.giftFor)}
+                          />
+                          {occasions.length > 0 && (
+                            <datalist id={`occasions-${row.key}`}>
+                              {occasions.map((value) => (
+                                <option key={value} value={value} />
+                              ))}
+                            </datalist>
                           )}
+                          {errorText(rowErrors.giftFor)}
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    </FormRow>
+                  </FormCard>
                 );
               })}
 
@@ -658,7 +647,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
                   <button
                     type="button"
                     onClick={() => setRows((prev) => [...prev, emptyRow()])}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-primary border-b border-primary/30 pb-0.5 hover:border-primary transition-colors"
+                    className="inline-flex items-center gap-2 rounded-full border border-dashed border-primary/40 px-4 py-2 text-sm font-semibold text-primary hover:border-primary hover:bg-primary/5 transition-colors"
                   >
                     <Icon name="GiftIcon" size={14} />
                     Add another date
@@ -681,15 +670,16 @@ export default function RequestFormSection({ user = null, options }: Props) {
                 )}
               </div>
 
-              {/* Name */}
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                >
-                  Your Name <span className="text-accent">*</span>
-                </label>
-                <div className={underline(errors.name)}>
+              <FormCard
+                icon="UserCircleIcon"
+                title="Your details"
+                hint="Where we send availability, price and updates."
+              >
+                {/* Name */}
+                <FormRow>
+                  <label htmlFor="name" className={labelClass}>
+                    Your Name <span className="text-accent">*</span>
+                  </label>
                   <input
                     id="name"
                     type="text"
@@ -697,23 +687,16 @@ export default function RequestFormSection({ user = null, options }: Props) {
                     value={formData.name}
                     onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                     readOnly={Boolean(user?.name)}
-                    className={`void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40 ${
-                      user?.name ? 'opacity-70' : ''
-                    }`}
+                    className={`${box(errors.name)} ${user?.name ? 'opacity-70' : ''}`}
                   />
-                </div>
-                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
-              </div>
+                  {errorText(errors.name)}
+                </FormRow>
 
-              {/* Email */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                >
-                  Email Address <span className="text-accent">*</span>
-                </label>
-                <div className={underline(errors.email)}>
+                {/* Email */}
+                <FormRow>
+                  <label htmlFor="email" className={labelClass}>
+                    Email Address <span className="text-accent">*</span>
+                  </label>
                   <input
                     id="email"
                     type="email"
@@ -724,105 +707,98 @@ export default function RequestFormSection({ user = null, options }: Props) {
                     // accounts created with a mobile number alone have no
                     // email, and a receipt has to go somewhere.
                     readOnly={Boolean(user?.email)}
-                    className={`void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40 ${
-                      user?.email ? 'opacity-70' : ''
-                    }`}
+                    className={`${box(errors.email)} ${user?.email ? 'opacity-70' : ''}`}
                   />
-                </div>
-                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-                {user?.email ? (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Signed in as {user.email}. Change it in{' '}
-                    <Link href="/account/profile" className="text-primary underline">
-                      your profile
-                    </Link>
-                    .
-                  </p>
-                ) : user ? (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    We&apos;ll send your receipt and updates here, and save it to your account.
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <Link href="/login?next=/request-a-banknote" className="text-primary underline">
-                      Sign in
-                    </Link>{' '}
-                    to keep every order in one place — or carry on as a guest.
-                  </p>
-                )}
-              </div>
+                  {errorText(errors.email)}
+                  {user?.email ? (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Signed in as {user.email}. Change it in{' '}
+                      <Link href="/account/profile" className="text-primary underline">
+                        your profile
+                      </Link>
+                      .
+                    </p>
+                  ) : user ? (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      We&apos;ll send your receipt and updates here, and save it to your account.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      <Link href="/login?next=/request-a-banknote" className="text-primary underline">
+                        Sign in
+                      </Link>{' '}
+                      to keep every order in one place — or carry on as a guest.
+                    </p>
+                  )}
+                </FormRow>
 
-              {/* WhatsApp updates */}
-              <div>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.whatsappOptIn}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, whatsappOptIn: e.target.checked }))
-                    }
-                    className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-primary/30"
-                  />
-                  <span className="text-sm text-foreground leading-relaxed">
-                    Send me order updates on WhatsApp
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      Availability, payment and dispatch — the same updates we email. Nothing else,
-                      and you can reply STOP at any time.
+                {/* WhatsApp updates */}
+                <FormRow>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.whatsappOptIn}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, whatsappOptIn: e.target.checked }))
+                      }
+                      className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-primary/30"
+                    />
+                    <span className="text-sm text-foreground leading-relaxed">
+                      Send me order updates on WhatsApp
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Availability, payment and dispatch — the same updates we email. Nothing
+                        else, and you can reply STOP at any time.
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
 
-                {formData.whatsappOptIn && (
-                  <div className="mt-4">
-                    <label
-                      htmlFor="whatsapp"
-                      className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                    >
-                      WhatsApp Number <span className="text-accent">*</span>
-                    </label>
-                    <div className={underline(errors.whatsapp)}>
+                  {formData.whatsappOptIn && (
+                    <div className="mt-4">
+                      <label htmlFor="whatsapp" className={labelClass}>
+                        WhatsApp Number <span className="text-accent">*</span>
+                      </label>
                       <input
                         id="whatsapp"
                         type="tel"
                         placeholder="98765 43210"
                         value={formData.whatsapp}
                         onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))}
-                        className="void-input-warm w-full py-3 text-base font-medium text-foreground placeholder:text-muted-foreground/40"
+                        className={box(errors.whatsapp)}
                       />
+                      {errors.whatsapp ? (
+                        errorText(errors.whatsapp)
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          10-digit mobile number — we&apos;ll add +91. Outside India, include your
+                          country code.
+                        </p>
+                      )}
                     </div>
-                    {errors.whatsapp ? (
-                      <p className="text-xs text-red-500 mt-1">{errors.whatsapp}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        10-digit mobile number — we&apos;ll add +91. Outside India, include your
-                        country code.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                  )}
+                </FormRow>
+              </FormCard>
 
               {/* Message */}
-              <div>
-                <label
-                  htmlFor="message"
-                  className="block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3"
-                >
-                  Anything else we should know{' '}
-                  <span className="text-muted-foreground/50 normal-case font-normal tracking-normal">
-                    (optional)
-                  </span>
-                </label>
-                <textarea
-                  id="message"
-                  rows={3}
-                  placeholder="e.g. I'd prefer crisp notes if possible, or need them by a specific date…"
-                  value={formData.message}
-                  onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))}
-                  className="w-full bg-transparent border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:border-accent transition-colors leading-relaxed"
-                />
-                {errors.message && <p className="text-xs text-red-500 mt-1">{errors.message}</p>}
-              </div>
+              <FormCard
+                icon="EnvelopeOpenIcon"
+                title="Anything else we should know"
+                hint="Optional — preferences, deadlines, anything that helps."
+              >
+                <FormRow>
+                  <label htmlFor="message" className="sr-only">
+                    Anything else we should know
+                  </label>
+                  <textarea
+                    id="message"
+                    rows={3}
+                    placeholder="e.g. I'd prefer crisp notes if possible, or need them by a specific date…"
+                    value={formData.message}
+                    onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 resize-none outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors leading-relaxed"
+                  />
+                  {errorText(errors.message)}
+                </FormRow>
+              </FormCard>
 
               <button
                 type="submit"
@@ -868,7 +844,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
           </div>
 
           {/* Sidebar */}
-          <div className="md:col-span-2 flex flex-col gap-6 sticky top-28">
+          <div className="flex flex-col gap-6 lg:sticky lg:top-28">
             <div className="card-warm p-6">
               <h3 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
                 What happens next
@@ -960,4 +936,43 @@ export default function RequestFormSection({ user = null, options }: Props) {
       </div>
     </section>
   );
+}
+
+/**
+ * One group of the form: a titled card whose fields are split by light rules,
+ * so the date, the recipient and the customer's own details read as separate
+ * steps instead of one long run of identical fields.
+ */
+function FormCard({
+  icon,
+  title,
+  hint,
+  action,
+  children,
+}: {
+  icon: string;
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 bg-secondary/40 border-b border-border">
+        <span className="w-9 h-9 rounded-full bg-accent/15 text-primary flex items-center justify-center shrink-0">
+          <Icon name={icon} size={18} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-sans font-bold text-foreground text-base leading-tight">{title}</h2>
+          {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+        </div>
+        {action}
+      </div>
+      <div className="divide-y divide-border/60">{children}</div>
+    </div>
+  );
+}
+
+function FormRow({ children }: { children: React.ReactNode }) {
+  return <div className="px-5 py-5">{children}</div>;
 }
