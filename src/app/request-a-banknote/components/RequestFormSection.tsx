@@ -266,7 +266,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
             </p>
 
             <div className="inline-flex flex-col items-center gap-1 bg-secondary/60 border border-border rounded-xl px-6 py-4 mb-8">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+              <span className="text-sm text-muted-foreground font-semibold">
                 Your Reference Number
               </span>
               <span className="font-mono font-extrabold text-2xl text-foreground tracking-wider">
@@ -306,8 +306,8 @@ export default function RequestFormSection({ user = null, options }: Props) {
             </div>
 
             <div className="bg-secondary/50 rounded-2xl p-6 text-left mb-8">
-              <h3 className="font-sans font-bold text-foreground mb-4 text-sm uppercase tracking-wide">
-                What happens next
+              <h3 className="font-sans font-bold text-foreground mb-4 text-base">
+                What Happens Next
               </h3>
               <div className="flex flex-col gap-3">
                 {[
@@ -369,7 +369,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
       bad ? 'border-red-400' : 'border-border'
     }`;
   const labelClass =
-    'block text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2';
+    'block text-sm text-muted-foreground font-semibold mb-2';
   const errorText = (message?: string) =>
     message ? <p className="text-xs text-red-500 mt-1.5">{message}</p> : null;
 
@@ -559,7 +559,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                         <div>
                           <label htmlFor={`relationship-${row.key}`} className={labelClass}>
-                            Who is it for
+                            Who Is It For
                           </label>
                           <select
                             id={`relationship-${row.key}`}
@@ -846,8 +846,8 @@ export default function RequestFormSection({ user = null, options }: Props) {
           {/* Sidebar */}
           <div className="flex flex-col gap-6 lg:sticky lg:top-28">
             <div className="card-warm p-6">
-              <h3 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-4">
-                What happens next
+              <h3 className="font-sans font-bold text-foreground text-base mb-4">
+                What Happens Next
               </h3>
               <div className="flex flex-col gap-4">
                 {[
@@ -866,8 +866,8 @@ export default function RequestFormSection({ user = null, options }: Props) {
             </div>
 
             <div className="card-warm p-6">
-              <h3 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-3">
-                Ordering more than one?
+              <h3 className="font-sans font-bold text-foreground text-base mb-3">
+                Ordering More Than One?
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Add up to {MAX_ITEMS_PER_ORDER} dates to a single order — one parcel, one payment,
@@ -914,7 +914,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
             </div>
 
             <div className="card-warm p-6">
-              <h3 className="font-sans font-bold text-foreground text-sm uppercase tracking-wide mb-3">
+              <h3 className="font-sans font-bold text-foreground text-base mb-3">
                 Available Denominations
               </h3>
               <div className="flex flex-wrap gap-2">
