@@ -369,7 +369,7 @@ export default function RequestFormSection({ user = null, options }: Props) {
       bad ? 'border-red-400' : 'border-border'
     }`;
   const labelClass =
-    'block text-sm text-muted-foreground font-semibold mb-2';
+    'block font-sans font-bold text-foreground text-base leading-tight mb-2';
   const errorText = (message?: string) =>
     message ? <p className="text-xs text-red-500 mt-1.5">{message}</p> : null;
 
