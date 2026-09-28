@@ -14,12 +14,6 @@ interface Banknote {
   image: string;
 }
 
-/**
- * Every note uses the ₹1 photo for now; each denomination gets its own once
- * the client sends them — change the path on that note's entry.
- */
-const PLACEHOLDER_NOTE_IMAGE = '/assets/notes/1-rupee.jpg';
-
 const banknotes: Banknote[] = [
   {
     denomination: '₹1',
@@ -30,7 +24,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#c8b89a]/20',
     series: 'Government of India',
     motif: 'One Rupee Coin',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/1-rupee.jpg',
   },
   {
     denomination: '₹2',
@@ -41,7 +35,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#b8c4a0]/20',
     series: 'Government of India',
     motif: 'Aryabhata Satellite',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/2-rupee.jpg',
   },
   {
     denomination: '₹5',
@@ -52,7 +46,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4b896]/20',
     series: 'Reserve Bank of India',
     motif: 'Tractor & Farmer',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/5-rupee.jpg',
   },
   {
     denomination: '₹10',
@@ -63,7 +57,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#c8a060]/20',
     series: 'Reserve Bank of India',
     motif: 'Sun Temple, Konark',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/10-rupee.jpg',
   },
   {
     denomination: '₹20',
@@ -74,7 +68,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4c060]/20',
     series: 'Reserve Bank of India',
     motif: 'Ellora Caves',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/20-rupee.jpg',
   },
   {
     denomination: '₹50',
@@ -85,7 +79,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#90b8d0]/20',
     series: 'Reserve Bank of India',
     motif: 'Hampi with Chariot',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/50-rupee.jpg',
   },
   {
     denomination: '₹100',
@@ -96,7 +90,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#a0b8a0]/20',
     series: 'Reserve Bank of India',
     motif: 'Rani ki Vav',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/100-rupee.jpg',
   },
   {
     denomination: '₹200',
@@ -107,7 +101,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#d4b060]/20',
     series: 'Reserve Bank of India',
     motif: 'Sanchi Stupa',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/200-rupee.jpg',
   },
   {
     denomination: '₹500',
@@ -118,7 +112,7 @@ const banknotes: Banknote[] = [
     accentColor: 'bg-[#b8a8c8]/20',
     series: 'Reserve Bank of India',
     motif: 'Red Fort, Delhi',
-    image: PLACEHOLDER_NOTE_IMAGE,
+    image: '/assets/notes/500-rupee.jpg',
   },
 ];
 
