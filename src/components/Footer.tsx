@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
+import { COMPANY } from '@/lib/company';
 
 /**
  * The footer doubles as the site index.
@@ -28,7 +29,7 @@ const columns: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: 'Returns & Refunds', href: '/returns' },
       { label: 'Track Order', href: '/track-order' },
       { label: 'My Account', href: '/account' },
-      { label: 'Contact Us', href: 'mailto:support@msphilately.in' },
+      { label: 'Contact Us', href: `mailto:${COMPANY.email}` },
     ],
   },
   {
@@ -55,6 +56,34 @@ export default function Footer() {
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">
               Original banknotes printed on the dates that matter — found, verified and gift-boxed.
             </p>
+
+            <address className="mt-6 not-italic text-sm text-muted-foreground leading-relaxed max-w-xs">
+              <span className="block font-semibold text-foreground">{COMPANY.legalName}</span>
+              {COMPANY.addressLines.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+              <span className="block mt-3">
+                Phone:{' '}
+                <a
+                  href={COMPANY.phoneHref}
+                  className="font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  {COMPANY.phone}
+                </a>
+              </span>
+              <span className="block">
+                Email:{' '}
+                <a
+                  href={`mailto:${COMPANY.email}`}
+                  className="font-medium text-foreground hover:text-primary transition-colors break-all"
+                >
+                  {COMPANY.email}
+                </a>
+              </span>
+              <span className="block mt-3 text-xs">GSTIN: {COMPANY.gstin}</span>
+            </address>
           </div>
 
           {columns.map((column) => (
