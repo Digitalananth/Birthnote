@@ -19,12 +19,12 @@ export default function WhyItMattersSection() {
 
           {/* Left: Image with depth */}
           <div
-            className="reveal-warm relative">
+            className="reveal-warm relative mb-14 md:mb-0">
             
             <div className="relative rounded-2xl overflow-hidden aspect-[4/5] shadow-2xl">
               <AppImage
-                src="https://images.unsplash.com/photo-1632121632770-76f143c8b1a3"
-                alt="Hands gently holding a preserved vintage banknote in soft warm light, intimate close-up, brown tones, nostalgic"
+                src="/assets/images/why-it-matters.jpg"
+                alt="Indian banknotes of ₹10, ₹20, ₹50 and ₹200 stacked on a velvet stand, each with serial number 070781 matching the date 07/07/81"
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw" />
@@ -33,8 +33,8 @@ export default function WhyItMattersSection() {
               <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent" />
             </div>
 
-            {/* Floating stat card */}
-            <div className="absolute -bottom-6 -right-4 md:-right-8 glass-warm rounded-2xl p-5 shadow-xl animate-float">
+            {/* Floating stat card — hangs low enough to clear the date printed near the photo's foot */}
+            <div className="absolute -bottom-20 -right-4 md:-right-8 glass-warm rounded-2xl p-5 shadow-xl animate-float">
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Collection size</p>
               <p className="font-serif font-medium text-3xl text-foreground">2,400<span className="text-accent">+</span></p>
               <p className="text-xs text-muted-foreground mt-0.5">Unique dated notes</p>
