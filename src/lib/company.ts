@@ -20,3 +20,20 @@ export const COMPANY = {
   email: 'support@msphilately.in',
   gstin: '29AAMCT0299F1ZW',
 } as const;
+
+/**
+ * The company's social profiles, in the order the footer shows them. An entry
+ * with no URL is left out of the footer, so a profile can be added here the
+ * day it exists without a dead icon going up before then.
+ */
+export const SOCIAL_PROFILES: ReadonlyArray<{
+  network: 'facebook' | 'instagram' | 'x' | 'linkedin' | 'youtube';
+  label: string;
+  url: string;
+}> = [
+  { network: 'facebook', label: 'Facebook', url: '' },
+  { network: 'instagram', label: 'Instagram', url: '' },
+  { network: 'x', label: 'X (Twitter)', url: '' },
+  { network: 'linkedin', label: 'LinkedIn', url: '' },
+  { network: 'youtube', label: 'YouTube', url: '' },
+];

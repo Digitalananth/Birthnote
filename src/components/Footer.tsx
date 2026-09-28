@@ -1,7 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
-import { COMPANY } from '@/lib/company';
+import { FaFacebook, FaInstagram, FaLinkedin, FaXTwitter, FaYoutube } from 'react-icons/fa6';
+import { COMPANY, SOCIAL_PROFILES } from '@/lib/company';
+
+const SOCIAL_ICONS = {
+  facebook: FaFacebook,
+  instagram: FaInstagram,
+  x: FaXTwitter,
+  linkedin: FaLinkedin,
+  youtube: FaYoutube,
+} as const;
 
 /**
  * The footer doubles as the site index.
@@ -29,7 +38,6 @@ const columns: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: 'Returns & Refunds', href: '/returns' },
       { label: 'Track Order', href: '/track-order' },
       { label: 'My Account', href: '/account' },
-      { label: 'Contact Us', href: `mailto:${COMPANY.email}` },
     ],
   },
   {
@@ -84,6 +92,28 @@ export default function Footer() {
               </span>
               <span className="block mt-3 text-xs">GSTIN: {COMPANY.gstin}</span>
             </address>
+
+            {SOCIAL_PROFILES.some((profile) => profile.url) && (
+              <ul aria-label="Follow us" className="mt-6 flex items-center gap-3">
+                {SOCIAL_PROFILES.filter((profile) => profile.url).map((profile) => {
+                  const SocialIcon = SOCIAL_ICONS[profile.network];
+                  return (
+                    <li key={profile.network}>
+                      <a
+                        href={profile.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={profile.label}
+                        title={profile.label}
+                        className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                      >
+                        <SocialIcon size={16} aria-hidden="true" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           {columns.map((column) => (
