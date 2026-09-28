@@ -115,28 +115,26 @@ export default function WhatYouReceiveSection() {
 
           {/* Right: Product image */}
           <div
-            className="reveal-warm reveal-delay-2 relative">
+            className="reveal-warm reveal-delay-2 relative mb-14 md:mb-0">
             
             <div className="relative rounded-2xl overflow-hidden aspect-square shadow-2xl">
               <AppImage
-                src="https://img.rocket.new/generatedImages/rocket_gen_img_10c2c1ecf-1772218618826.png"
-                alt="Elegant gift box open revealing a preserved banknote in archival sleeve, warm candlelight, dark atmospheric background, deep shadows"
+                src="/assets/images/what-you-receive.jpg"
+                alt="Sample birthday card for 7 July with ₹1 to ₹500 notes whose serial numbers all end in 070781, beside a space for your own photo and message"
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw" />
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
+            </div>
 
-              {/* Overlay badge */}
-              <div className="absolute bottom-6 left-6 right-6 glass-warm rounded-xl p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                    <Icon name="CheckBadgeIcon" size={20} className="text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">Authenticated</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Every note verified by our team</p>
-                  </div>
+            {/* Badge hangs off the corner so it covers none of the card's message or notes */}
+            <div className="absolute -bottom-12 md:-bottom-8 -left-4 md:-left-8 glass-warm rounded-xl p-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                  <Icon name="CheckBadgeIcon" size={20} className="text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Authenticated</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Every note verified by our team</p>
                 </div>
               </div>
             </div>
