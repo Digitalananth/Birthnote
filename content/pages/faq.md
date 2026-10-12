@@ -70,7 +70,7 @@ Use your order reference on the [tracking page](/track-order). You can also opt 
 Yes. Give us their address at checkout and tell us what you would like the personalised card to say. No invoice or pricing goes in the box, and the outer packaging gives nothing away.
 
 ### Something arrived damaged, or it is not what I expected.
-Write to us at support@msphilately.in within 7 days of delivery and we will put it right. The full policy is on the [Returns & Refunds](/returns) page.
+Write to us at support@myluckydates.com within 7 days of delivery and we will put it right. The full policy is on the [Returns & Refunds](/returns) page.
 
 ### How do I reach a human?
-support@msphilately.in. We answer within 24 hours, usually sooner.
+support@myluckydates.com. We answer within 24 hours, usually sooner.

@@ -59,4 +59,4 @@ Tell us. If a note we sent is not what this page describes, that is our error: w
 
 ---
 
-More questions? [FAQ](/faq), or support@msphilately.in — answered within 24 hours.
+More questions? [FAQ](/faq), or support@myluckydates.com — answered within 24 hours.

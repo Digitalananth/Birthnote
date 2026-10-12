@@ -48,10 +48,10 @@ Opt in to WhatsApp updates when you order and we will message you as each stage 
 
 **We could not find your date.** Your order is marked Not Available and you are not charged. Nothing to claim back — no payment was ever taken.
 
-**It arrived damaged.** Photograph the package and the note as they arrived and email support@msphilately.in within 7 days of delivery. We will replace it where we can, or refund you in full where the date cannot be sourced again.
+**It arrived damaged.** Photograph the package and the note as they arrived and email support@myluckydates.com within 7 days of delivery. We will replace it where we can, or refund you in full where the date cannot be sourced again.
 
 **It has not arrived.** If tracking has not moved for 10 days, write to us and we will chase the courier ourselves rather than sending you to do it.
 
 ## Questions
 
-support@msphilately.in — we answer within 24 hours. Common questions are answered on the [FAQ](/faq).
+support@myluckydates.com — we answer within 24 hours. Common questions are answered on the [FAQ](/faq).

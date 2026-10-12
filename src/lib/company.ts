@@ -17,7 +17,7 @@ export const COMPANY = {
   /** As written for people; `phoneHref` is the dialable form. */
   phone: '+91 96320 92626',
   phoneHref: 'tel:+919632092626',
-  email: 'support@msphilately.in',
+  email: 'support@myluckydates.com',
   gstin: '29AAMCT0299F1ZW',
 } as const;
 

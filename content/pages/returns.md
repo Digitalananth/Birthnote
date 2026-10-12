@@ -6,7 +6,7 @@ Submitting a date is free. If we cannot find a note for it, your order is marked
 
 ## If your note arrives damaged
 
-Photograph the outer package and the note as they arrived and email support@msphilately.in within **7 days** of delivery.
+Photograph the outer package and the note as they arrived and email support@myluckydates.com within **7 days** of delivery.
 
 Where we can find another note for your date, we replace it at no cost. Where we cannot — some dates surface once and not again — we refund you in full, including delivery.
 
@@ -39,4 +39,4 @@ A confirmed order that is never paid for simply expires. You owe nothing and nee
 
 ## Reaching us
 
-support@msphilately.in, answered within 24 hours. Please include your order reference — it is on your confirmation email and on the [tracking page](/track-order).
+support@myluckydates.com, answered within 24 hours. Please include your order reference — it is on your confirmation email and on the [tracking page](/track-order).

@@ -28,4 +28,4 @@ A genuine circulated banknote bearing your date, in Fine or better condition, in
 
 ---
 
-Questions before you order? [FAQ](/faq), or write to support@msphilately.in — we answer within 24 hours.
+Questions before you order? [FAQ](/faq), or write to support@myluckydates.com — we answer within 24 hours.
